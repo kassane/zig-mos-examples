@@ -7,4 +7,5 @@ apple-*/
 *.nes*
 *.mlb
 *.elf
+*.sys*
 *.prg*
