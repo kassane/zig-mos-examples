@@ -6,7 +6,7 @@ LLVMMOS_SDK=$ROOTDIR/llvm-mos
 
 # Zig code
 $ZIG_DIR/zig build-obj \
-    hello1.zig \
+    hello2.zig \
     chr-rom.s \
     -target mos-freestanding \
     -O ReleaseSafe \

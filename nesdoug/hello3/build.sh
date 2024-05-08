@@ -6,7 +6,7 @@ LLVMMOS_SDK=$ROOTDIR/llvm-mos
 
 # Zig code
 $ZIG_DIR/zig build-obj \
-    hello1.zig \
+    hello3.zig \
     chr-rom.s \
     -target mos-freestanding \
     -O ReleaseSafe \
@@ -14,4 +14,4 @@ $ZIG_DIR/zig build-obj \
 
 $LLVMMOS_SDK/bin/mos-nes-nrom-clang \
     -O3 hello.zig.obj \
-    -o hello.nes -lneslib
+    -o hello.nes -lneslib -lnesdoug

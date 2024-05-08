@@ -1,6 +1,6 @@
-const neslib = @import("neslib");
+const neslib = @import("neslib.zig");
 
-export fn main() callconv(.C) void {
+pub export fn main() callconv(.C) void {
     const text = "Hello Zig!";
     const palette: [15]u8 = .{
         0x0f,
@@ -9,18 +9,22 @@ export fn main() callconv(.C) void {
         0x30,
     } ++ [1]u8{0} ** 11;
 
+    // screen off
     neslib.ppu_off();
-    neslib.pal_bg(@as(
-        ?*const anyopaque,
-        @ptrCast(@as(
-            [*c]const u8,
-            @ptrCast(@alignCast(&palette)),
-        )),
-    ));
-    neslib.vram_adr(neslib.NTADR_A(10, 14));
+    //	load the BG palette
+    neslib.pal_bg(&palette);
+    // set a starting point on the screen
+    neslib.vram_adr(neslib.NTADR_A(10, 14)); // screen is 32 x 30 tiles
+
+    // this pushes 1 char to the screen
     for (text[0.. :0]) |c| {
         neslib.vram_put(c);
     }
+    //	turn on screen
     neslib.ppu_on_all();
-    while (true) {}
+
+    while (true) {
+        // infinite loop
+        // game code can go here later.
+    }
 }
