@@ -1,0 +1,41 @@
+name: Zig build
+
+on: [push]
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        runs-on: [ubuntu-latest]
+    runs-on: ${{ matrix.runs-on }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+ 
+      - name: Download & Extract packages
+        run: |
+          curl -LO https://github.com/llvm-mos/llvm-mos-sdk/releases/download/v15.3.0/llvm-mos-linux.tar.xz
+          curl -LO https://github.com/kassane/zig-mos-bootstrap/releases/download/0.1/zig-mos-x86_64-linux-musl-baseline.tar.xz
+          tar -xf llvm-mos-linux.tar.xz
+          tar -xf zig-mos-x86_64-linux-musl-baseline.tar.xz
+          echo "$PWD/llvm-mos/bin" >> $GITHUB_PATH
+          echo "$PWD/zig-mos-x86_64-linux-musl-baseline" >> $GITHUB_PATH
+
+      - name: Build Hello1 [NES]
+        run: |
+          cd nesdoug/hello1
+          bash build.sh
+          ls -lh
+      - name: Build Hello2 [NES]
+        run: |
+          cd nesdoug/hello2
+          bash build.sh
+          ls -lh
+      - name: Build Hello3 [NES]
+        run: |
+          cd nesdoug/hello3
+          bash build.sh
+          ls -lh
