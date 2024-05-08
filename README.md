@@ -11,6 +11,11 @@ MOS 6502-based development.
 
 To build and run these examples, ensure you have the Zig toolchain version 0.13.0-dev + LLVM-MOS-SDK installed.
 
+### Required
+
+- [Zig-mos](https://github.com/kassane/zig-mos-bootstrap/releases)
+- [LLVM-MOS-SDK](https://github.com/llvm-mos/llvm-mos-sdk/releases)
+
 **Clone this repository:**
 
 ```bash
