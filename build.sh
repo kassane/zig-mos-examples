@@ -3,11 +3,11 @@
 ROOTPATH=$(pwd)
 
 # C64 examples
-cd hello-world/c64/hello
+cd c64/hello
 bash build.sh
 ls -lh
 cd $ROOTPATH
-cd hello-world/c64/fibonacci
+cd c64/fibonacci
 bash build.sh
 ls -lh
 cd $ROOTPATH
