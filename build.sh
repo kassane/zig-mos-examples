@@ -3,6 +3,12 @@
 ROOTPATH=$(pwd)
 
 # C64 examples
+cd apple2/hello
+bash build.sh
+ls -lh
+cd $ROOTPATH
+
+# C64 examples
 cd c64/hello
 bash build.sh
 ls -lh
