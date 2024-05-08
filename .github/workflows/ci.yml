@@ -24,18 +24,5 @@ jobs:
           echo "$PWD/llvm-mos/bin" >> $GITHUB_PATH
           echo "$PWD/zig-mos-x86_64-linux-musl-baseline" >> $GITHUB_PATH
 
-      - name: Build Hello1 [NES]
-        run: |
-          cd nesdoug/hello1
-          bash build.sh
-          ls -lh
-      - name: Build Hello2 [NES]
-        run: |
-          cd nesdoug/hello2
-          bash build.sh
-          ls -lh
-      - name: Build Hello3 [NES]
-        run: |
-          cd nesdoug/hello3
-          bash build.sh
-          ls -lh
+      - name: Build
+        run: bash build.sh

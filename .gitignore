@@ -5,3 +5,5 @@ zig-*/
 *.o
 *.nes*
 *.mlb
+*.elf
+*.prg*

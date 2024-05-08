@@ -10,3 +10,5 @@ zig build-obj \
 mos-nes-nrom-clang \
     -O3 hello.zig.obj \
     -o hello.nes -lneslib -lnesdoug
+
+rm *.o*
