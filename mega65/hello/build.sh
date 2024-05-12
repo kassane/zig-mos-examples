@@ -9,10 +9,6 @@ zig build-obj \
     -lc \
     -I$PWD/mega65-libc/include \
     -I$PWD/mega65-libc/include/mega65 \
-    -I$HOME/zig-bootstrap/out/llvm-mos/mos-platform/common/include \
-    -I$HOME/zig-bootstrap/out/llvm-mos/mos-platform/commodore/include \
-    -I$HOME/zig-bootstrap/out/llvm-mos/mos-platform/c64/include \
-    -I$HOME/zig-bootstrap/out/llvm-mos/mos-platform/mega65/include \
     memory_asm.o \
     -target mos-freestanding \
     -mcpu=mos65c02 \
