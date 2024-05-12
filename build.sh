@@ -2,7 +2,7 @@
 
 ROOTPATH=$(pwd)
 
-# C64 examples
+# Apple ][ examples
 cd apple2/hello
 bash build.sh
 ls -lh
@@ -14,6 +14,12 @@ bash build.sh
 ls -lh
 cd $ROOTPATH
 cd c64/fibonacci
+bash build.sh
+ls -lh
+cd $ROOTPATH
+
+# Mega65 examples
+cd mega65/hello
 bash build.sh
 ls -lh
 cd $ROOTPATH
