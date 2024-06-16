@@ -24,6 +24,12 @@ bash build.sh
 ls -lh
 cd $ROOTPATH
 
+# neo6502 examples
+cd neo6502
+bash build.sh
+ls -lh
+cd $ROOTPATH
+
 # NESDOUG examples
 cd nesdoug/hello1
 bash build.sh

@@ -1,10 +1,11 @@
 build/
-zig-*/
+*zig-*/
 apple-*/
 
 *.obj*
 *.o
 *.nes*
+*.neo*
 *.mlb
 *.elf
 *.sys*
