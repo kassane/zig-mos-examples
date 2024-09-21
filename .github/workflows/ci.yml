@@ -17,8 +17,8 @@ jobs:
  
       - name: Download & Extract packages
         run: |
-          curl -LO https://github.com/llvm-mos/llvm-mos-sdk/releases/download/v15.3.0/llvm-mos-linux.tar.xz
-          curl -LO https://github.com/kassane/zig-mos-bootstrap/releases/download/0.1/zig-mos-x86_64-linux-musl-baseline.tar.xz
+          curl -LO https://github.com/llvm-mos/llvm-mos-sdk/releases/download/v20.1.0/llvm-mos-linux.tar.xz
+          curl -LO https://github.com/kassane/zig-mos-bootstrap/releases/download/0.2/zig-mos-x86_64-linux-musl-baseline.tar.xz
           tar -xf llvm-mos-linux.tar.xz
           tar -xf zig-mos-x86_64-linux-musl-baseline.tar.xz
           echo "$PWD/llvm-mos/bin" >> $GITHUB_PATH

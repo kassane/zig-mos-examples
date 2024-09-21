@@ -12,7 +12,6 @@ export fn main() void {
 
 // Fix llvm.debugtrap (no @breakpoint) - override panic handler
 pub fn panic(msg: []const u8, _: ?*std.builtin.StackTrace, _: ?usize) noreturn {
-    @setCold(true);
     _ = std.c.printf("PANIC: caused by %s\n", msg.ptr);
 
     while (true) {}

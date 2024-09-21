@@ -11,7 +11,7 @@ pub export fn main() callconv(.C) void {
 
     // screen off
     neslib.ppu_off();
-    //	load the BG palette
+    // load the BG palette
     neslib.pal_bg(&palette);
     // set a starting point on the screen
     neslib.vram_adr(neslib.NTADR_A(10, 14)); // screen is 32 x 30 tiles
@@ -20,7 +20,7 @@ pub export fn main() callconv(.C) void {
     for (text[0.. :0]) |c| {
         neslib.vram_put(c);
     }
-    //	turn on screen
+    // turn on screen
     neslib.ppu_on_all();
 
     while (true) {

@@ -42,7 +42,7 @@ pub export fn main() callconv(.C) void {
 
     neslib.ppu_off(); // screen off
 
-    neslib.pal_bg(&palette); //	load the palette
+    neslib.pal_bg(&palette); // load the palette
 
     neslib.ppu_on_all(); // turn on screen
 
