@@ -1,15 +1,15 @@
 # Zig language & toolchain in MOS6502 examples
 
-Using zig [LLVM 18] + LLVM-MOS-SDK on some examples
+Using zig [LLVM 20] + LLVM-MOS-SDK on some examples
 
 This repository contains examples showcasing the usage of the Zig programming language
-with the LLVM-MOS backend in the Zig toolchain version 0.13.0-dev (LLVM 18). These examples
+with the LLVM-MOS backend in the Zig toolchain version 0.14.0-dev (LLVM 20). These examples
 aim to provide a comprehensive reference for developers interested in leveraging Zig for
 MOS 6502-based development.
 
 ### Getting Started
 
-To build and run these examples, ensure you have the Zig toolchain version 0.13.0-dev + LLVM-MOS-SDK installed.
+To build and run these examples, ensure you have the Zig toolchain version 0.14.0-dev + LLVM-MOS-SDK installed.
 
 ### Required
 
