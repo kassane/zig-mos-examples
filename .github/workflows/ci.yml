@@ -7,7 +7,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runs-on: [ubuntu-latest]
+        runs-on: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.runs-on }}
     steps:
       - uses: actions/checkout@v4
@@ -15,14 +15,25 @@ jobs:
           submodules: recursive
           fetch-depth: 0
  
-      - name: Download & Extract packages
+      - name: Download & Extract packages (Linux)
+        if: startsWith(matrix.runs-on, 'ubuntu')
         run: |
-          curl -LO https://github.com/llvm-mos/llvm-mos-sdk/releases/download/v20.1.0/llvm-mos-linux.tar.xz
+          curl -LO https://github.com/llvm-mos/llvm-mos-sdk/releases/download/v20.2.0/llvm-mos-linux.tar.xz
           curl -LO https://github.com/kassane/zig-mos-bootstrap/releases/download/0.2/zig-mos-x86_64-linux-musl-baseline.tar.xz
           tar -xf llvm-mos-linux.tar.xz
           tar -xf zig-mos-x86_64-linux-musl-baseline.tar.xz
           echo "$PWD/llvm-mos/bin" >> $GITHUB_PATH
           echo "$PWD/zig-mos-x86_64-linux-musl-baseline" >> $GITHUB_PATH
+      
+      - name: Download & Extract packages (MacOS M1)
+        if: startsWith(matrix.runs-on, 'macos')
+        run: |
+          curl -LO https://github.com/llvm-mos/llvm-mos-sdk/releases/download/v20.2.0/llvm-mos-macos.tar.xz
+          curl -LO https://github.com/kassane/zig-mos-bootstrap/releases/download/0.2/zig-mos-aarch64-macos-apple_m1.tar.xz
+          tar -xf llvm-mos-macos.tar.xz
+          tar -xf zig-mos-aarch64-macos-apple_m1.tar.xz
+          echo "$PWD/llvm-mos/bin" >> $GITHUB_PATH
+          echo "$PWD/zig-mos-aarch64-macos-apple_m1" >> $GITHUB_PATH
 
       - name: Build
         run: bash build.sh
