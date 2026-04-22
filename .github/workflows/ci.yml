@@ -14,10 +14,10 @@ jobs:
             sdk_archive: llvm-mos-linux.tar.xz
             zig_archive: zig-mos-x86_64-linux-musl-baseline.tar.xz
             zig_dir: zig-mos-x86_64-linux-musl-baseline
-          # - os: macos-latest
-          #   sdk_archive: llvm-mos-macos.tar.xz
-          #   zig_archive: zig-mos-aarch64-macos-apple_m1.tar.xz
-          #   zig_dir: zig-mos-aarch64-macos-apple_m1
+          - os: macos-latest
+            sdk_archive: llvm-mos-macos.tar.xz
+            zig_archive: zig-mos-aarch64-macos-baseline.tar.xz
+            zig_dir: zig-mos-aarch64-macos-baseline
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
