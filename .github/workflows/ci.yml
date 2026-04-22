@@ -1,39 +1,47 @@
-name: Zig build
+name: CI
 
-on: [push]
+on:
+  push:
+  pull_request:
 
 jobs:
   build:
     strategy:
       fail-fast: false
       matrix:
-        runs-on: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.runs-on }}
+        include:
+          - os: ubuntu-latest
+            sdk_archive: llvm-mos-linux.tar.xz
+            zig_archive: zig-mos-x86_64-linux-musl-baseline.tar.xz
+            zig_dir: zig-mos-x86_64-linux-musl-baseline
+          - os: macos-latest
+            sdk_archive: llvm-mos-macos.tar.xz
+            zig_archive: zig-mos-aarch64-macos-apple_m1.tar.xz
+            zig_dir: zig-mos-aarch64-macos-apple_m1
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-          fetch-depth: 0
- 
-      - name: Download & Extract packages (Linux)
-        if: startsWith(matrix.runs-on, 'ubuntu')
-        run: |
-          curl -LO https://github.com/llvm-mos/llvm-mos-sdk/releases/download/v20.2.0/llvm-mos-linux.tar.xz
-          curl -LO https://github.com/kassane/zig-mos-bootstrap/releases/download/0.2/zig-mos-x86_64-linux-musl-baseline.tar.xz
-          tar -xf llvm-mos-linux.tar.xz
-          tar -xf zig-mos-x86_64-linux-musl-baseline.tar.xz
-          echo "$PWD/llvm-mos/bin" >> $GITHUB_PATH
-          echo "$PWD/zig-mos-x86_64-linux-musl-baseline" >> $GITHUB_PATH
-      
-      - name: Download & Extract packages (MacOS M1)
-        if: startsWith(matrix.runs-on, 'macos')
-        run: |
-          curl -LO https://github.com/llvm-mos/llvm-mos-sdk/releases/download/v20.2.0/llvm-mos-macos.tar.xz
-          curl -LO https://github.com/kassane/zig-mos-bootstrap/releases/download/0.2/zig-mos-aarch64-macos-apple_m1.tar.xz
-          tar -xf llvm-mos-macos.tar.xz
-          tar -xf zig-mos-aarch64-macos-apple_m1.tar.xz
-          echo "$PWD/llvm-mos/bin" >> $GITHUB_PATH
-          echo "$PWD/zig-mos-aarch64-macos-apple_m1" >> $GITHUB_PATH
 
-      - name: Build
-        run: bash build.sh
+      - name: Download toolchain and SDK
+        env:
+          SDK_ARCHIVE: ${{ matrix.sdk_archive }}
+          ZIG_ARCHIVE: ${{ matrix.zig_archive }}
+          ZIG_DIR: ${{ matrix.zig_dir }}
+        run: |
+          curl -fsSL -O "https://github.com/llvm-mos/llvm-mos-sdk/releases/download/v20.2.0/${SDK_ARCHIVE}"
+          curl -fsSL -O "https://github.com/kassane/zig-mos-bootstrap/releases/download/0.2/${ZIG_ARCHIVE}"
+          tar -xf "${SDK_ARCHIVE}"
+          tar -xf "${ZIG_ARCHIVE}"
+          echo "$PWD/${ZIG_DIR}" >> "$GITHUB_PATH"
+
+      - name: Build NES examples and generate Mesen label files
+        run: zig build nes-hello1 nes-hello2 nes-hello3 nes-zig-logo gen-labels -Dsdk="$PWD/llvm-mos" --summary all
+
+      - name: Build C64 examples
+        run: zig build c64-hello c64-fibonacci -Dsdk="$PWD/llvm-mos" --summary all
+
+      - name: Build Neo6502 example
+        run: zig build neo6502-graphics -Dsdk="$PWD/llvm-mos" --summary all
+
+      - name: Verify outputs
+        run: ls -la zig-out/bin/

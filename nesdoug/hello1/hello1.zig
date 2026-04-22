@@ -1,6 +1,6 @@
-const neslib = @import("neslib.zig");
+const neslib = @import("neslib");
 
-pub export fn main() callconv(.C) void {
+pub export fn main() callconv(.c) void {
     const text = "Hello Zig!";
     const palette: [15]u8 = .{
         0x0f,

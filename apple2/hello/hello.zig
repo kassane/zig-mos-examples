@@ -1,5 +1,3 @@
-const appleIO = @cImport(@cInclude("apple-ii-io.h"));
-
 export fn main() void {
     srand(1);
     // hires_clear();

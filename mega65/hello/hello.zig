@@ -1,23 +1,16 @@
 const std = @import("std");
-
-// const c = @cImport({
-// @cInclude("mega65/memory.h");
-//pub const POKE = @compileError("unable to translate C expr: unexpected token 'volatile'");
-// });
+const mega65 = @import("mega65");
 
 extern fn lpoke(address: u32, value: u8) void;
 extern fn lpeek(address: u32) u8;
 
+const vic: *volatile mega65.__vic4 = @ptrFromInt(0xd000);
+
 export fn main() void {
     _ = std.c.printf("Hello World!\n");
-    _ = POKE(0xD020, 5);
+    vic.bordercol = 5; // 0xD020
     lpoke(0x40000, 0);
-    const col = lpeek(0x40000);
-    _ = POKE(0xD021, col);
-}
-
-pub inline fn POKE(X: anytype, Y: anytype) @TypeOf(std.zig.c_translation.cast(*u8, X).* + Y) {
-    return std.zig.c_translation.cast(*u8, X).* + Y;
+    vic.screencol = lpeek(0x40000); // 0xD021
 }
 
 pub fn panic(_: []const u8, _: ?*std.builtin.StackTrace, _: ?usize) noreturn {

@@ -1,0 +1,7 @@
+.{
+    .name = .c64_hello,
+    .version = "0.0.0",
+    .minimum_zig_version = "0.16.0",
+    .paths = .{"."},
+    .fingerprint = 0xe1f2031425364758,
+}

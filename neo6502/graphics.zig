@@ -1,6 +1,6 @@
 //! based on original graphics.c (lvm-mos-sdk/examples/neo6502/graphics.c)
 
-const api = @import("neo_api.zig");
+const api = @import("neo6502");
 
 export fn main() void {
     const rectangle_colors = [_]u8{ 9, 12, 13, 1, 11, 15, 3, 7 };

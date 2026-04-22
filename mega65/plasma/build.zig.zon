@@ -1,0 +1,7 @@
+.{
+    .name = .mega65_plasma,
+    .version = "0.0.0",
+    .minimum_zig_version = "0.16.0",
+    .paths = .{"."},
+    .fingerprint = 0x1182b3c4d5e6f708,
+}

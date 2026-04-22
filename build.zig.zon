@@ -1,0 +1,7 @@
+.{
+    .name = .zig_mos_examples,
+    .version = "0.0.0",
+    .minimum_zig_version = "0.16.0",
+    .paths = .{"."},
+    .fingerprint = 0xef7e1a49b21e396f,
+}

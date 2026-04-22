@@ -1,36 +1,14 @@
-//! WIP: port based on https://github.com/llvm-mos/llvm-mos-sdk/blob/main/examples/mega65/plasma.cc
+const mega65 = @import("mega65");
 
-const std = @import("std");
-const mega65 = @cImport({
-    @cInclude("mega65.h");
-    // @compileError("unable to translate C expr: unexpected token 'volatile'");
-    @cDefine("VICIV", "");
-});
-// FIXME
-const VICIV = @as(*mega65.__vic4, std.zig.c_translation.promoteIntLiteral(c_int, 0xd000, .hex)).*;
+const COLS = 80;
+const ROWS = 25;
+const CHARSET_ADDRESS: u32 = 0x3000;
+const SCREEN_ADDRESS: u32 = 0x0800;
 
-const RandomXORS = extern struct {
-    const state: u32 = 7;
+const vic: *volatile mega65.__vic4 = @ptrFromInt(0xd000);
 
-    pub fn rand8() u8 {
-        return @intCast(rand32() & 0xff);
-    }
-    pub fn rand32() u32 {
-        state ^= state << 13;
-        state ^= state >> 17;
-        state ^= state << 5;
-        return state;
-    }
-};
-
-/// Sets MEGA65 speed to 3.5 Mhz
-export fn speed_mode3() void {
-    VICIV.ctrlb |= mega65.VIC3_FAST_MASK;
-    VICIV.ctrlc &= ~mega65.VIC4_VFAST_MASK;
-}
-
-/// Cyclic sine lookup table
-const sine_table = [256]u8{
+/// Cyclic sine lookup table (0x00–0xFF range, 256 entries)
+const sine_table: [256]u8 = .{
     0x80, 0x7d, 0x7a, 0x77, 0x74, 0x70, 0x6d, 0x6a, 0x67, 0x64, 0x61, 0x5e,
     0x5b, 0x58, 0x55, 0x52, 0x4f, 0x4d, 0x4a, 0x47, 0x44, 0x41, 0x3f, 0x3c,
     0x39, 0x37, 0x34, 0x32, 0x2f, 0x2d, 0x2b, 0x28, 0x26, 0x24, 0x22, 0x20,
@@ -55,86 +33,93 @@ const sine_table = [256]u8{
     0x8c, 0x89, 0x86, 0x83,
 };
 
-/// Generate charset with 8 * 256 characters at given address
-export fn make_charset(charset_address: u16, rng: *RandomXORS) void {
-    const charset = @as(*u8, @ptrCast(&charset_address));
-    for (sine_table) |sine| {
-        for (0..7) |_| {
-            charset.* = (struct {
-                pub fn init(s: u8) u8 {
-                    var pattern: u8 = 0;
-                    const bits = [8]u8{ 1, 2, 4, 8, 16, 32, 64, 128 };
-                    for (bits) |bit| {
-                        if (rng.rand8() > s) {
-                            pattern |= bit;
-                        }
-                    }
-                    return pattern;
-                }
-            }).init(sine);
+// XOR-shift PRNG (no stdlib dependency)
+var prng: u32 = 1;
+
+fn rand8() u8 {
+    prng ^= prng << 13;
+    prng ^= prng >> 17;
+    prng ^= prng << 5;
+    return @truncate(prng);
+}
+
+// Per-frame sine counters (static state, as in the C original)
+var c1a: u8 = 0;
+var c1b: u8 = 0;
+var c2a: u8 = 0;
+var c2b: u8 = 0;
+
+/// Build 256 custom characters at CHARSET_ADDRESS using random dithering.
+fn generate_charset() void {
+    const charset: [*]volatile u8 = @ptrFromInt(CHARSET_ADDRESS);
+    const bits = [_]u8{ 1, 2, 4, 8, 16, 32, 64, 128 };
+    for (sine_table, 0..) |sine, cnt| {
+        for (0..8) |i| {
+            var pattern: u8 = 0;
+            for (bits) |bit| {
+                if (rand8() > sine) pattern |= bit;
+            }
+            charset[cnt * 8 + i] = pattern;
         }
     }
 }
 
-/// Plasma - duckType
-fn Plasma(comptime cols: usize, comptime rows: usize) type {
-    return struct {
-        pub fn init(charset_address: u16, rng: *RandomXORS) @This() {
-            make_charset(charset_address, rng);
-            VICIV.charptr = charset_address;
+/// Unlock VIC-IV extended registers (required before accessing charptr etc.).
+fn unlock_vic4() void {
+    const key: *volatile u8 = @ptrFromInt(0xd02f);
+    key.* = 0x47;
+    key.* = 0x53;
+}
+
+/// Set MEGA65 speed to 3.5 MHz (C65 FAST mode, no VFAST).
+fn speed_mode3() void {
+    vic.ctrlb |= 0x40; // VIC3_FAST_MASK
+    vic.ctrlc &= ~@as(u8, 0x40); // clear VIC4_VFAST_MASK
+}
+
+/// Advance counters and write interference pattern to screen RAM.
+fn draw() void {
+    const screen: [*]volatile u8 = @ptrFromInt(SCREEN_ADDRESS);
+    var xbuf: [COLS]u8 = undefined;
+    var ybuf: [ROWS]u8 = undefined;
+
+    var ya = c1a;
+    var yb = c1b;
+    for (&ybuf) |*y| {
+        y.* = sine_table[ya] +% sine_table[yb];
+        ya +%= 4;
+        yb +%= 9;
+    }
+    c1a +%= 3;
+    c1b -%= 5;
+
+    var xa = c2a;
+    var xb = c2b;
+    for (&xbuf) |*x| {
+        x.* = sine_table[xa] +% sine_table[xb];
+        xa +%= 3;
+        xb +%= 7;
+    }
+    c2a +%= 2;
+    c2b -%= 3;
+
+    var ptr: usize = 0;
+    for (ybuf) |y| {
+        for (xbuf) |x| {
+            screen[ptr] = x +% y;
+            ptr += 1;
         }
-
-        pub fn update(self: @This()) void {
-            var i = self.y_cnt1;
-            var j = self.y_cnt2;
-            for (self.ydata) |y| {
-                y = sine_table[i] + sine_table[j];
-                i += 4;
-                j += 9;
-            }
-            i = self.x_cnt1;
-            j = self.x_cnt2;
-            for (self.xdata) |*x| {
-                x = sine_table[i] + sine_table[j];
-                i += 3;
-                j += 7;
-            }
-            self.x_cnt1 += 2;
-            self.x_cnt2 -= 3;
-            self.y_cnt1 += 3;
-            self.y_cnt2 -= 5;
-
-            write_to_screen();
-        }
-
-        // Write summed buffers to screen memory
-        pub fn write_to_screen(self: @This()) void {
-            const screen_ptr = @as(*u8, &mega65.DEFAULT_SCREEN);
-            for (self.ydata) |y| {
-                for (self.xdata) |x| {
-                    screen_ptr.* = y + x;
-                }
-            }
-        }
-
-        ydata: [rows]u8 = std.mem.zeroes([rows]u8),
-        xdata: [cols]u8 = std.mem.zeroes([cols]u8),
-
-        x_cnt1: u8 = 0,
-        x_cnt2: u8 = 0,
-        y_cnt1: u8 = 0,
-        y_cnt2: u8 = 0,
-    };
+    }
 }
 
 export fn main() void {
-    const COLS: usize = 80;
-    const ROWS: usize = 25;
-    const CHARSET_ADDRESS: u16 = 0x3000;
-    var rng: RandomXORS = .{};
-    const plasma = Plasma(COLS, ROWS).init(CHARSET_ADDRESS, &rng);
+    unlock_vic4();
+    generate_charset();
+    vic.charptr = CHARSET_ADDRESS;
     speed_mode3();
-    while (true) {
-        plasma.update();
-    }
+    while (true) draw();
+}
+
+pub fn panic(_: []const u8, _: ?*std.builtin.StackTrace, _: ?usize) noreturn {
+    while (true) {}
 }

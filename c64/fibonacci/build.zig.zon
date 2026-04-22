@@ -1,0 +1,7 @@
+.{
+    .name = .c64_fibonacci,
+    .version = "0.0.0",
+    .minimum_zig_version = "0.16.0",
+    .paths = .{"."},
+    .fingerprint = 0xf1021314253647a8,
+}

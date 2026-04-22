@@ -1,0 +1,7 @@
+.{
+    .name = .apple2_hello,
+    .version = "0.0.0",
+    .minimum_zig_version = "0.16.0",
+    .paths = .{"."},
+    .fingerprint = 0x3162d3e4f5061729,
+}

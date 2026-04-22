@@ -1,7 +1,7 @@
-const neslib = @import("neslib.zig");
-const nesdoug = @import("nesdoug.zig");
+const neslib = @import("neslib");
+const nesdoug = @import("nesdoug");
 
-pub export fn main() callconv(.C) void {
+pub export fn main() callconv(.c) void {
     const palette: [15]u8 = .{
         0x0f,
         0x00,

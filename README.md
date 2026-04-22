@@ -1,50 +1,59 @@
-# Zig language & toolchain in MOS6502 examples
+# zig-mos-examples
 
-Using zig [LLVM 20] + LLVM-MOS-SDK on some examples
+Zig examples targeting MOS 6502 platforms via [zig-mos-bootstrap](https://github.com/kassane/zig-mos-bootstrap) (Zig 0.17-mos-dev, LLVM 20) and [llvm-mos-sdk](https://github.com/llvm-mos/llvm-mos-sdk).
 
-This repository contains examples showcasing the usage of the Zig programming language
-with the LLVM-MOS backend in the Zig toolchain version 0.14.0-dev (LLVM 20). These examples
-aim to provide a comprehensive reference for developers interested in leveraging Zig for
-MOS 6502-based development.
+## Requirements
 
-### Getting Started
+- [zig-mos-bootstrap](https://github.com/kassane/zig-mos-bootstrap/releases) — Zig toolchain with LLVM-MOS backend
+- [llvm-mos-sdk](https://github.com/llvm-mos/llvm-mos-sdk/releases) — platform libraries and linker scripts
 
-To build and run these examples, ensure you have the Zig toolchain version 0.14.0-dev + LLVM-MOS-SDK installed.
+## Build
 
-### Required
-
-- [Zig-mos](https://github.com/kassane/zig-mos-bootstrap/releases)
-- [LLVM-MOS-SDK](https://github.com/llvm-mos/llvm-mos-sdk/releases)
-
-**Clone this repository:**
-
-```bash
+```sh
 git clone https://github.com/kassane/zig-mos-examples.git
 cd zig-mos-examples
+zig build -Dsdk=/path/to/llvm-mos-sdk
 ```
 
-Choose the example to be built and have fun.
+Named steps (build one at a time):
 
-### References
+```sh
+zig build nes-hello1 -Dsdk=/path/to/llvm-mos-sdk
+zig build nes-hello2 -Dsdk=/path/to/llvm-mos-sdk
+zig build nes-hello3 -Dsdk=/path/to/llvm-mos-sdk
+zig build c64-hello  -Dsdk=/path/to/llvm-mos-sdk
+zig build c64-fibonacci -Dsdk=/path/to/llvm-mos-sdk
+zig build neo6502-graphics -Dsdk=/path/to/llvm-mos-sdk
+```
 
-These examples draw inspiration from various sources:
+Optional platforms (require extra paths):
 
-- [LLVM-MOS-SDK Examples](https://github.com/llvm-mos/llvm-mos-sdk/tree/main/examples): Borrowing concepts and methodologies from the official LLVM-MOS-SDK examples, adapt them to showcase Zig's capabilities.
-- [Nesdoug (LLVM-MOS compat) Tutorial](https://github.com/mysterymath/nesdoug-llvm): Leveraging insights and techniques from the Nesdoug tutorial, provide Zig-specific implementations for MOS 6502 development.
-- Rust-MOS Examples: Explore similar use cases and approaches in Zig for MOS 6502 development.
-    - https://github.com/mrk-its/rust-mos-hello-world
-    - https://github.com/mrk-its/llvm-mos-ferris-demo
+```sh
+# MEGA65 — needs mega65-libc checkout
+zig build mega65-hello -Dsdk=... -Dmega65-libc=/path/to/mega65-libc
 
+# Apple II — needs apple-ii-port-work checkout
+zig build apple2-hello -Dsdk=... -Dapple2-sdk=/path/to/apple-ii-port-work
+```
 
-### Contributing
+Output files land in `zig-out/bin/`.
 
-Contributions to this repository are welcome! Whether it's fixing bugs, adding new examples, or improving existing ones, your contributions help make this resource more valuable to the community. Please refer to the CONTRIBUTING.md file for guidelines on how to contribute.
+## Platforms
 
-### License
+| Step | Platform | CPU | Output |
+|------|----------|-----|--------|
+| `nes-hello1..3` | NES NROM | mosw65c02 | `.nes` |
+| `c64-hello`, `c64-fibonacci` | Commodore 64 | mos6502 | `.prg` |
+| `neo6502-graphics` | Neo6502 | mosw65c02 | `.neo` |
+| `mega65-hello`, `mega65-plasma` | MEGA65 | mos45gs02 | `.prg` |
+| `apple2-hello` | Apple IIe ProDOS | mos6502 | `.sys` |
 
-This repository is licensed under the APACHE 2.0 License. See the LICENSE file for details.
+## References
 
+- [Nesdoug LLVM-MOS tutorial](https://github.com/mysterymath/nesdoug-llvm)
+- [llvm-mos-sdk examples](https://github.com/llvm-mos/llvm-mos-sdk/tree/main/examples)
+- [rust-mos-hello-world](https://github.com/mrk-its/rust-mos-hello-world)
 
-### Disclaimer
+## License
 
-These examples are provided for educational and illustrative purposes. While efforts have been made to ensure accuracy and reliability, they may not be suitable for production use without further validation and testing. Use at your own risk.
+Apache 2.0 — see LICENSE.

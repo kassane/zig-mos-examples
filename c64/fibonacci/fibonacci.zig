@@ -7,12 +7,14 @@ fn fibonacci(comptime T: type, index: T) T {
 
 export fn main() void {
     const value: f32 = 15.30;
-    _ = std.c.printf("Value of fibonacci(%.2f) is %.2f\n", value, fibonacci(f32, value));
+    _ = value; // autofix
+    //_ = std.c.printf("Value of fibonacci(%.2f) is %.2f\n", value, fibonacci(f32, value));
 }
 
 // Fix llvm.debugtrap (no @breakpoint) - override panic handler
 pub fn panic(msg: []const u8, _: ?*std.builtin.StackTrace, _: ?usize) noreturn {
-    _ = std.c.printf("PANIC: caused by %s\n", msg.ptr);
+    _ = msg; // autofix
+    // _ = std.c.printf("PANIC: caused by %s\n", msg.ptr);
 
     while (true) {}
 }
