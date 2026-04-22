@@ -1,6 +1,8 @@
 # zig-mos-examples
 
-Zig examples targeting MOS 6502 platforms via [zig-mos-bootstrap](https://github.com/kassane/zig-mos-bootstrap) (Zig 0.17-mos-dev, LLVM 20) and [llvm-mos-sdk](https://github.com/llvm-mos/llvm-mos-sdk).
+<img width="634" height="563" alt="Image" src="https://github.com/user-attachments/assets/fb6a11de-fd07-45c8-be6b-d3d7f5629c34" />
+
+Zig examples targeting MOS 6502 platforms via zig-mos-bootstrap (Zig 0.17-mos-dev, LLVM 21) and llvm-mos-sdk.
 
 ## Requirements
 

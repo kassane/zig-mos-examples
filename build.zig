@@ -82,6 +82,39 @@ pub fn build(b: *std.Build) void {
         addNesLabels(b, elf2mlb, gen_labels, exe, "zig-logo");
     }
 
+    // ---- NES fade ----
+    {
+        const step = b.step("nes-fade", "Build NES palette fade example");
+        const exe = addNesExe(b, sdk, "fade", "nesdoug/fade/fade.zig", "nesdoug/fade/Alpha.chr", false);
+        exe.root_module.addImport("neslib", neslib_mod);
+        const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "fade.nes" });
+        step.dependOn(&install.step);
+        b.getInstallStep().dependOn(&install.step);
+        addNesLabels(b, elf2mlb, gen_labels, exe, "fade");
+    }
+
+    // ---- NES sprites ----
+    {
+        const step = b.step("nes-sprites", "Build NES sprites example");
+        const exe = addNesExe(b, sdk, "sprites", "nesdoug/sprites/sprites.zig", "nesdoug/sprites/Alpha.chr", false);
+        exe.root_module.addImport("neslib", neslib_mod);
+        const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "sprites.nes" });
+        step.dependOn(&install.step);
+        b.getInstallStep().dependOn(&install.step);
+        addNesLabels(b, elf2mlb, gen_labels, exe, "sprites");
+    }
+
+    // ---- NES pads ----
+    {
+        const step = b.step("nes-pads", "Build NES controller input example");
+        const exe = addNesExe(b, sdk, "pads", "nesdoug/pads/pads.zig", "nesdoug/pads/Alpha.chr", false);
+        exe.root_module.addImport("neslib", neslib_mod);
+        const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "pads.nes" });
+        step.dependOn(&install.step);
+        b.getInstallStep().dependOn(&install.step);
+        addNesLabels(b, elf2mlb, gen_labels, exe, "pads");
+    }
+
     // ---- C64 hello ----
     {
         const step = b.step("c64-hello", "Build C64 hello example");
