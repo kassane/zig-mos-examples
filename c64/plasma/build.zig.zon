@@ -1,0 +1,7 @@
+.{
+    .name = .c64_plasma,
+    .version = "0.0.0",
+    .minimum_zig_version = "0.16.0",
+    .paths = .{"."},
+    .fingerprint = 0xd1c2b3a4f5e60718,
+}

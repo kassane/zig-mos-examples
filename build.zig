@@ -115,6 +115,17 @@ pub fn build(b: *std.Build) void {
         addNesLabels(b, elf2mlb, gen_labels, exe, "pads");
     }
 
+    // ---- NES color-cycle ----
+    {
+        const step = b.step("nes-color-cycle", "Build NES palette colour-cycle example");
+        const exe = addNesExe(b, sdk, "color-cycle", "nesdoug/color-cycle/color-cycle.zig", "nesdoug/color-cycle/Alpha.chr", false);
+        exe.root_module.addImport("neslib", neslib_mod);
+        const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "color-cycle.nes" });
+        step.dependOn(&install.step);
+        b.getInstallStep().dependOn(&install.step);
+        addNesLabels(b, elf2mlb, gen_labels, exe, "color-cycle");
+    }
+
     // ---- C64 hello ----
     {
         const step = b.step("c64-hello", "Build C64 hello example");
@@ -129,6 +140,15 @@ pub fn build(b: *std.Build) void {
         const step = b.step("c64-fibonacci", "Build C64 fibonacci example");
         const exe = addC64Exe(b, sdk, "fibonacci", "c64/fibonacci/fibonacci.zig", true);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "fibonacci.prg" });
+        step.dependOn(&install.step);
+        b.getInstallStep().dependOn(&install.step);
+    }
+
+    // ---- C64 plasma ----
+    {
+        const step = b.step("c64-plasma", "Build C64 plasma effect example");
+        const exe = addC64Exe(b, sdk, "plasma", "c64/plasma/plasma.zig", false);
+        const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "plasma.prg" });
         step.dependOn(&install.step);
         b.getInstallStep().dependOn(&install.step);
     }

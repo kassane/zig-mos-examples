@@ -1,8 +1,10 @@
 # zig-mos-examples
 
-<img width="634" height="563" alt="Image" src="https://github.com/user-attachments/assets/fb6a11de-fd07-45c8-be6b-d3d7f5629c34" />
+<div align="center">
+<img width="480" alt="Image" src="https://github.com/user-attachments/assets/fb6a11de-fd07-45c8-be6b-d3d7f5629c34" />
+</div>
 
-Zig examples targeting MOS 6502 platforms via zig-mos-bootstrap (Zig 0.17-mos-dev, LLVM 21) and llvm-mos-sdk.
+Zig examples targeting MOS 6502 platforms via zig-mos-bootstrap and llvm-mos-sdk.
 
 ## Requirements
 
@@ -23,8 +25,14 @@ Named steps (build one at a time):
 zig build nes-hello1 -Dsdk=/path/to/llvm-mos-sdk
 zig build nes-hello2 -Dsdk=/path/to/llvm-mos-sdk
 zig build nes-hello3 -Dsdk=/path/to/llvm-mos-sdk
-zig build c64-hello  -Dsdk=/path/to/llvm-mos-sdk
+zig build nes-zig-logo -Dsdk=/path/to/llvm-mos-sdk
+zig build nes-fade -Dsdk=/path/to/llvm-mos-sdk
+zig build nes-sprites -Dsdk=/path/to/llvm-mos-sdk
+zig build nes-pads -Dsdk=/path/to/llvm-mos-sdk
+zig build nes-color-cycle -Dsdk=/path/to/llvm-mos-sdk
+zig build c64-hello -Dsdk=/path/to/llvm-mos-sdk
 zig build c64-fibonacci -Dsdk=/path/to/llvm-mos-sdk
+zig build c64-plasma -Dsdk=/path/to/llvm-mos-sdk
 zig build neo6502-graphics -Dsdk=/path/to/llvm-mos-sdk
 ```
 
@@ -44,8 +52,14 @@ Output files land in `zig-out/bin/`.
 
 | Step | Platform | CPU | Output |
 |------|----------|-----|--------|
-| `nes-hello1..3` | NES NROM | mosw65c02 | `.nes` |
+| `nes-hello1`, `nes-hello2`, `nes-hello3` | NES NROM | mosw65c02 | `.nes` |
+| `nes-zig-logo` | NES NROM | mosw65c02 | `.nes` |
+| `nes-fade` | NES NROM | mosw65c02 | `.nes` |
+| `nes-sprites` | NES NROM | mosw65c02 | `.nes` |
+| `nes-pads` | NES NROM | mosw65c02 | `.nes` |
+| `nes-color-cycle` | NES NROM | mosw65c02 | `.nes` |
 | `c64-hello`, `c64-fibonacci` | Commodore 64 | mos6502 | `.prg` |
+| `c64-plasma` | Commodore 64 | mos6502 | `.prg` |
 | `neo6502-graphics` | Neo6502 | mosw65c02 | `.neo` |
 | `mega65-hello`, `mega65-plasma` | MEGA65 | mos45gs02 | `.prg` |
 | `apple2-hello` | Apple IIe ProDOS | mos6502 | `.sys` |
