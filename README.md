@@ -9,39 +9,38 @@ Zig examples targeting MOS 6502 platforms via zig-mos-bootstrap and llvm-mos-sdk
 ## Requirements
 
 - [zig-mos-bootstrap](https://github.com/kassane/zig-mos-bootstrap/releases) — Zig toolchain with LLVM-MOS backend
-- [llvm-mos-sdk](https://github.com/llvm-mos/llvm-mos-sdk/releases) — platform libraries and linker scripts
 
 ## Build
 
 ```sh
 git clone https://github.com/kassane/zig-mos-examples.git
 cd zig-mos-examples
-zig build -Dsdk=/path/to/llvm-mos-sdk
+zig build --summary all
 ```
 
 Named steps (build one at a time):
 
 ```sh
-zig build nes-hello1 -Dsdk=/path/to/llvm-mos-sdk
-zig build nes-hello2 -Dsdk=/path/to/llvm-mos-sdk
-zig build nes-hello3 -Dsdk=/path/to/llvm-mos-sdk
-zig build nes-zig-logo -Dsdk=/path/to/llvm-mos-sdk
-zig build nes-fade -Dsdk=/path/to/llvm-mos-sdk
-zig build nes-sprites -Dsdk=/path/to/llvm-mos-sdk
-zig build nes-pads -Dsdk=/path/to/llvm-mos-sdk
-zig build nes-color-cycle -Dsdk=/path/to/llvm-mos-sdk
-zig build c64-hello -Dsdk=/path/to/llvm-mos-sdk
-zig build c64-fibonacci -Dsdk=/path/to/llvm-mos-sdk
-zig build c64-plasma -Dsdk=/path/to/llvm-mos-sdk
-zig build neo6502-graphics -Dsdk=/path/to/llvm-mos-sdk
+zig build nes-hello1
+zig build nes-hello2
+zig build nes-hello3
+zig build nes-zig-logo
+zig build nes-fade
+zig build nes-sprites
+zig build nes-pads
+zig build nes-color-cycle
+zig build c64-hello
+zig build c64-fibonacci
+zig build c64-plasma
+zig build neo6502-graphics
 ```
 
 Optional platforms:
 
 ```sh
 # MEGA65 — mega65-libc fetched automatically via build.zig.zon
-zig build mega65-hello  -Dsdk=/path/to/llvm-mos-sdk
-zig build mega65-plasma -Dsdk=/path/to/llvm-mos-sdk
+zig build mega65-hello 
+zig build mega65-plasma
 
 # Apple II — needs apple-ii-port-work checkout
 zig build apple2-hello -Dsdk=... -Dapple2-sdk=/path/to/apple-ii-port-work

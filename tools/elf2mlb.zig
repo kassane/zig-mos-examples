@@ -89,12 +89,13 @@ pub fn main(init: std.process.Init) !void {
     const io = init.io;
     const cwd = std.Io.Dir.cwd();
 
-    var iter = init.minimal.args.iterate();
-    _ = iter.next(); // skip argv[0]
+    var args_iter = try init.minimal.args.iterateAllocator(alloc);
+    defer args_iter.deinit();
+    _ = args_iter.next(); // skip argv[0]
 
-    const bin_path = iter.next() orelse usageExit();
-    const mlb_path = iter.next() orelse usageExit();
-    const elf_out_path = iter.next() orelse usageExit();
+    const bin_path = args_iter.next() orelse usageExit();
+    const mlb_path = args_iter.next() orelse usageExit();
+    const elf_out_path = args_iter.next() orelse usageExit();
 
     const elf_path = try std.fmt.allocPrint(alloc, "{s}.elf", .{bin_path});
     defer alloc.free(elf_path);

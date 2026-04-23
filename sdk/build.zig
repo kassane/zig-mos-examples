@@ -36,10 +36,13 @@ pub fn buildPlatform(b: *std.Build, sdk_root: []const u8, pd: Platform) Libs {
 
     // libcrt — compiler runtime builtins (all platforms share this).
     const libcrt = addLib(b, "crt", target, opt);
+    libcrt.root_module.addIncludePath(.{ .cwd_relative = crt_dir });
+    libcrt.root_module.addIncludePath(.{ .cwd_relative = com_inc });
+    libcrt.root_module.addIncludePath(.{ .cwd_relative = com_asm });
     libcrt.root_module.addCSourceFiles(.{
         .root  = .{ .cwd_relative = crt_dir },
         .files = &.{ "const.S", "call-indir.S", "divmod.cc", "divmod-large.cc", "mul.cc", "shift.cc", "rotate.cc" },
-        .flags = &.{ b.fmt("-I{s}", .{crt_dir}), b.fmt("-I{s}", .{com_inc}), b.fmt("-I{s}", .{com_asm}) },
+        .flags = &.{},
     });
 
     if (std.mem.eql(u8, pd.name, "nes"))
@@ -49,21 +52,20 @@ pub fn buildPlatform(b: *std.Build, sdk_root: []const u8, pd: Platform) Libs {
 
     // libcrt0 — startup: stack init + data copy + exit handler.
     const libcrt0 = addLib(b, "crt0", target, opt);
+    libcrt0.root_module.addIncludePath(.{ .cwd_relative = com_asm });
+    libcrt0.root_module.addIncludePath(.{ .cwd_relative = com_inc });
     libcrt0.root_module.addCSourceFiles(.{
         .root  = .{ .cwd_relative = crt0_dir },
         .files = &.{ "crt0.S", "init-stack.S" },
-        .flags = &.{b.fmt("-I{s}", .{com_asm})},
+        .flags = &.{},
     });
     libcrt0.root_module.addCSourceFiles(.{
         .root  = .{ .cwd_relative = crt0_dir },
         .files = &.{"copy-zp-data.c"},
-        .flags = &.{ "-fno-lto", b.fmt("-I{s}", .{com_inc}) },
+        .flags = &.{"-fno-lto"},
     });
     const exit_file: []const u8 = if (std.mem.eql(u8, pd.name, "sim")) "exit-custom.S" else "exit-loop.c";
-    const exit_flags: []const []const u8 = if (std.mem.eql(u8, pd.name, "sim"))
-        &.{b.fmt("-I{s}", .{com_asm})}
-    else
-        &.{ "-fno-lto", b.fmt("-I{s}", .{com_inc}) };
+    const exit_flags: []const []const u8 = if (std.mem.eql(u8, pd.name, "sim")) &.{} else &.{"-fno-lto"};
     libcrt0.root_module.addCSourceFiles(.{
         .root  = .{ .cwd_relative = b.fmt("{s}/exit", .{crt0_dir}) },
         .files = &.{exit_file},
@@ -73,25 +75,31 @@ pub fn buildPlatform(b: *std.Build, sdk_root: []const u8, pd: Platform) Libs {
     // libc — platform I/O and kernal wrappers.
     const libc = addLib(b, "c", target, opt);
     if (std.mem.eql(u8, pd.name, "sim")) {
+        libc.root_module.addIncludePath(.{ .cwd_relative = plat_dir });
+        libc.root_module.addIncludePath(.{ .cwd_relative = com_inc });
         libc.root_module.addCSourceFiles(.{
             .root  = .{ .cwd_relative = plat_dir },
             .files = &.{ "putchar.c", "stdlib.c", "sim-io.c" },
-            .flags = &.{ b.fmt("-I{s}", .{plat_dir}), b.fmt("-I{s}", .{com_inc}) },
+            .flags = &.{},
         });
     } else {
         const asm_files: []const []const u8 = if (std.mem.eql(u8, pd.name, "mega65"))
             &.{ "filevars.s", "kernal.S" }
         else
             &.{ "basic-header.S", "kernal.S", "unmap-basic.S", "devnum.s" };
+        libc.root_module.addIncludePath(.{ .cwd_relative = plat_dir });
+        libc.root_module.addIncludePath(.{ .cwd_relative = comm_dir });
+        libc.root_module.addIncludePath(.{ .cwd_relative = com_asm });
+        libc.root_module.addIncludePath(.{ .cwd_relative = com_inc });
         libc.root_module.addCSourceFiles(.{
             .root  = .{ .cwd_relative = plat_dir },
             .files = asm_files,
-            .flags = &.{ b.fmt("-I{s}", .{plat_dir}), b.fmt("-I{s}", .{comm_dir}), b.fmt("-I{s}", .{com_asm}) },
+            .flags = &.{},
         });
         libc.root_module.addCSourceFiles(.{
             .root  = .{ .cwd_relative = comm_dir },
             .files = &.{ "abort.c", "cbm_k_bsout.c", "cbm_k_chrout.c", "chrout.c", "char-conv.c" },
-            .flags = &.{ b.fmt("-I{s}", .{comm_dir}), b.fmt("-I{s}", .{com_inc}) },
+            .flags = &.{},
         });
     }
 
@@ -113,42 +121,52 @@ fn buildNes(
 
     // libcrt0 — NES startup: copy-data + zero-bss + exit-loop + NES crt0.c.
     const libcrt0 = addLib(b, "crt0", target, opt);
+    libcrt0.root_module.addIncludePath(.{ .cwd_relative = com_asm });
+    libcrt0.root_module.addIncludePath(.{ .cwd_relative = com_inc });
+    libcrt0.root_module.addIncludePath(.{ .cwd_relative = nes_dir });
     libcrt0.root_module.addCSourceFiles(.{
         .root  = .{ .cwd_relative = crt0_dir },
         .files = &.{ "crt0.S", "init-stack.S" },
-        .flags = &.{b.fmt("-I{s}", .{com_asm})},
+        .flags = &.{},
     });
     libcrt0.root_module.addCSourceFiles(.{
         .root  = .{ .cwd_relative = crt0_dir },
         .files = &.{ "copy-data.c", "copy-zp-data.c", "zero-bss.c", "zero-zp-bss.c" },
-        .flags = &.{ "-fno-lto", b.fmt("-I{s}", .{com_inc}) },
+        .flags = &.{"-fno-lto"},
     });
     libcrt0.root_module.addCSourceFiles(.{
         .root  = .{ .cwd_relative = b.fmt("{s}/exit", .{crt0_dir}) },
         .files = &.{"exit-loop.c"},
-        .flags = &.{ "-fno-lto", b.fmt("-I{s}", .{com_inc}) },
+        .flags = &.{"-fno-lto"},
     });
     libcrt0.root_module.addCSourceFiles(.{
         .root  = .{ .cwd_relative = nes_dir },
         .files = &.{"crt0.c"},
-        .flags = &.{ b.fmt("-I{s}", .{nes_dir}), b.fmt("-I{s}", .{com_inc}) },
+        .flags = &.{},
     });
 
     // libc (nes-c) — putchar + rompoke.
     const libc = addLib(b, "c", target, opt);
+    libc.root_module.addIncludePath(.{ .cwd_relative = nes_dir });
+    libc.root_module.addIncludePath(.{ .cwd_relative = com_inc });
+    libc.root_module.addIncludePath(.{ .cwd_relative = com_asm });
     libc.root_module.addCSourceFiles(.{
         .root  = .{ .cwd_relative = nes_dir },
         .files = &.{"putchar.c"},
-        .flags = &.{ b.fmt("-I{s}", .{nes_dir}), b.fmt("-I{s}", .{com_inc}), b.fmt("-I{s}", .{com_asm}) },
+        .flags = &.{},
     });
     libc.root_module.addCSourceFiles(.{
         .root  = .{ .cwd_relative = b.fmt("{s}/rompoke", .{nes_dir}) },
         .files = &.{"rompoke.c"},
-        .flags = &.{ b.fmt("-I{s}", .{nes_dir}), b.fmt("-I{s}", .{com_inc}) },
+        .flags = &.{},
     });
 
     // libneslib.
     const libneslib = addLib(b, "neslib", target, opt);
+    libneslib.root_module.addIncludePath(.{ .cwd_relative = neslib_dir });
+    libneslib.root_module.addIncludePath(.{ .cwd_relative = nes_dir });
+    libneslib.root_module.addIncludePath(.{ .cwd_relative = com_asm });
+    libneslib.root_module.addIncludePath(.{ .cwd_relative = com_inc });
     libneslib.root_module.addCSourceFiles(.{
         .root  = .{ .cwd_relative = neslib_dir },
         .files = &.{
@@ -160,16 +178,16 @@ fn buildNes(
             "rand.c",      "rand.s",
             "vram_update.c","vram_update.s",
         },
-        .flags = &.{
-            b.fmt("-I{s}", .{neslib_dir}),
-            b.fmt("-I{s}", .{nes_dir}),
-            b.fmt("-I{s}", .{com_asm}),
-            b.fmt("-I{s}", .{com_inc}),
-        },
+        .flags = &.{},
     });
 
     // libnesdoug.
     const libnesdoug = addLib(b, "nesdoug", target, opt);
+    libnesdoug.root_module.addIncludePath(.{ .cwd_relative = nesdoug_dir });
+    libnesdoug.root_module.addIncludePath(.{ .cwd_relative = neslib_dir });
+    libnesdoug.root_module.addIncludePath(.{ .cwd_relative = nes_dir });
+    libnesdoug.root_module.addIncludePath(.{ .cwd_relative = com_asm });
+    libnesdoug.root_module.addIncludePath(.{ .cwd_relative = com_inc });
     libnesdoug.root_module.addCSourceFiles(.{
         .root  = .{ .cwd_relative = nesdoug_dir },
         .files = &.{
@@ -179,13 +197,7 @@ fn buildNes(
             "vram_buffer.c",    "vram_buffer.s",
             "vram_buffer_ops.s","zaplib.s",
         },
-        .flags = &.{
-            b.fmt("-I{s}", .{nesdoug_dir}),
-            b.fmt("-I{s}", .{neslib_dir}),
-            b.fmt("-I{s}", .{nes_dir}),
-            b.fmt("-I{s}", .{com_asm}),
-            b.fmt("-I{s}", .{com_inc}),
-        },
+        .flags = &.{},
     });
 
     return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc, .neslib = libneslib, .nesdoug = libnesdoug };
@@ -203,24 +215,29 @@ fn buildNeo6502(
 ) Libs {
     // libcrt0 — common startup + copy-zp-data + exit-loop.
     const libcrt0 = addLib(b, "crt0", target, opt);
+    libcrt0.root_module.addIncludePath(.{ .cwd_relative = com_asm });
+    libcrt0.root_module.addIncludePath(.{ .cwd_relative = com_inc });
     libcrt0.root_module.addCSourceFiles(.{
         .root  = .{ .cwd_relative = crt0_dir },
         .files = &.{ "crt0.S", "init-stack.S" },
-        .flags = &.{b.fmt("-I{s}", .{com_asm})},
+        .flags = &.{},
     });
     libcrt0.root_module.addCSourceFiles(.{
         .root  = .{ .cwd_relative = crt0_dir },
         .files = &.{"copy-zp-data.c"},
-        .flags = &.{ "-fno-lto", b.fmt("-I{s}", .{com_inc}) },
+        .flags = &.{"-fno-lto"},
     });
     libcrt0.root_module.addCSourceFiles(.{
         .root  = .{ .cwd_relative = b.fmt("{s}/exit", .{crt0_dir}) },
         .files = &.{"exit-loop.c"},
-        .flags = &.{ "-fno-lto", b.fmt("-I{s}", .{com_inc}) },
+        .flags = &.{"-fno-lto"},
     });
 
     // libc (neo6502-c) — API + platform I/O.
     const libc = addLib(b, "c", target, opt);
+    libc.root_module.addIncludePath(.{ .cwd_relative = b.fmt("{s}/api", .{neo_dir}) });
+    libc.root_module.addIncludePath(.{ .cwd_relative = neo_dir });
+    libc.root_module.addIncludePath(.{ .cwd_relative = com_inc });
     libc.root_module.addCSourceFiles(.{
         .root  = .{ .cwd_relative = b.fmt("{s}/api", .{neo_dir}) },
         .files = &.{
@@ -228,12 +245,12 @@ fn buildNeo6502(
             "graphics.c",     "sound.c",      "sprites.c",    "system.c",
             "turtle.c",       "uext.c",       "mouse.c",
         },
-        .flags = &.{ b.fmt("-I{s}", .{neo_dir}), b.fmt("-I{s}", .{com_inc}) },
+        .flags = &.{},
     });
     libc.root_module.addCSourceFiles(.{
         .root  = .{ .cwd_relative = neo_dir },
         .files = &.{ "char-conv.c", "clock.c", "getchar.c", "putchar.c" },
-        .flags = &.{ b.fmt("-I{s}", .{neo_dir}), b.fmt("-I{s}", .{com_inc}) },
+        .flags = &.{},
     });
 
     return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc };
