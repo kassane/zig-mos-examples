@@ -1,67 +1,35 @@
+//! NES hello-world: demonstrates the VRAM update queue for bulk and non-sequential writes.
 const neslib = @import("neslib");
 
-pub export fn main() callconv(.c) void {
-    const palette: [15]u8 = .{
-        0x0f,
-        0x00,
-        0x10,
-        0x30,
-    } ++ [1]u8{0} ** 11;
+const bg_palette: [16]u8 = .{ 0x0f, 0x00, 0x10, 0x30 } ++ .{0x00} ** 12;
 
-    // example of sequential vram data
-    const text = &[16]u8{
-        // where to write, repeat horizontally
+pub export fn main() callconv(.c) void {
+    // Sequential VRAM packet: writes "HELLO WORLD!" horizontally at tile (10, 14).
+    const text_update: [16]u8 = .{
         neslib.MSB(neslib.NTADR_A(10, 14)) | neslib.NT_UPD_HORZ,
         neslib.LSB(neslib.NTADR_A(10, 14)),
-        12, // length of write
-        'H', // the data to be written, 12 chars
-        'E',
-        'L',
-        'L',
-        'O',
-        ' ',
-        'W',
-        'O',
-        'R',
-        'L',
-        'D',
-        '!',
-        neslib.NT_UPD_EOF, // data must end in EOF
+        12,
+        'H', 'E', 'L', 'L', 'O', ' ', 'W', 'O', 'R', 'L', 'D', '!',
+        neslib.NT_UPD_EOF,
     };
 
-    // example of non-sequential vram data
-    const two_letters = &[7]u8{
-        neslib.MSB(neslib.NTADR_A(8, 17)),
-        neslib.LSB(neslib.NTADR_A(8, 17)),
-        'A',
-        neslib.MSB(neslib.NTADR_A(18, 5)),
-        neslib.LSB(neslib.NTADR_A(18, 5)),
-        'B',
-        neslib.NT_UPD_EOF, // data must end in EOF
+    // Non-sequential packet: places 'A' and 'B' at two separate nametable positions.
+    const two_letters: [7]u8 = .{
+        neslib.MSB(neslib.NTADR_A(8, 17)), neslib.LSB(neslib.NTADR_A(8, 17)), 'A',
+        neslib.MSB(neslib.NTADR_A(18, 5)), neslib.LSB(neslib.NTADR_A(18, 5)), 'B',
+        neslib.NT_UPD_EOF,
     };
 
-    neslib.ppu_off(); // screen off
+    neslib.ppu_off();
+    neslib.pal_bg(&bg_palette);
+    neslib.ppu_on_all();
 
-    neslib.pal_bg(&palette); // load the palette
+    neslib.set_vram_update(&text_update);
+    neslib.ppu_wait_nmi();
 
-    neslib.ppu_on_all(); // turn on screen
+    neslib.set_vram_update(&two_letters);
+    neslib.ppu_wait_nmi();
 
-    neslib.set_vram_update(text); // set a pointer to the data to transfer during nmi
-
-    neslib.ppu_wait_nmi(); // waits until the next nmi is completed, also sets a VRAM
-    // update flag the text will be auto pushed to the PPU during
-    // nmi
-
-    neslib.set_vram_update(two_letters); // set a pointer to the data
-
-    neslib.ppu_wait_nmi(); // the two_letters will be auto pushed to the PPU in the next
-    // nmi
-
-    neslib.set_vram_update(null); // just turns off the VRAM update system so that it
-    // isn't wasting time writing the same data to the PPU every frame
-
-    while (true) {
-        // infinite loop
-        // game code can go here later.
-    }
+    neslib.set_vram_update(null);
+    while (true) {}
 }

@@ -1,11 +1,9 @@
-// Port of llvm-mos-sdk examples/c64/plasma.c
-// Simplistic character-mode plasma effect for the Commodore 64.
-// Uses SID voice-3 noise as a PRNG and a custom charset at $2000.
-
+//! C64 plasma: character-mode interference pattern using SID noise as PRNG.
+//! Custom 256-char charset at $2000; VIC-II bank 0 ($D018 = 0x18).
 const COLS: usize = 40;
 const ROWS: usize = 25;
-const SINE_REPEAT: usize = 8;
 
+/// VIC-II and SID base addresses in the C64 memory map.
 const VIC: usize = 0xD000;
 const SID: usize = 0xD400;
 const SCREEN: usize = 0x0400;
@@ -18,7 +16,7 @@ inline fn peek(addr: usize) u8 {
     return @as(*volatile u8, @ptrFromInt(addr)).*;
 }
 
-// 256-entry cyclic sine lookup table (values 0x00–0xFF)
+/// 256-entry cyclic sine table (0x00–0xFF).
 const sine_table: [256]u8 = .{
     0x80, 0x7d, 0x7a, 0x77, 0x74, 0x70, 0x6d, 0x6a, 0x67, 0x64, 0x61, 0x5e,
     0x5b, 0x58, 0x55, 0x52, 0x4f, 0x4d, 0x4a, 0x47, 0x44, 0x41, 0x3f, 0x3c,
@@ -44,32 +42,30 @@ const sine_table: [256]u8 = .{
     0x8c, 0x89, 0x86, 0x83,
 };
 
-// Start SID voice 3 noise waveform for pseudo-random bytes
+/// Enable SID voice-3 noise waveform so OSC3 ($D41B) yields pseudo-random bytes.
 fn startSidRandom() void {
-    poke(SID + 0x0E, 0xFF); // voice 3 freq lo
-    poke(SID + 0x0F, 0xFF); // voice 3 freq hi
-    poke(SID + 0x12, 0x80); // voice 3 ctrl: noise waveform
+    poke(SID + 0x0E, 0xFF); // voice 3 frequency lo
+    poke(SID + 0x0F, 0xFF); // voice 3 frequency hi
+    poke(SID + 0x12, 0x80); // voice 3 control: noise waveform
 }
 
-// Read a pseudo-random byte from the SID oscillator-3 output register
 inline fn rand8() u8 {
-    return peek(SID + 0x1B);
+    return peek(SID + 0x1B); // OSC3 output register
 }
 
-// Build 256 unique 8-row character bitmaps at CHARSET, weighted by sine_table
+/// Build 256 × 8-byte character bitmaps at CHARSET, weighted by sine_table density.
 fn makeCharset() void {
     const bits = [8]u8{ 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80 };
     for (0..256) |c| {
-        const sine = sine_table[c];
-        for (0..SINE_REPEAT) |row| {
+        const threshold = sine_table[c];
+        for (0..8) |row| {
             var pattern: u8 = 0;
             for (bits) |b| {
-                if (rand8() > sine) pattern |= b;
+                if (rand8() > threshold) pattern |= b;
             }
             poke(CHARSET + c * 8 + row, pattern);
         }
-        // Flash border colour to show charset-generation progress
-        poke(VIC + 0x20, peek(VIC + 0x20) +% 1);
+        poke(VIC + 0x20, peek(VIC + 0x20) +% 1); // flash border to show progress
     }
 }
 
@@ -80,32 +76,32 @@ fn doPlasma() noreturn {
     var x_cnt2: u8 = 0;
     var y_cnt1: u8 = 0;
     var y_cnt2: u8 = 0;
+    const screen: [*]volatile u8 = @ptrFromInt(SCREEN);
 
     while (true) {
-        var k: u8 = y_cnt1;
-        var l: u8 = y_cnt2;
-        for (0..ROWS) |i| {
-            ydata[i] = sine_table[k] +% sine_table[l];
-            k +%= 4;
-            l +%= 9;
+        var yk = y_cnt1;
+        var yl = y_cnt2;
+        for (&ydata) |*y| {
+            y.* = sine_table[yk] +% sine_table[yl];
+            yk +%= 4;
+            yl +%= 9;
         }
         y_cnt1 +%= 3;
         y_cnt2 -%= 5;
 
-        k = x_cnt1;
-        l = x_cnt2;
-        for (0..COLS) |j| {
-            xdata[j] = sine_table[k] +% sine_table[l];
-            k +%= 3;
-            l +%= 7;
+        var xk = x_cnt1;
+        var xl = x_cnt2;
+        for (&xdata) |*x| {
+            x.* = sine_table[xk] +% sine_table[xl];
+            xk +%= 3;
+            xl +%= 7;
         }
         x_cnt1 +%= 2;
         x_cnt2 -%= 3;
 
-        const screen = @as([*]volatile u8, @ptrFromInt(SCREEN));
-        for (0..ROWS) |i| {
-            for (0..COLS) |j| {
-                screen[i * COLS + j] = xdata[j] +% ydata[i];
+        for (ydata, 0..) |y, row| {
+            for (xdata, 0..) |x, col| {
+                screen[row * COLS + col] = x +% y;
             }
         }
     }
@@ -114,7 +110,7 @@ fn doPlasma() noreturn {
 export fn main() void {
     startSidRandom();
     makeCharset();
-    // Point VIC-II at screen=$0400, custom charset=$2000 (both in bank 0)
+    // Point VIC-II memory control at screen=$0400 and custom charset=$2000 (both in bank 0).
     poke(VIC + 0x18, ((SCREEN >> 6) & 0xF0) | ((CHARSET >> 10) & 0x0E));
     doPlasma();
 }

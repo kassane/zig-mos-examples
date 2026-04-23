@@ -2,6 +2,8 @@ name: CI
 
 on:
   push:
+    branches:
+      - main
   pull_request:
 
 jobs:
@@ -18,7 +20,18 @@ jobs:
             sdk_archive: llvm-mos-macos.tar.xz
             zig_archive: zig-mos-aarch64-macos-baseline.tar.xz
             zig_dir: zig-mos-aarch64-macos-baseline
+          - os: ubuntu-24.04-arm
+            sdk_archive: llvm-mos-linux.tar.xz
+            zig_archive: zig-mos-aarch64-linux-musl-baseline.tar.xz
+            zig_dir: zig-mos-aarch64-linux-musl-baseline
+          - os: windows-latest
+            sdk_archive: llvm-mos-windows.7z
+            zig_archive: zig-mos-x86_64-windows-baseline.zip
+            zig_dir: zig-mos-x86_64-windows-baseline
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
 
@@ -30,9 +43,12 @@ jobs:
         run: |
           curl -fsSL -O "https://github.com/llvm-mos/llvm-mos-sdk/releases/download/v23.0.0/${SDK_ARCHIVE}"
           curl -fsSL -O "https://github.com/kassane/zig-mos-bootstrap/releases/download/0.17.0-dev/${ZIG_ARCHIVE}"
-          tar -xf "${SDK_ARCHIVE}"
-          tar -xf "${ZIG_ARCHIVE}"
+          if [[ "${SDK_ARCHIVE}" == *.7z ]]; then 7z x "${SDK_ARCHIVE}"; else tar -xf "${SDK_ARCHIVE}"; fi
+          if [[ "${ZIG_ARCHIVE}" == *.zip ]]; then unzip -q "${ZIG_ARCHIVE}"; else tar -xf "${ZIG_ARCHIVE}"; fi
           echo "$PWD/${ZIG_DIR}" >> "$GITHUB_PATH"
+
+      - name: Build SDK platform libs from source
+        run: zig build sdk-build --summary all
 
       - name: Build NES examples and generate Mesen label files
         run: zig build nes-hello1 nes-hello2 nes-hello3 nes-zig-logo nes-fade nes-sprites nes-pads nes-color-cycle gen-labels -Dsdk="$PWD/llvm-mos" --summary all
@@ -40,8 +56,22 @@ jobs:
       - name: Build C64 examples
         run: zig build c64-hello c64-fibonacci c64-plasma -Dsdk="$PWD/llvm-mos" --summary all
 
+      - name: Build MEGA65 examples (fetch lazy dep)
+        run: zig build mega65-hello mega65-plasma -Dsdk="$PWD/llvm-mos" || true
+
+      - name: Build MEGA65 examples
+        run: zig build mega65-hello mega65-plasma -Dsdk="$PWD/llvm-mos" --summary all
+
       - name: Build Neo6502 example
         run: zig build neo6502-graphics -Dsdk="$PWD/llvm-mos" --summary all
 
+      - name: Build sim example
+        run: zig build sim-hello -Dsdk="$PWD/llvm-mos" --summary all
+
       - name: Verify outputs
-        run: ls -la zig-out/bin/
+        run: |
+          ls -la zig-out/bin/
+          for f in hello1.nes hello2.nes hello3.nes zig-logo.nes fade.nes sprites.nes pads.nes color-cycle.nes \
+                   c64-hello.prg fibonacci.prg plasma.prg mega65-hello.prg graphics.neo sim-hello; do
+            test -f "zig-out/bin/$f" && echo "OK: $f" || echo "MISSING: $f"
+          done

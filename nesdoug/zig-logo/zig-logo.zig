@@ -1,12 +1,13 @@
+//! NES Zig-mark logo display with shimmer palette animation.
 const neslib = @import("neslib");
 
+/// Nametable address for tile at column `col`, row `row` on nametable A ($2000).
 fn ntadr(col: u8, row: u8) u16 {
     return 0x2000 | (@as(u16, row) << 5) | col;
 }
 
-// Zig mark nametable — 16x16 tiles centred at col=8, row=7
-// Generated from zig-mark.svg (128x128 @ 8x8 tiles, 71 unique tiles)
-// CHR plane0 only → palette index 1 for logo pixels
+/// 16×16 tile map for the Zig mark, anchored at (logo_col, logo_row).
+/// Generated from zig-mark.chr (71 unique tiles, CHR plane 0 only).
 const logo_col: u8 = 8;
 const logo_row: u8 = 7;
 const logo: [16][16]u8 = .{
@@ -28,8 +29,10 @@ const logo: [16][16]u8 = .{
     .{ 0x45, 0x44, 0x46, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
 };
 
+/// Shimmer sequence: palette slot 1 cycles through warm orange/yellow tones (~8 frames each).
+const shimmer: [8]u8 = .{ 0x28, 0x28, 0x27, 0x28, 0x28, 0x17, 0x28, 0x28 };
+
 export fn main() callconv(.c) void {
-    // Palette: bg=black, colour-1=Zig orange (CHR plane0 only → index 1)
     const bg_palette: [16]u8 = .{
         0x0f, 0x28, 0x27, 0x30,
         0x0f, 0x28, 0x27, 0x30,
@@ -40,17 +43,13 @@ export fn main() callconv(.c) void {
     neslib.ppu_off();
     neslib.pal_bg(&bg_palette);
 
-    // Write the 16x16 logo nametable using vram_write for each row
-    var ty: u8 = 0;
-    while (ty < 16) : (ty += 1) {
-        neslib.vram_adr(ntadr(logo_col, logo_row + ty));
+    for (0..logo.len) |ty| {
+        neslib.vram_adr(ntadr(logo_col, logo_row + @as(u8, @intCast(ty))));
         neslib.vram_write(&logo[ty], 16);
     }
 
     neslib.ppu_on_all();
 
-    // Shimmer: cycle palette slot 1 (orange) through warm tones
-    const shimmer = [_]u8{ 0x28, 0x28, 0x27, 0x28, 0x28, 0x17, 0x28, 0x28 };
     var frame: u8 = 0;
     while (true) {
         neslib.ppu_wait_nmi();

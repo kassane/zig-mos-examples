@@ -1,30 +1,15 @@
+//! NES hello-world: writes "Hello Zig!" to the background nametable.
 const neslib = @import("neslib");
 
+/// One full BG palette (4 sub-palettes × 4 colours = 16 bytes).
+/// Sub-palette 0: black background, three greys.
+const bg_palette: [16]u8 = .{ 0x0f, 0x00, 0x10, 0x30 } ++ .{0x00} ** 12;
+
 pub export fn main() callconv(.c) void {
-    const text = "Hello Zig!";
-    const palette: [15]u8 = .{
-        0x0f,
-        0x00,
-        0x10,
-        0x30,
-    } ++ [1]u8{0} ** 11;
-
-    // screen off
     neslib.ppu_off();
-    // load the BG palette
-    neslib.pal_bg(&palette);
-    // set a starting point on the screen
-    neslib.vram_adr(neslib.NTADR_A(10, 14)); // screen is 32 x 30 tiles
-
-    // this pushes 1 char to the screen
-    for (text[0.. :0]) |c| {
-        neslib.vram_put(c);
-    }
-    // turn on screen
+    neslib.pal_bg(&bg_palette);
+    neslib.vram_adr(neslib.NTADR_A(10, 14));
+    for ("Hello Zig!") |c| neslib.vram_put(c);
     neslib.ppu_on_all();
-
-    while (true) {
-        // infinite loop
-        // game code can go here later.
-    }
+    while (true) {}
 }

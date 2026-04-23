@@ -1,4 +1,5 @@
 const std = @import("std");
+const sdk_mod = @import("sdk/build.zig");
 
 pub fn build(b: *std.Build) void {
     const sdk = b.option([]const u8, "sdk", "Path to llvm-mos-sdk") orelse
@@ -7,16 +8,50 @@ pub fn build(b: *std.Build) void {
             "../llvm-mos-sdk",
         }) catch @panic("cannot resolve sdk path");
 
-    const mega65_libc = b.option([]const u8, "mega65-libc", "Path to mega65-libc checkout (required for mega65 examples)");
     const apple2_sdk = b.option([]const u8, "apple2-sdk", "Path to apple-ii-port-work checkout (required for apple2 examples)");
 
-    // Translate neslib.h and nesdoug.h from the MOS SDK into Zig modules using
-    // the built-in translate-c (avoids external dependency incompatibilities).
+    // ---- SDK build from source (llvm-mos-sdk git) ----
+    // Build platform libs first so example steps can dependOn them.
+    var sdk_sim_libs:    ?sdk_mod.Libs = null;
+    var sdk_mega65_libs: ?sdk_mod.Libs = null;
+    var sdk_c64_libs:    ?sdk_mod.Libs = null;
+    var sdk_nes_libs:    ?sdk_mod.Libs = null;
+    var sdk_neo6502_libs: ?sdk_mod.Libs = null;
+
+    if (b.lazyDependency("llvm-mos-sdk", .{})) |sdk_dep| {
+        const sdk_src = sdk_dep.path(".").getPath(b);
+        const sdk_step = b.step("sdk-build", "Build llvm-mos-sdk platform libraries from source");
+
+        for ([_]sdk_mod.Platform{
+            .{ .name = "sim",     .query = .{ .cpu_arch = .mos, .os_tag = .freestanding, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos6502 } } },
+            .{ .name = "mega65",  .query = .{ .cpu_arch = .mos, .os_tag = .freestanding, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos45gs02 } } },
+            .{ .name = "c64",     .query = .{ .cpu_arch = .mos, .os_tag = .freestanding, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos6502 } } },
+            .{ .name = "nes",     .query = .{ .cpu_arch = .mos, .os_tag = .nes } },
+            .{ .name = "neo6502", .query = .{ .cpu_arch = .mos, .os_tag = .freestanding, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mosw65c02 } } },
+        }) |pd| {
+            const libs = sdk_mod.buildPlatform(b, sdk_src, pd);
+            const dest = b.fmt("mos-platform/{s}/lib", .{pd.name});
+            for ([3]*std.Build.Step.Compile{ libs.crt, libs.crt0, libs.c }) |lib| {
+                sdk_step.dependOn(&b.addInstallArtifact(lib, .{ .dest_dir = .{ .override = .{ .custom = dest } } }).step);
+            }
+            if (libs.neslib)  |l| sdk_step.dependOn(&b.addInstallArtifact(l, .{ .dest_dir = .{ .override = .{ .custom = dest } } }).step);
+            if (libs.nesdoug) |l| sdk_step.dependOn(&b.addInstallArtifact(l, .{ .dest_dir = .{ .override = .{ .custom = dest } } }).step);
+            if (std.mem.eql(u8, pd.name, "sim"))     sdk_sim_libs    = libs;
+            if (std.mem.eql(u8, pd.name, "mega65"))  sdk_mega65_libs = libs;
+            if (std.mem.eql(u8, pd.name, "c64"))     sdk_c64_libs    = libs;
+            if (std.mem.eql(u8, pd.name, "nes"))     sdk_nes_libs    = libs;
+            if (std.mem.eql(u8, pd.name, "neo6502")) sdk_neo6502_libs = libs;
+        }
+    } else {
+        _ = b.step("sdk-build", "Build llvm-mos-sdk from source (fetching, re-run to build)");
+    }
+
+    // Translate neslib.h and nesdoug.h from the MOS SDK into Zig modules.
     const nes_target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .nes });
     const neslib_mod = nesHeaderMod(b, sdk, nes_target, "neslib");
     const nesdoug_mod = nesHeaderMod(b, sdk, nes_target, "nesdoug");
 
-    // Translate mega65.h into a Zig module (struct types + hardware constants).
+    // Translate mega65.h into a Zig module (hardware register structs + constants).
     const mega65_target = b.resolveTargetQuery(.{
         .cpu_arch = .mos,
         .os_tag = .freestanding,
@@ -43,6 +78,7 @@ pub fn build(b: *std.Build) void {
         const exe = addNesExe(b, sdk, "hello1", "nesdoug/hello1/hello1.zig", "nesdoug/hello1/Alpha.chr", false);
         exe.root_module.addImport("neslib", neslib_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "hello1.nes" });
+        nesDepend(install, sdk_nes_libs, false);
         step.dependOn(&install.step);
         b.getInstallStep().dependOn(&install.step);
         addNesLabels(b, elf2mlb, gen_labels, exe, "hello1");
@@ -54,6 +90,7 @@ pub fn build(b: *std.Build) void {
         const exe = addNesExe(b, sdk, "hello2", "nesdoug/hello2/hello2.zig", "nesdoug/hello2/Alpha.chr", false);
         exe.root_module.addImport("neslib", neslib_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "hello2.nes" });
+        nesDepend(install, sdk_nes_libs, false);
         step.dependOn(&install.step);
         b.getInstallStep().dependOn(&install.step);
         addNesLabels(b, elf2mlb, gen_labels, exe, "hello2");
@@ -66,6 +103,7 @@ pub fn build(b: *std.Build) void {
         exe.root_module.addImport("neslib", neslib_mod);
         exe.root_module.addImport("nesdoug", nesdoug_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "hello3.nes" });
+        nesDepend(install, sdk_nes_libs, true);
         step.dependOn(&install.step);
         b.getInstallStep().dependOn(&install.step);
         addNesLabels(b, elf2mlb, gen_labels, exe, "hello3");
@@ -77,6 +115,7 @@ pub fn build(b: *std.Build) void {
         const exe = addNesExe(b, sdk, "zig-logo", "nesdoug/zig-logo/zig-logo.zig", "nesdoug/zig-logo/zig-mark.chr", false);
         exe.root_module.addImport("neslib", neslib_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "zig-logo.nes" });
+        nesDepend(install, sdk_nes_libs, false);
         step.dependOn(&install.step);
         b.getInstallStep().dependOn(&install.step);
         addNesLabels(b, elf2mlb, gen_labels, exe, "zig-logo");
@@ -88,6 +127,7 @@ pub fn build(b: *std.Build) void {
         const exe = addNesExe(b, sdk, "fade", "nesdoug/fade/fade.zig", "nesdoug/fade/Alpha.chr", false);
         exe.root_module.addImport("neslib", neslib_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "fade.nes" });
+        nesDepend(install, sdk_nes_libs, false);
         step.dependOn(&install.step);
         b.getInstallStep().dependOn(&install.step);
         addNesLabels(b, elf2mlb, gen_labels, exe, "fade");
@@ -99,6 +139,7 @@ pub fn build(b: *std.Build) void {
         const exe = addNesExe(b, sdk, "sprites", "nesdoug/sprites/sprites.zig", "nesdoug/sprites/Alpha.chr", false);
         exe.root_module.addImport("neslib", neslib_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "sprites.nes" });
+        nesDepend(install, sdk_nes_libs, false);
         step.dependOn(&install.step);
         b.getInstallStep().dependOn(&install.step);
         addNesLabels(b, elf2mlb, gen_labels, exe, "sprites");
@@ -110,6 +151,7 @@ pub fn build(b: *std.Build) void {
         const exe = addNesExe(b, sdk, "pads", "nesdoug/pads/pads.zig", "nesdoug/pads/Alpha.chr", false);
         exe.root_module.addImport("neslib", neslib_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "pads.nes" });
+        nesDepend(install, sdk_nes_libs, false);
         step.dependOn(&install.step);
         b.getInstallStep().dependOn(&install.step);
         addNesLabels(b, elf2mlb, gen_labels, exe, "pads");
@@ -121,6 +163,7 @@ pub fn build(b: *std.Build) void {
         const exe = addNesExe(b, sdk, "color-cycle", "nesdoug/color-cycle/color-cycle.zig", "nesdoug/color-cycle/Alpha.chr", false);
         exe.root_module.addImport("neslib", neslib_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "color-cycle.nes" });
+        nesDepend(install, sdk_nes_libs, false);
         step.dependOn(&install.step);
         b.getInstallStep().dependOn(&install.step);
         addNesLabels(b, elf2mlb, gen_labels, exe, "color-cycle");
@@ -131,6 +174,7 @@ pub fn build(b: *std.Build) void {
         const step = b.step("c64-hello", "Build C64 hello example");
         const exe = addC64Exe(b, sdk, "c64-hello", "c64/hello/hello.zig", false);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "c64-hello.prg" });
+        if (sdk_c64_libs) |libs| { install.step.dependOn(&libs.crt.step); install.step.dependOn(&libs.crt0.step); install.step.dependOn(&libs.c.step); }
         step.dependOn(&install.step);
         b.getInstallStep().dependOn(&install.step);
     }
@@ -138,8 +182,9 @@ pub fn build(b: *std.Build) void {
     // ---- C64 fibonacci ----
     {
         const step = b.step("c64-fibonacci", "Build C64 fibonacci example");
-        const exe = addC64Exe(b, sdk, "fibonacci", "c64/fibonacci/fibonacci.zig", true);
+        const exe = addC64Exe(b, sdk, "fibonacci", "c64/fibonacci/fibonacci.zig", false);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "fibonacci.prg" });
+        if (sdk_c64_libs) |libs| { install.step.dependOn(&libs.crt.step); install.step.dependOn(&libs.crt0.step); install.step.dependOn(&libs.c.step); }
         step.dependOn(&install.step);
         b.getInstallStep().dependOn(&install.step);
     }
@@ -149,35 +194,35 @@ pub fn build(b: *std.Build) void {
         const step = b.step("c64-plasma", "Build C64 plasma effect example");
         const exe = addC64Exe(b, sdk, "plasma", "c64/plasma/plasma.zig", false);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "plasma.prg" });
+        if (sdk_c64_libs) |libs| { install.step.dependOn(&libs.crt.step); install.step.dependOn(&libs.crt0.step); install.step.dependOn(&libs.c.step); }
         step.dependOn(&install.step);
         b.getInstallStep().dependOn(&install.step);
     }
 
-    // ---- MEGA65 hello ----
-    if (mega65_libc) |m65_libc| {
-        const step = b.step("mega65-hello", "Build MEGA65 hello example");
-        const exe = addMega65Exe(b, sdk, m65_libc, "mega65-hello", "mega65/hello/hello.zig");
-        exe.root_module.addImport("mega65", mega65_mod);
-        const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "mega65-hello.prg" });
-        step.dependOn(&install.step);
-        b.getInstallStep().dependOn(&install.step);
+    // ---- MEGA65 (mega65-libc fetched automatically via build.zig.zon) ----
+    if (b.lazyDependency("mega65-libc", .{})) |m65_dep| {
+        {
+            const step = b.step("mega65-hello", "Build MEGA65 hello example");
+            const exe = addMega65Exe(b, sdk, m65_dep, "mega65-hello", "mega65/hello/hello.zig");
+            exe.root_module.addImport("mega65", mega65_mod);
+            const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "mega65-hello.prg" });
+            if (sdk_mega65_libs) |libs| { install.step.dependOn(&libs.crt.step); install.step.dependOn(&libs.crt0.step); install.step.dependOn(&libs.c.step); }
+            step.dependOn(&install.step);
+            b.getInstallStep().dependOn(&install.step);
+        }
+        {
+            const step = b.step("mega65-plasma", "Build MEGA65 plasma example");
+            const exe = addMega65Exe(b, sdk, m65_dep, "plasma", "mega65/plasma/plasma.zig");
+            exe.root_module.addImport("mega65", mega65_mod);
+            const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "plasma.prg" });
+            if (sdk_mega65_libs) |libs| { install.step.dependOn(&libs.crt.step); install.step.dependOn(&libs.crt0.step); install.step.dependOn(&libs.c.step); }
+            step.dependOn(&install.step);
+            b.getInstallStep().dependOn(&install.step);
+        }
     } else {
-        const step = b.step("mega65-hello", "Build MEGA65 hello example (requires -Dmega65-libc=<path>)");
-        _ = step;
-        std.log.info("mega65-hello: skipping (pass -Dmega65-libc=<path> to enable)", .{});
-    }
-
-    // ---- MEGA65 plasma ----
-    if (mega65_libc) |m65_libc| {
-        const step = b.step("mega65-plasma", "Build MEGA65 plasma example");
-        const exe = addMega65Exe(b, sdk, m65_libc, "plasma", "mega65/plasma/plasma.zig");
-        exe.root_module.addImport("mega65", mega65_mod);
-        const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "plasma.prg" });
-        step.dependOn(&install.step);
-        b.getInstallStep().dependOn(&install.step);
-    } else {
-        const step = b.step("mega65-plasma", "Build MEGA65 plasma example (requires -Dmega65-libc=<path>)");
-        _ = step;
+        inline for (.{ "mega65-hello", "mega65-plasma" }) |name| {
+            _ = b.step(name, "Build MEGA65 example (fetching mega65-libc, re-run to build)");
+        }
     }
 
     // ---- Neo6502 graphics ----
@@ -192,6 +237,17 @@ pub fn build(b: *std.Build) void {
         const exe = addNeo6502Exe(b, sdk);
         exe.root_module.addImport("neo6502", neo6502_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "graphics.neo" });
+        if (sdk_neo6502_libs) |libs| { install.step.dependOn(&libs.crt.step); install.step.dependOn(&libs.crt0.step); install.step.dependOn(&libs.c.step); }
+        step.dependOn(&install.step);
+        b.getInstallStep().dependOn(&install.step);
+    }
+
+    // ---- sim hello ----
+    {
+        const step = b.step("sim-hello", "Build mos-sim hello example (run with mos-sim zig-out/bin/sim-hello)");
+        const exe = addSimExe(b, sdk, "sim-hello", "sim/hello/hello.zig");
+        const install = b.addInstallArtifact(exe, .{});
+        if (sdk_sim_libs) |libs| { install.step.dependOn(&libs.crt.step); install.step.dependOn(&libs.crt0.step); install.step.dependOn(&libs.c.step); }
         step.dependOn(&install.step);
         b.getInstallStep().dependOn(&install.step);
     }
@@ -288,8 +344,7 @@ fn addNesExe(
 ) *std.Build.Step.Compile {
     const target = b.resolveTargetQuery(.{
         .cpu_arch = .mos,
-        .os_tag = .freestanding,
-        .cpu_model = .{ .explicit = &std.Target.mos.cpu.mosw65c02 },
+        .os_tag = .nes,
     });
 
     const wf = b.addWriteFiles();
@@ -337,7 +392,7 @@ fn addC64Exe(
 ) *std.Build.Step.Compile {
     const target = b.resolveTargetQuery(.{
         .cpu_arch = .mos,
-        .os_tag = .freestanding,
+        .os_tag = .c64,
     });
 
     const wf = b.addWriteFiles();
@@ -381,7 +436,7 @@ fn addC64Exe(
 fn addMega65Exe(
     b: *std.Build,
     sdk: []const u8,
-    mega65_libc: []const u8,
+    m65_dep: *std.Build.Dependency,
     name: []const u8,
     root_src: []const u8,
 ) *std.Build.Step.Compile {
@@ -398,9 +453,7 @@ fn addMega65Exe(
         "msvc_lib_dir=\n" ++
         "kernel32_lib_dir=\n" ++
         "gcc_dir=\n", .{ sdk, sdk, sdk }));
-
-    const wf2 = b.addWriteFiles();
-    const wrapper_ld = wf2.add("mega65-wrapper.ld", b.fmt(
+    const wrapper_ld = wf.add("mega65-wrapper.ld", b.fmt(
         \\SEARCH_DIR("{s}/mos-platform/mega65/lib");
         \\SEARCH_DIR("{s}/mos-platform/c64/lib");
         \\SEARCH_DIR("{s}/mos-platform/commodore/lib");
@@ -417,9 +470,9 @@ fn addMega65Exe(
         }),
     });
     exe.bundle_compiler_rt = false;
-    exe.root_module.addAssemblyFile(.{ .cwd_relative = b.fmt("{s}/src/llvm/memory_asm.s", .{mega65_libc}) });
-    exe.root_module.addIncludePath(.{ .cwd_relative = b.fmt("{s}/include", .{mega65_libc}) });
-    exe.root_module.addIncludePath(.{ .cwd_relative = b.fmt("{s}/include/mega65", .{mega65_libc}) });
+    exe.root_module.addAssemblyFile(b.path("mega65/memory_asm.s"));
+    exe.root_module.addIncludePath(m65_dep.path("include"));
+    exe.root_module.addIncludePath(m65_dep.path("include/mega65"));
     exe.root_module.addLibraryPath(.{ .cwd_relative = b.fmt("{s}/mos-platform/mega65/lib", .{sdk}) });
     exe.root_module.addLibraryPath(.{ .cwd_relative = b.fmt("{s}/mos-platform/c64/lib", .{sdk}) });
     exe.root_module.addLibraryPath(.{ .cwd_relative = b.fmt("{s}/mos-platform/commodore/lib", .{sdk}) });
@@ -476,6 +529,52 @@ fn addNeo6502Exe(
     exe.setLinkerScript(wrapper_ld);
 
     return exe;
+}
+
+fn addSimExe(
+    b: *std.Build,
+    sdk: []const u8,
+    name: []const u8,
+    root_src: []const u8,
+) *std.Build.Step.Compile {
+    const target = b.resolveTargetQuery(.{
+        .cpu_arch = .mos,
+        .os_tag = .freestanding,
+        .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos6502 },
+    });
+
+    const wf = b.addWriteFiles();
+    const wrapper_ld = wf.add("sim-wrapper.ld", b.fmt(
+        \\SEARCH_DIR("{s}/mos-platform/sim/lib");
+        \\SEARCH_DIR("{s}/mos-platform/common/lib");
+        \\INCLUDE "{s}/mos-platform/sim/lib/link.ld"
+    , .{ sdk, sdk, sdk }));
+
+    const exe = b.addExecutable(.{
+        .name = name,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path(root_src),
+            .target = target,
+            .optimize = .ReleaseFast,
+        }),
+    });
+    exe.bundle_compiler_rt = false;
+    exe.root_module.addAssemblyFile(b.path("sim/call_main.s"));
+    exe.root_module.addLibraryPath(.{ .cwd_relative = b.fmt("{s}/mos-platform/sim/lib", .{sdk}) });
+    exe.root_module.addLibraryPath(.{ .cwd_relative = b.fmt("{s}/mos-platform/common/lib", .{sdk}) });
+    exe.root_module.linkSystemLibrary("crt0", .{ .use_pkg_config = .no });
+    exe.setLinkerScript(wrapper_ld);
+
+    return exe;
+}
+
+fn nesDepend(install: *std.Build.Step.InstallArtifact, libs: ?sdk_mod.Libs, with_nesdoug: bool) void {
+    const l = libs orelse return;
+    install.step.dependOn(&l.crt.step);
+    install.step.dependOn(&l.crt0.step);
+    install.step.dependOn(&l.c.step);
+    if (l.neslib)  |n| install.step.dependOn(&n.step);
+    if (with_nesdoug) if (l.nesdoug) |n| install.step.dependOn(&n.step);
 }
 
 fn addApple2Exe(

@@ -36,11 +36,12 @@ zig build c64-plasma -Dsdk=/path/to/llvm-mos-sdk
 zig build neo6502-graphics -Dsdk=/path/to/llvm-mos-sdk
 ```
 
-Optional platforms (require extra paths):
+Optional platforms:
 
 ```sh
-# MEGA65 — needs mega65-libc checkout
-zig build mega65-hello -Dsdk=... -Dmega65-libc=/path/to/mega65-libc
+# MEGA65 — mega65-libc fetched automatically via build.zig.zon
+zig build mega65-hello  -Dsdk=/path/to/llvm-mos-sdk
+zig build mega65-plasma -Dsdk=/path/to/llvm-mos-sdk
 
 # Apple II — needs apple-ii-port-work checkout
 zig build apple2-hello -Dsdk=... -Dapple2-sdk=/path/to/apple-ii-port-work

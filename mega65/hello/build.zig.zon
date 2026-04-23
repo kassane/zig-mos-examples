@@ -1,7 +1,0 @@
-.{
-    .name = .mega65_hello,
-    .version = "0.0.0",
-    .minimum_zig_version = "0.16.0",
-    .paths = .{"."},
-    .fingerprint = 0x0192a3b4c5d6e7f8,
-}

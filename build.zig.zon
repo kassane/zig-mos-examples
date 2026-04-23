@@ -1,6 +1,17 @@
 .{
     .name = .zig_mos_examples,
     .version = "0.0.0",
+    .dependencies = .{
+        .@"mega65-libc" = .{
+            .url = "git+https://github.com/mega65/mega65-libc#49f2f115d3d45da9475f00a34250587df472fe3a",
+            .hash = "N-V-__8AAEi4BQCsQLqubPd2GuG1KltNMZ_pi0pkpZiczpfs",
+            .lazy = true,
+        },
+        .@"llvm-mos-sdk" = .{
+            .url = "git+https://github.com/llvm-mos/llvm-mos-sdk#95bf367e953f6da89371e18c72791f8a8738fdac",
+            .hash = "N-V-__8AACVBLAD3oo37t4dW7jIRfh9tPEARwcQC3UM5BJ8E",
+        },
+    },
     .minimum_zig_version = "0.16.0",
     .paths = .{"."},
     .fingerprint = 0xef7e1a49b21e396f,

@@ -1,55 +1,28 @@
+//! NES hello-world: demonstrates the nesdoug vram_buffer for deferred, mixed-mode writes.
 const neslib = @import("neslib");
 const nesdoug = @import("nesdoug");
 
+const bg_palette: [16]u8 = .{ 0x0f, 0x00, 0x10, 0x30 } ++ .{0x00} ** 12;
+const message: [12]u8 = .{ 'H', 'E', 'L', 'L', 'O', ' ', 'W', 'O', 'R', 'L', 'D', '!' };
+
 pub export fn main() callconv(.c) void {
-    const palette: [15]u8 = .{
-        0x0f,
-        0x00,
-        0x10,
-        0x30,
-    } ++ [1]u8{0} ** 11;
+    neslib.ppu_on_all();
+    neslib.pal_bg(&bg_palette);
+    neslib.ppu_wait_nmi();
 
-    // example of sequential vram data
-    const text = &[12]u8{
-        'H', 'E', 'L', 'L', 'O', ' ',
-        'W', 'O', 'R', 'L', 'D', '!',
-    };
+    nesdoug.set_vram_buffer();
 
-    // example of single byte write
-    const letter: u8 = 'A';
+    nesdoug.one_vram_buffer('A', neslib.NTADR_A(2, 3));
+    nesdoug.one_vram_buffer('B', neslib.NTADR_A(5, 6));
 
-    neslib.ppu_on_all(); // turn on screen
+    const addr = nesdoug.get_ppu_addr(0, 0x38, 0xc0);
+    nesdoug.one_vram_buffer('C', addr);
 
-    neslib.pal_bg(&palette); // load the palette
+    nesdoug.multi_vram_buffer_horz(&message, message.len, neslib.NTADR_A(10, 7));
+    nesdoug.multi_vram_buffer_horz(&message, message.len, neslib.NTADR_A(12, 12));
+    nesdoug.multi_vram_buffer_horz(&message, message.len, neslib.NTADR_A(14, 17));
+    nesdoug.multi_vram_buffer_vert(&message, message.len, neslib.NTADR_A(10, 7));
 
-    neslib.ppu_wait_nmi(); // wait
-
-    // now fill the vram_buffer
-
-    nesdoug.set_vram_buffer(); // points ppu update to vram_buffer, do this at least once
-
-    nesdoug.one_vram_buffer(letter, neslib.NTADR_A(2, 3)); // pushes 1 byte worth of data to the vram_buffer
-    nesdoug.one_vram_buffer(0x42, neslib.NTADR_A(5, 6)); // another 1 byte write, letter B
-
-    // optionally, you could use this function to get the ppu address at run time
-    const address = nesdoug.get_ppu_addr(0, 0x38, 0xc0); // (char nt, char x, char y);
-    nesdoug.one_vram_buffer('C', address); // another 1 byte write
-
-    nesdoug.multi_vram_buffer_horz(text, text.len, neslib.NTADR_A(10, 7)); // pushes 12 bytes, horz
-    nesdoug.multi_vram_buffer_horz(text, text.len, neslib.NTADR_A(12, 12)); // lower
-    nesdoug.multi_vram_buffer_horz(text, text.len, neslib.NTADR_A(14, 17)); // lower still
-
-    nesdoug.multi_vram_buffer_vert(text, text.len, neslib.NTADR_A(10, 7)); // vertical
-
-    // we've done 51 bytes of transfer to the ppu in 1 v-blank
-
-    // do not try to push much more than 30 non-sequential or 70 sequential bytes
-    // at once
-
-    neslib.ppu_wait_nmi(); // wait
-
-    while (true) {
-        // infinite loop
-        // game code can go here later.
-    }
+    neslib.ppu_wait_nmi();
+    while (true) {}
 }

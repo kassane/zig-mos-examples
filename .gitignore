@@ -1,6 +1,7 @@
 build/
 zig-out/
 .zig-cache/
+zig-pkg/
 apple-*/
 
 *.obj*

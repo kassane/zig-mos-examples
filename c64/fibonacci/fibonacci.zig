@@ -1,20 +1,18 @@
+//! C64 Fibonacci — computes and prints fib(0..9) using comptime recursion.
 const std = @import("std");
 
-fn fibonacci(comptime T: type, index: T) T {
-    if (index < 2) return index;
-    return fibonacci(T, index - 1) + fibonacci(T, index - 2);
+/// Recursive Fibonacci evaluated at comptime when called with a comptime argument.
+fn fibonacci(comptime T: type, n: T) T {
+    return if (n < 2) n else fibonacci(T, n - 1) + fibonacci(T, n - 2);
 }
 
 export fn main() void {
-    const value: f32 = 15.30;
-    _ = value; // autofix
-    //_ = std.c.printf("Value of fibonacci(%.2f) is %.2f\n", value, fibonacci(f32, value));
+    comptime var i: u8 = 0;
+    inline while (i < 10) : (i += 1) {
+        _ = std.c.printf("fib(%d) = %d\n", @as(c_int, i), @as(c_int, fibonacci(u8, i)));
+    }
 }
 
-// Fix llvm.debugtrap (no @breakpoint) - override panic handler
-pub fn panic(msg: []const u8, _: ?*std.builtin.StackTrace, _: ?usize) noreturn {
-    _ = msg; // autofix
-    // _ = std.c.printf("PANIC: caused by %s\n", msg.ptr);
-
+pub fn panic(_: []const u8, _: ?*std.builtin.StackTrace, _: ?usize) noreturn {
     while (true) {}
 }
