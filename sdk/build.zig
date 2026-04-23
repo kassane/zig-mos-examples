@@ -43,16 +43,25 @@ pub fn buildPlatform(b: *std.Build, sdk_root: []const u8, pd: Platform) Libs {
     libcrt.root_module.addIncludePath(.{ .cwd_relative = crt_dir });
     libcrt.root_module.addIncludePath(.{ .cwd_relative = com_inc });
     libcrt.root_module.addIncludePath(.{ .cwd_relative = com_asm });
+    // sim: Zig's ZCU emits its own math builtins (__udivhi3, __mulhi3, etc.)
+    // so omit the .cc files to avoid duplicate symbol errors at link time.
+    const crt_files: []const []const u8 = if (std.mem.eql(u8, pd.name, "sim"))
+        &.{ "const.S", "call-indir.S" }
+    else
+        &.{ "const.S", "call-indir.S", "divmod.cc", "divmod-large.cc", "mul.cc", "shift.cc", "rotate.cc" };
     libcrt.root_module.addCSourceFiles(.{
         .root  = .{ .cwd_relative = crt_dir },
-        .files = &.{ "const.S", "call-indir.S", "divmod.cc", "divmod-large.cc", "mul.cc", "shift.cc", "rotate.cc" },
+        .files = crt_files,
         .flags = &.{},
     });
 
     if (std.mem.eql(u8, pd.name, "nes"))
-        return buildNes(b, target, opt, libcrt, plat_dir, crt0_dir, com_inc, com_asm);
-    if (std.mem.startsWith(u8, pd.name, "nes-"))
-        return buildNes(b, target, opt, libcrt, b.fmt("{s}/mos-platform/nes", .{sdk_root}), crt0_dir, com_inc, com_asm);
+        return buildNes(b, target, opt, libcrt, plat_dir, null, false, crt0_dir, com_inc, com_asm);
+    if (std.mem.startsWith(u8, pd.name, "nes-")) {
+        const has_mapper_s = std.mem.eql(u8, pd.name, "nes-unrom") or std.mem.eql(u8, pd.name, "nes-mmc1");
+        return buildNes(b, target, opt, libcrt, b.fmt("{s}/mos-platform/nes", .{sdk_root}),
+            b.fmt("{s}/mos-platform/{s}", .{sdk_root, pd.name}), has_mapper_s, crt0_dir, com_inc, com_asm);
+    }
     if (std.mem.eql(u8, pd.name, "neo6502"))
         return buildNeo6502(b, target, opt, libcrt, plat_dir, crt0_dir, com_inc, com_asm);
     if (std.mem.eql(u8, pd.name, "atari2600-4k")) {
@@ -145,6 +154,8 @@ fn buildNes(
     opt: std.builtin.OptimizeMode,
     libcrt: *std.Build.Step.Compile,
     nes_dir: []const u8,
+    variant_dir: ?[]const u8,
+    has_mapper_s: bool,
     crt0_dir: []const u8,
     com_inc: []const u8,
     com_asm: []const u8,
@@ -260,6 +271,25 @@ fn buildNes(
         .files = &.{ "metatile.c", "nesdoug.c", "vram_buffer.c" },
         .flags = &.{},
     });
+
+    // Banked-mapper platforms (nes-cnrom, nes-unrom, nes-mmc1) have a mapper.c and
+    // optionally a mapper.s in their platform directory providing bank-switch functions.
+    if (variant_dir) |vd| {
+        libnes_c.root_module.addIncludePath(.{ .cwd_relative = vd });
+        libnes_c.root_module.addIncludePath(.{ .cwd_relative = b.fmt("{s}/rompoke", .{nes_dir}) });
+        libnes_c.root_module.addCSourceFiles(.{
+            .root  = .{ .cwd_relative = vd },
+            .files = &.{"mapper.c"},
+            .flags = &.{},
+        });
+        if (has_mapper_s) {
+            libneslib.root_module.addCSourceFiles(.{
+                .root  = .{ .cwd_relative = vd },
+                .files = &.{"mapper.s"},
+                .flags = &.{},
+            });
+        }
+    }
 
     return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc, .neslib = libneslib, .nesdoug = libnesdoug, .nes_c = libnes_c };
 }

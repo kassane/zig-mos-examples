@@ -720,6 +720,9 @@ fn addNesExe(
         }),
     });
     exe.bundle_compiler_rt = false;
+    // crt0.S provides .call_main (jsr main) — must be a direct object, not an
+    // archive member, because it defines no symbols so the linker won't extract it.
+    exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/common/crt0/crt0.S"));
     exe.root_module.addAssemblyFile(chr_asm);
     // iNES header symbols (nes-nrom mapper, chr/prg rom size defaults).
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes-nrom/ines.s"));
@@ -1227,6 +1230,7 @@ fn addNesCnromExe(
         }),
     });
     exe.bundle_compiler_rt = false;
+    exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/common/crt0/crt0.S"));
     exe.root_module.addAssemblyFile(chr_asm);
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes-cnrom/ines.s"));
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes/ines.s"));
@@ -1284,6 +1288,7 @@ fn addNesUnromExe(
         }),
     });
     exe.bundle_compiler_rt = false;
+    exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/common/crt0/crt0.S"));
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes-unrom/ines.s"));
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes/ines.s"));
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes/rompoke/rompoke.s"));
@@ -1338,6 +1343,7 @@ fn addNesMmc1Exe(
         }),
     });
     exe.bundle_compiler_rt = false;
+    exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/common/crt0/crt0.S"));
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes-mmc1/ines.s"));
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes-mmc1/init-prg-ram-0.s"));
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes/ines.s"));
