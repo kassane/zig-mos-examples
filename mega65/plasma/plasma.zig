@@ -1,3 +1,5 @@
+// Copyright (c) 2024 Matheus C. França
+// SPDX-License-Identifier: Apache-2.0
 //! MEGA65 plasma: full-screen interference pattern using a VIC-IV custom charset.
 //! Runs at 3.5 MHz (C65 FAST mode); charset generated from an XOR-shift PRNG + sine table.
 const std = @import("std");

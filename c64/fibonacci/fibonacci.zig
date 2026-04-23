@@ -1,3 +1,5 @@
+// Copyright (c) 2024 Matheus C. França
+// SPDX-License-Identifier: Apache-2.0
 //! C64 Fibonacci — computes and prints fib(0..9) using comptime recursion.
 const std = @import("std");
 

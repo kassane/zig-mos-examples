@@ -1,3 +1,5 @@
+// Copyright (c) 2024 Matheus C. França
+// SPDX-License-Identifier: Apache-2.0
 //! C64 plasma: character-mode interference pattern using SID noise as PRNG.
 //! Custom 256-char charset at $2000; VIC-II bank 0 ($D018 = 0x18).
 const COLS: usize = 40;

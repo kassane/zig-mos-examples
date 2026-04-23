@@ -1,3 +1,5 @@
+// Copyright (c) 2024 Matheus C. França
+// SPDX-License-Identifier: Apache-2.0
 //! MEGA65 hello: prints to stdio and sets the border/screen colour via VIC-IV registers.
 const std = @import("std");
 const mega65 = @import("mega65");

@@ -44,25 +44,52 @@ jobs:
         run: zig build sdk-build --summary all
 
       - name: Build NES examples and generate Mesen label files
-        run: zig build nes-hello1 nes-hello2 nes-hello3 nes-zig-logo nes-fade nes-sprites nes-pads nes-color-cycle gen-labels --summary all
+        run: zig build nes-hello1 nes-hello2 nes-hello3 nes-zig-logo nes-fade nes-sprites nes-pads nes-color-cycle nes-cnrom-hello nes-unrom-hello nes-mmc1-hello gen-labels --summary all
 
       - name: Build C64 examples
         run: zig build c64-hello c64-fibonacci c64-plasma --summary all
 
+      - name: Build Commander X16 examples
+        run: zig build cx16-hello cx16-k-console-test --summary all
+
+      - name: Build Atari Lynx example
+        run: zig build lynx-hello --summary all
+
+      - name: Build Atari 2600 examples
+        run: zig build atari2600-colorbar atari2600-3e-colorbar --summary all
+
+      - name: Build Atari 8-bit examples
+        run: zig build atari8dos-hello atari8-cart-hello --summary all
+
+      - name: Build PC Engine examples
+        run: zig build pce-color-cycle pce-color-cycle-banked --summary all
 
       - name: Build MEGA65 examples
-        run: zig build mega65-hello mega65-plasma --summary all
+        run: zig build mega65-hello mega65-plasma mega65-viciv --summary all
 
       - name: Build Neo6502 example
         run: zig build neo6502-graphics --summary all
 
-      - name: Build sim example
-        run: zig build sim-hello --summary all
+      - name: Build mos-sim from source and run sim-hello benchmark
+        run: zig build run-sim-hello --summary all
+
+      - name: Check all outputs with bininfo
+        run: zig build check-outputs --summary all
 
       - name: Verify outputs
         run: |
           ls -la zig-out/bin/
-          for f in hello1.nes hello2.nes hello3.nes zig-logo.nes fade.nes sprites.nes pads.nes color-cycle.nes \
-                   c64-hello.prg fibonacci.prg plasma.prg mega65-hello.prg graphics.neo sim-hello; do
+          for f in \
+            hello1.nes hello2.nes hello3.nes zig-logo.nes fade.nes sprites.nes pads.nes color-cycle.nes \
+            cnrom-hello.nes unrom-hello.nes mmc1-hello.nes \
+            c64-hello.prg fibonacci.prg plasma.prg \
+            cx16-hello.prg cx16-k-console-test.prg \
+            lynx-hello.bll \
+            colorbar.a26 colorbar-3e.a26 \
+            atari8dos-hello.xex atari8-cart-hello.rom \
+            pce-color-cycle.pce pce-color-cycle-banked.pce \
+            mega65-hello.prg viciv.prg \
+            graphics.neo \
+            sim-hello mos-sim; do
             test -f "zig-out/bin/$f" && echo "OK: $f" || echo "MISSING: $f"
           done

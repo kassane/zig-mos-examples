@@ -1,3 +1,5 @@
+// Copyright (c) 2024 Matheus C. França
+// SPDX-License-Identifier: Apache-2.0
 //! Apple IIe Sierpiński triangle via midpoint-iteration IFS (hires output placeholder).
 const std = @import("std");
 
