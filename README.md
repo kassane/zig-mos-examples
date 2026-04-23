@@ -30,6 +30,7 @@ zig build nes-fade
 zig build nes-sprites
 zig build nes-pads
 zig build nes-color-cycle
+zig build nes-bat-ball
 zig build nes-cnrom-hello
 zig build nes-unrom-hello
 zig build nes-mmc1-hello
@@ -83,15 +84,16 @@ Output files land in `zig-out/bin/`.
 
 | Step | Platform | CPU | Output |
 |------|----------|-----|--------|
-| `nes-hello1`, `nes-hello2`, `nes-hello3` | NES NROM | mosw65c02 | `.nes` |
-| `nes-zig-logo` | NES NROM | mosw65c02 | `.nes` |
-| `nes-fade` | NES NROM | mosw65c02 | `.nes` |
-| `nes-sprites` | NES NROM | mosw65c02 | `.nes` |
-| `nes-pads` | NES NROM | mosw65c02 | `.nes` |
-| `nes-color-cycle` | NES NROM | mosw65c02 | `.nes` |
-| `nes-cnrom-hello` | NES CNROM | mosw65c02 | `.nes` |
-| `nes-unrom-hello` | NES UNROM | mosw65c02 | `.nes` |
-| `nes-mmc1-hello` | NES MMC1 | mosw65c02 | `.nes` |
+| `nes-hello1`, `nes-hello2`, `nes-hello3` | NES NROM | mos6502 | `.nes` |
+| `nes-zig-logo` | NES NROM | mos6502 | `.nes` |
+| `nes-fade` | NES NROM | mos6502 | `.nes` |
+| `nes-sprites` | NES NROM | mos6502 | `.nes` |
+| `nes-pads` | NES NROM | mos6502 | `.nes` |
+| `nes-color-cycle` | NES NROM | mos6502 | `.nes` |
+| `nes-bat-ball` | NES NROM | mos6502 | `.nes` |
+| `nes-cnrom-hello` | NES CNROM | mos6502 | `.nes` |
+| `nes-unrom-hello` | NES UNROM | mos6502 | `.nes` |
+| `nes-mmc1-hello` | NES MMC1 | mos6502 | `.nes` |
 | `c64-hello`, `c64-fibonacci` | Commodore 64 | mos6502 | `.prg` |
 | `c64-plasma` | Commodore 64 | mos6502 | `.prg` |
 | `cx16-hello` | Commander X16 | mosw65c02 | `.prg` |
@@ -135,9 +137,14 @@ sieve<127>: 31 primes  (6552 cycles)
 
 ## Platform notes
 
+- **NES CNROM hello** — uses translated `mapper.h` via `b.addTranslateC`; calls `set_chr_bank(0)` to initialise the CNROM CHR bank. ROM: 32 KB PRG + 8 KB CHR ROM.
+- **NES UNROM hello** — uses translated `mapper.h`; calls `set_prg_bank(0)` to initialise the UNROM PRG bank. ROM: 256 KB PRG + 8 KB CHR RAM.
+- **NES MMC1 hello** — uses translated `mapper.h`; calls `set_prg_bank(0)` and `set_mirroring(MIRROR_VERTICAL)` to initialise MMC1 registers. ROM: 256 KB PRG + 8 KB CHR RAM.
 - **C64 hello** — uses translated `c64.h` (VIC-II typed struct) via `b.addTranslateC`; cycles VIC-II border colour register.
 - **CX16 hello** — uses CBM KERNAL `cbm_k_chrout` to print "HELLO X16!", then cycles the border colour register.
 - **Lynx hello** — uses translated `_mikey.h` (MIKEY typed struct) via `b.addTranslateC`; animates all 32 palette entries.
+- **Atari 8-bit DOS hello** — uses `std.c.printf` via CIO-backed libc (E: screen editor device).
+- **Atari 8-bit cart hello** — uses translated `_gtia.h` (GTIA write struct) via `b.addTranslateC`; cycles COLBK background colour, synced to ANTIC VCOUNT.
 - **sim-hello** — uses translated `sim-io.h` (typed MMIO struct) via `b.addTranslateC`; benchmarks fib(10), fib(20), and sieve of Eratosthenes for primes < 128.
 
 ## References

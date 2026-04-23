@@ -20,6 +20,8 @@ pub const Libs = struct {
     c:       *std.Build.Step.Compile,
     neslib:  ?*std.Build.Step.Compile = null,
     nesdoug: ?*std.Build.Step.Compile = null,
+    // NES only: all C files compiled as strict mos6502 to avoid W65C02 codegen.
+    nes_c:   ?*std.Build.Step.Compile = null,
 };
 
 /// Build platform libraries for `pd` from the SDK source tree at `sdk_root`.
@@ -150,34 +152,30 @@ fn buildNes(
     const neslib_dir  = b.fmt("{s}/neslib",  .{nes_dir});
     const nesdoug_dir = b.fmt("{s}/nesdoug", .{nes_dir});
 
-    // libcrt0 — NES startup: copy-data + zero-bss + exit-loop + NES crt0.c.
+    // NES hardware is Ricoh 2A03 (NMOS 6502 variant).
+    // The NES os_tag forces mosw65c02 for the module target; passing -mcpu=mos6502
+    // in flags does NOT override it because Zig re-applies the resolved target CPU
+    // after user flags.  The only reliable fix is to compile all C files under a
+    // target that has no W65C02 feature set at all: mos6502 freestanding.
+    // Assembly (.S/.s) files keep the NES target so platform macros still assemble.
+    const c_target = b.resolveTargetQuery(.{
+        .cpu_arch   = .mos,
+        .os_tag     = .freestanding,
+        .cpu_model  = .{ .explicit = &std.Target.mos.cpu.mos6502 },
+    });
+
+    // libcrt0 — .S startup files only (NES target).
     const libcrt0 = addLib(b, "crt0", target, opt);
     libcrt0.root_module.addIncludePath(.{ .cwd_relative = com_asm });
     libcrt0.root_module.addIncludePath(.{ .cwd_relative = com_inc });
-    libcrt0.root_module.addIncludePath(.{ .cwd_relative = nes_dir });
     libcrt0.root_module.addCSourceFiles(.{
         .root  = .{ .cwd_relative = crt0_dir },
         .files = &.{ "crt0.S", "init-stack.S" },
         .flags = &.{},
     });
-    libcrt0.root_module.addCSourceFiles(.{
-        .root  = .{ .cwd_relative = crt0_dir },
-        .files = &.{ "copy-data.c", "copy-zp-data.c", "zero-bss.c", "zero-zp-bss.c" },
-        .flags = &.{"-fno-lto"},
-    });
-    libcrt0.root_module.addCSourceFiles(.{
-        .root  = .{ .cwd_relative = b.fmt("{s}/exit", .{crt0_dir}) },
-        .files = &.{"exit-loop.c"},
-        .flags = &.{"-fno-lto"},
-    });
-    libcrt0.root_module.addCSourceFiles(.{
-        .root  = .{ .cwd_relative = nes_dir },
-        .files = &.{"crt0.c"},
-        .flags = &.{},
-    });
 
-    // libc (nes-c) — putchar + rompoke.
-    const libc = addLib(b, "c", target, opt);
+    // libc (nes-c) — putchar + rompoke, mos6502 freestanding target.
+    const libc = addLib(b, "c", c_target, opt);
     libc.root_module.addIncludePath(.{ .cwd_relative = nes_dir });
     libc.root_module.addIncludePath(.{ .cwd_relative = com_inc });
     libc.root_module.addIncludePath(.{ .cwd_relative = com_asm });
@@ -192,7 +190,7 @@ fn buildNes(
         .flags = &.{},
     });
 
-    // libneslib.
+    // libneslib — .s files only (NES target).
     const libneslib = addLib(b, "neslib", target, opt);
     libneslib.root_module.addIncludePath(.{ .cwd_relative = neslib_dir });
     libneslib.root_module.addIncludePath(.{ .cwd_relative = nes_dir });
@@ -200,19 +198,11 @@ fn buildNes(
     libneslib.root_module.addIncludePath(.{ .cwd_relative = com_inc });
     libneslib.root_module.addCSourceFiles(.{
         .root  = .{ .cwd_relative = neslib_dir },
-        .files = &.{
-            "neslib.c",    "neslib.s",
-            "ntsc.c",      "ntsc.s",
-            "oam_update.c","oam_update.s",
-            "pal_bright.c","pal_bright.s",
-            "pal_update.c","pal_update.s",
-            "rand.c",      "rand.s",
-            "vram_update.c","vram_update.s",
-        },
+        .files = &.{ "neslib.s", "ntsc.s", "oam_update.s", "pal_bright.s", "pal_update.s", "rand.s", "vram_update.s" },
         .flags = &.{},
     });
 
-    // libnesdoug.
+    // libnesdoug — .s files only (NES target).
     const libnesdoug = addLib(b, "nesdoug", target, opt);
     libnesdoug.root_module.addIncludePath(.{ .cwd_relative = nesdoug_dir });
     libnesdoug.root_module.addIncludePath(.{ .cwd_relative = neslib_dir });
@@ -221,17 +211,57 @@ fn buildNes(
     libnesdoug.root_module.addIncludePath(.{ .cwd_relative = com_inc });
     libnesdoug.root_module.addCSourceFiles(.{
         .root  = .{ .cwd_relative = nesdoug_dir },
-        .files = &.{
-            "metatile.c",       "metatile.s",
-            "nesdoug.c",        "nesdoug.s",
-            "padlib.s",
-            "vram_buffer.c",    "vram_buffer.s",
-            "vram_buffer_ops.s","zaplib.s",
-        },
+        .files = &.{ "metatile.s", "nesdoug.s", "padlib.s", "vram_buffer.s", "vram_buffer_ops.s", "zaplib.s" },
         .flags = &.{},
     });
 
-    return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc, .neslib = libneslib, .nesdoug = libnesdoug };
+    // libnes_c — ALL NES C files compiled as strict mos6502 freestanding.
+    // Consolidating here ensures no W65C02 instructions (PHX/PLX/STZ/BRA/etc.)
+    // are emitted regardless of how the optimizer decides to save registers.
+    const libnes_c = addLib(b, "nes-c", c_target, opt);
+    libnes_c.root_module.addIncludePath(.{ .cwd_relative = com_asm });
+    libnes_c.root_module.addIncludePath(.{ .cwd_relative = com_inc });
+    libnes_c.root_module.addIncludePath(.{ .cwd_relative = nes_dir });
+    libnes_c.root_module.addIncludePath(.{ .cwd_relative = neslib_dir });
+    libnes_c.root_module.addIncludePath(.{ .cwd_relative = nesdoug_dir });
+    // mem.c — provides __memset and memcpy required by zero-bss.c / copy-data.c
+    libnes_c.root_module.addCSourceFiles(.{
+        .root  = .{ .cwd_relative = b.fmt("{s}/../c", .{crt0_dir}) },
+        .files = &.{"mem.c"},
+        .flags = &.{},
+    });
+    // crt0 C files — -fno-lto: startup code must remain plain machine code.
+    libnes_c.root_module.addCSourceFiles(.{
+        .root  = .{ .cwd_relative = crt0_dir },
+        .files = &.{ "copy-data.c", "copy-zp-data.c", "zero-bss.c", "zero-zp-bss.c" },
+        .flags = &.{"-fno-lto"},
+    });
+    libnes_c.root_module.addCSourceFiles(.{
+        .root  = .{ .cwd_relative = b.fmt("{s}/exit", .{crt0_dir}) },
+        .files = &.{"exit-loop.c"},
+        .flags = &.{"-fno-lto"},
+    });
+    libnes_c.root_module.addCSourceFiles(.{
+        .root  = .{ .cwd_relative = nes_dir },
+        .files = &.{"crt0.c"},
+        .flags = &.{},
+    });
+    // neslib C files — LTO required (via lib.lto = .full in addLib): neslib.c reserves
+    // ZP variables via named sections; without LTO the compiler may reuse those ZP
+    // addresses for other locals, corrupting neslib's NMI-driven state machine.
+    libnes_c.root_module.addCSourceFiles(.{
+        .root  = .{ .cwd_relative = neslib_dir },
+        .files = &.{ "neslib.c", "ntsc.c", "oam_update.c", "pal_bright.c", "pal_update.c", "rand.c", "vram_update.c" },
+        .flags = &.{},
+    });
+    // nesdoug C files
+    libnes_c.root_module.addCSourceFiles(.{
+        .root  = .{ .cwd_relative = nesdoug_dir },
+        .files = &.{ "metatile.c", "nesdoug.c", "vram_buffer.c" },
+        .flags = &.{},
+    });
+
+    return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc, .neslib = libneslib, .nesdoug = libnesdoug, .nes_c = libnes_c };
 }
 
 fn buildNeo6502(
@@ -665,11 +695,16 @@ pub fn build(b: *std.Build) void {
         installLib(b, libs.c,    pd.name);
         if (libs.neslib)  |l| installLib(b, l, pd.name);
         if (libs.nesdoug) |l| installLib(b, l, pd.name);
+        if (libs.nes_c)   |l| installLib(b, l, pd.name);
     }
 }
 
 fn addLib(b: *std.Build, name: []const u8, target: std.Build.ResolvedTarget, opt: std.builtin.OptimizeMode) *std.Build.Step.Compile {
-    return b.addLibrary(.{ .name = name, .linkage = .static, .root_module = b.createModule(.{ .target = target, .optimize = opt }) });
+    const lib = b.addLibrary(.{ .name = name, .linkage = .static, .root_module = b.createModule(.{ .target = target, .optimize = opt }) });
+    // Match prebuilt llvm-mos-sdk behaviour: libraries were built with LTO enabled.
+    // Files that must remain machine-code (startup/init) override this via -fno-lto in their flags.
+    lib.lto = .full;
+    return lib;
 }
 
 fn installLib(b: *std.Build, lib: *std.Build.Step.Compile, platform: []const u8) void {
