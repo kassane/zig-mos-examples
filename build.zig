@@ -64,6 +64,7 @@ pub fn build(b: *std.Build) void {
         if (libs.neslib) |l| sdk_step.dependOn(&b.addInstallArtifact(l, .{ .dest_dir = .{ .override = .{ .custom = dest } } }).step);
         if (libs.nesdoug) |l| sdk_step.dependOn(&b.addInstallArtifact(l, .{ .dest_dir = .{ .override = .{ .custom = dest } } }).step);
         if (libs.nes_c) |l| sdk_step.dependOn(&b.addInstallArtifact(l, .{ .dest_dir = .{ .override = .{ .custom = dest } } }).step);
+        if (libs.nes_c_startup) |l| sdk_step.dependOn(&b.addInstallArtifact(l, .{ .dest_dir = .{ .override = .{ .custom = dest } } }).step);
         if (std.mem.eql(u8, pd.name, "sim")) sdk_libs.sim = libs;
         if (std.mem.eql(u8, pd.name, "mega65")) sdk_libs.mega65 = libs;
         if (std.mem.eql(u8, pd.name, "c64")) sdk_libs.c64 = libs;
@@ -741,6 +742,7 @@ fn addNesExe(
     if (libs.neslib) |neslib| exe.root_module.linkLibrary(neslib);
     if (with_nesdoug) if (libs.nesdoug) |nesdoug| exe.root_module.linkLibrary(nesdoug);
     if (libs.nes_c) |nc| exe.root_module.linkLibrary(nc);
+    if (libs.nes_c_startup) |ncs| exe.root_module.linkLibrary(ncs);
     exe.setLinkerScript(wrapper_ld);
 
     return exe;
@@ -1260,6 +1262,7 @@ fn addNesCnromExe(
     if (libs.neslib) |neslib| exe.root_module.linkLibrary(neslib);
     if (libs.nesdoug) |nesdoug| exe.root_module.linkLibrary(nesdoug);
     if (libs.nes_c) |nc| exe.root_module.linkLibrary(nc);
+    if (libs.nes_c_startup) |ncs| exe.root_module.linkLibrary(ncs);
     exe.setLinkerScript(wrapper_ld);
 
     return exe;
@@ -1323,6 +1326,7 @@ fn addNesUnromExe(
     if (libs.neslib) |neslib| exe.root_module.linkLibrary(neslib);
     if (libs.nesdoug) |nesdoug| exe.root_module.linkLibrary(nesdoug);
     if (libs.nes_c) |nc| exe.root_module.linkLibrary(nc);
+    if (libs.nes_c_startup) |ncs| exe.root_module.linkLibrary(ncs);
     exe.setLinkerScript(wrapper_ld);
     exe.step.dependOn(&install_reset.step);
 
@@ -1385,6 +1389,7 @@ fn addNesMmc1Exe(
     if (libs.neslib) |neslib| exe.root_module.linkLibrary(neslib);
     if (libs.nesdoug) |nesdoug| exe.root_module.linkLibrary(nesdoug);
     if (libs.nes_c) |nc| exe.root_module.linkLibrary(nc);
+    if (libs.nes_c_startup) |ncs| exe.root_module.linkLibrary(ncs);
     exe.setLinkerScript(wrapper_ld);
     exe.step.dependOn(&install_reset.step);
 
