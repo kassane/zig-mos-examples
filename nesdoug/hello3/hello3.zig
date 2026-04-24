@@ -1,3 +1,5 @@
+// Copyright (c) 2024 Matheus C. França
+// SPDX-License-Identifier: Apache-2.0
 //! NES hello-world: demonstrates the nesdoug vram_buffer for deferred, mixed-mode writes.
 const neslib = @import("neslib");
 const nesdoug = @import("nesdoug");

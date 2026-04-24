@@ -1,3 +1,5 @@
+// Copyright (c) 2024 Matheus C. França
+// SPDX-License-Identifier: Apache-2.0
 //! llvm-mos-sdk platform library builder.
 //!
 //! Standalone:  zig build [-Dplatform=sim|mega65|c64|nes|neo6502]
@@ -18,6 +20,8 @@ pub const Libs = struct {
     c:       *std.Build.Step.Compile,
     neslib:  ?*std.Build.Step.Compile = null,
     nesdoug: ?*std.Build.Step.Compile = null,
+    // NES only: all C files compiled as strict mos6502 to avoid W65C02 codegen.
+    nes_c:   ?*std.Build.Step.Compile = null,
 };
 
 /// Build platform libraries for `pd` from the SDK source tree at `sdk_root`.
@@ -39,16 +43,54 @@ pub fn buildPlatform(b: *std.Build, sdk_root: []const u8, pd: Platform) Libs {
     libcrt.root_module.addIncludePath(.{ .cwd_relative = crt_dir });
     libcrt.root_module.addIncludePath(.{ .cwd_relative = com_inc });
     libcrt.root_module.addIncludePath(.{ .cwd_relative = com_asm });
+    // sim: Zig's ZCU emits its own math builtins (__udivhi3, __mulhi3, etc.)
+    // so omit the .cc files to avoid duplicate symbol errors at link time.
+    const crt_files: []const []const u8 = if (std.mem.eql(u8, pd.name, "sim"))
+        &.{ "const.S", "call-indir.S" }
+    else
+        &.{ "const.S", "call-indir.S", "divmod.cc", "divmod-large.cc", "mul.cc", "shift.cc", "rotate.cc" };
     libcrt.root_module.addCSourceFiles(.{
         .root  = .{ .cwd_relative = crt_dir },
-        .files = &.{ "const.S", "call-indir.S", "divmod.cc", "divmod-large.cc", "mul.cc", "shift.cc", "rotate.cc" },
+        .files = crt_files,
         .flags = &.{},
     });
 
     if (std.mem.eql(u8, pd.name, "nes"))
-        return buildNes(b, target, opt, libcrt, plat_dir, crt0_dir, com_inc, com_asm);
+        return buildNes(b, target, opt, libcrt, plat_dir, null, false, crt0_dir, com_inc, com_asm);
+    if (std.mem.startsWith(u8, pd.name, "nes-")) {
+        const has_mapper_s = std.mem.eql(u8, pd.name, "nes-unrom") or std.mem.eql(u8, pd.name, "nes-mmc1");
+        return buildNes(b, target, opt, libcrt, b.fmt("{s}/mos-platform/nes", .{sdk_root}),
+            b.fmt("{s}/mos-platform/{s}", .{sdk_root, pd.name}), has_mapper_s, crt0_dir, com_inc, com_asm);
+    }
     if (std.mem.eql(u8, pd.name, "neo6502"))
         return buildNeo6502(b, target, opt, libcrt, plat_dir, crt0_dir, com_inc, com_asm);
+    if (std.mem.eql(u8, pd.name, "atari2600-4k")) {
+        const a26_dir = b.fmt("{s}/mos-platform/atari2600-common", .{sdk_root});
+        return buildAtari2600_4k(b, target, opt, libcrt, a26_dir, crt0_dir, com_inc, com_asm);
+    }
+    if (std.mem.eql(u8, pd.name, "atari2600-3e")) {
+        const a26_dir = b.fmt("{s}/mos-platform/atari2600-common", .{sdk_root});
+        return buildAtari2600_4k(b, target, opt, libcrt, a26_dir, crt0_dir, com_inc, com_asm);
+    }
+    if (std.mem.eql(u8, pd.name, "atari8-dos")) {
+        const a8_common_dir = b.fmt("{s}/mos-platform/atari8-common", .{sdk_root});
+        const a8_dos_dir    = b.fmt("{s}/mos-platform/atari8-dos",    .{sdk_root});
+        return buildAtari8Dos(b, target, opt, libcrt, a8_common_dir, a8_dos_dir, crt0_dir, com_inc, com_asm);
+    }
+    if (std.mem.eql(u8, pd.name, "atari8-cart-std")) {
+        const a8_common_dir = b.fmt("{s}/mos-platform/atari8-common", .{sdk_root});
+        return buildAtari8CartStd(b, target, opt, libcrt, a8_common_dir, plat_dir, crt0_dir, com_inc, com_asm);
+    }
+    if (std.mem.eql(u8, pd.name, "cx16"))
+        return buildCx16(b, target, opt, libcrt, plat_dir, crt0_dir, com_inc, com_asm, comm_dir);
+    if (std.mem.eql(u8, pd.name, "lynx-bll")) {
+        const lynx_dir = b.fmt("{s}/mos-platform/lynx", .{sdk_root});
+        return buildLynxBll(b, target, opt, libcrt, lynx_dir, crt0_dir, com_inc, com_asm);
+    }
+    if (std.mem.eql(u8, pd.name, "pce")) {
+        const pce_common_dir = b.fmt("{s}/mos-platform/pce-common", .{sdk_root});
+        return buildPce(b, target, opt, libcrt, plat_dir, pce_common_dir, crt0_dir, com_inc, com_asm);
+    }
 
     // libcrt0 — startup: stack init + data copy + exit handler.
     const libcrt0 = addLib(b, "crt0", target, opt);
@@ -112,6 +154,8 @@ fn buildNes(
     opt: std.builtin.OptimizeMode,
     libcrt: *std.Build.Step.Compile,
     nes_dir: []const u8,
+    variant_dir: ?[]const u8,
+    has_mapper_s: bool,
     crt0_dir: []const u8,
     com_inc: []const u8,
     com_asm: []const u8,
@@ -119,34 +163,30 @@ fn buildNes(
     const neslib_dir  = b.fmt("{s}/neslib",  .{nes_dir});
     const nesdoug_dir = b.fmt("{s}/nesdoug", .{nes_dir});
 
-    // libcrt0 — NES startup: copy-data + zero-bss + exit-loop + NES crt0.c.
+    // NES hardware is Ricoh 2A03 (NMOS 6502 variant).
+    // The NES os_tag forces mosw65c02 for the module target; passing -mcpu=mos6502
+    // in flags does NOT override it because Zig re-applies the resolved target CPU
+    // after user flags.  The only reliable fix is to compile all C files under a
+    // target that has no W65C02 feature set at all: mos6502 freestanding.
+    // Assembly (.S/.s) files keep the NES target so platform macros still assemble.
+    const c_target = b.resolveTargetQuery(.{
+        .cpu_arch   = .mos,
+        .os_tag     = .freestanding,
+        .cpu_model  = .{ .explicit = &std.Target.mos.cpu.mos6502 },
+    });
+
+    // libcrt0 — .S startup files only (NES target).
     const libcrt0 = addLib(b, "crt0", target, opt);
     libcrt0.root_module.addIncludePath(.{ .cwd_relative = com_asm });
     libcrt0.root_module.addIncludePath(.{ .cwd_relative = com_inc });
-    libcrt0.root_module.addIncludePath(.{ .cwd_relative = nes_dir });
     libcrt0.root_module.addCSourceFiles(.{
         .root  = .{ .cwd_relative = crt0_dir },
         .files = &.{ "crt0.S", "init-stack.S" },
         .flags = &.{},
     });
-    libcrt0.root_module.addCSourceFiles(.{
-        .root  = .{ .cwd_relative = crt0_dir },
-        .files = &.{ "copy-data.c", "copy-zp-data.c", "zero-bss.c", "zero-zp-bss.c" },
-        .flags = &.{"-fno-lto"},
-    });
-    libcrt0.root_module.addCSourceFiles(.{
-        .root  = .{ .cwd_relative = b.fmt("{s}/exit", .{crt0_dir}) },
-        .files = &.{"exit-loop.c"},
-        .flags = &.{"-fno-lto"},
-    });
-    libcrt0.root_module.addCSourceFiles(.{
-        .root  = .{ .cwd_relative = nes_dir },
-        .files = &.{"crt0.c"},
-        .flags = &.{},
-    });
 
-    // libc (nes-c) — putchar + rompoke.
-    const libc = addLib(b, "c", target, opt);
+    // libc (nes-c) — putchar + rompoke, mos6502 freestanding target.
+    const libc = addLib(b, "c", c_target, opt);
     libc.root_module.addIncludePath(.{ .cwd_relative = nes_dir });
     libc.root_module.addIncludePath(.{ .cwd_relative = com_inc });
     libc.root_module.addIncludePath(.{ .cwd_relative = com_asm });
@@ -161,7 +201,7 @@ fn buildNes(
         .flags = &.{},
     });
 
-    // libneslib.
+    // libneslib — .s files only (NES target).
     const libneslib = addLib(b, "neslib", target, opt);
     libneslib.root_module.addIncludePath(.{ .cwd_relative = neslib_dir });
     libneslib.root_module.addIncludePath(.{ .cwd_relative = nes_dir });
@@ -169,19 +209,11 @@ fn buildNes(
     libneslib.root_module.addIncludePath(.{ .cwd_relative = com_inc });
     libneslib.root_module.addCSourceFiles(.{
         .root  = .{ .cwd_relative = neslib_dir },
-        .files = &.{
-            "neslib.c",    "neslib.s",
-            "ntsc.c",      "ntsc.s",
-            "oam_update.c","oam_update.s",
-            "pal_bright.c","pal_bright.s",
-            "pal_update.c","pal_update.s",
-            "rand.c",      "rand.s",
-            "vram_update.c","vram_update.s",
-        },
+        .files = &.{ "neslib.s", "ntsc.s", "oam_update.s", "pal_bright.s", "pal_update.s", "rand.s", "vram_update.s" },
         .flags = &.{},
     });
 
-    // libnesdoug.
+    // libnesdoug — .s files only (NES target).
     const libnesdoug = addLib(b, "nesdoug", target, opt);
     libnesdoug.root_module.addIncludePath(.{ .cwd_relative = nesdoug_dir });
     libnesdoug.root_module.addIncludePath(.{ .cwd_relative = neslib_dir });
@@ -190,17 +222,76 @@ fn buildNes(
     libnesdoug.root_module.addIncludePath(.{ .cwd_relative = com_inc });
     libnesdoug.root_module.addCSourceFiles(.{
         .root  = .{ .cwd_relative = nesdoug_dir },
-        .files = &.{
-            "metatile.c",       "metatile.s",
-            "nesdoug.c",        "nesdoug.s",
-            "padlib.s",
-            "vram_buffer.c",    "vram_buffer.s",
-            "vram_buffer_ops.s","zaplib.s",
-        },
+        .files = &.{ "metatile.s", "nesdoug.s", "padlib.s", "vram_buffer.s", "vram_buffer_ops.s", "zaplib.s" },
         .flags = &.{},
     });
 
-    return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc, .neslib = libneslib, .nesdoug = libnesdoug };
+    // libnes_c — ALL NES C files compiled as strict mos6502 freestanding.
+    // Consolidating here ensures no W65C02 instructions (PHX/PLX/STZ/BRA/etc.)
+    // are emitted regardless of how the optimizer decides to save registers.
+    const libnes_c = addLib(b, "nes-c", c_target, opt);
+    libnes_c.root_module.addIncludePath(.{ .cwd_relative = com_asm });
+    libnes_c.root_module.addIncludePath(.{ .cwd_relative = com_inc });
+    libnes_c.root_module.addIncludePath(.{ .cwd_relative = nes_dir });
+    libnes_c.root_module.addIncludePath(.{ .cwd_relative = neslib_dir });
+    libnes_c.root_module.addIncludePath(.{ .cwd_relative = nesdoug_dir });
+    // mem.c — provides __memset and memcpy required by zero-bss.c / copy-data.c
+    libnes_c.root_module.addCSourceFiles(.{
+        .root  = .{ .cwd_relative = b.fmt("{s}/../c", .{crt0_dir}) },
+        .files = &.{"mem.c"},
+        .flags = &.{},
+    });
+    // crt0 C files — -fno-lto: startup code must remain plain machine code.
+    libnes_c.root_module.addCSourceFiles(.{
+        .root  = .{ .cwd_relative = crt0_dir },
+        .files = &.{ "copy-data.c", "copy-zp-data.c", "zero-bss.c", "zero-zp-bss.c" },
+        .flags = &.{"-fno-lto"},
+    });
+    libnes_c.root_module.addCSourceFiles(.{
+        .root  = .{ .cwd_relative = b.fmt("{s}/exit", .{crt0_dir}) },
+        .files = &.{"exit-loop.c"},
+        .flags = &.{"-fno-lto"},
+    });
+    libnes_c.root_module.addCSourceFiles(.{
+        .root  = .{ .cwd_relative = nes_dir },
+        .files = &.{"crt0.c"},
+        .flags = &.{},
+    });
+    // neslib C files — LTO required (via lib.lto = .full in addLib): neslib.c reserves
+    // ZP variables via named sections; without LTO the compiler may reuse those ZP
+    // addresses for other locals, corrupting neslib's NMI-driven state machine.
+    libnes_c.root_module.addCSourceFiles(.{
+        .root  = .{ .cwd_relative = neslib_dir },
+        .files = &.{ "neslib.c", "ntsc.c", "oam_update.c", "pal_bright.c", "pal_update.c", "rand.c", "vram_update.c" },
+        .flags = &.{},
+    });
+    // nesdoug C files
+    libnes_c.root_module.addCSourceFiles(.{
+        .root  = .{ .cwd_relative = nesdoug_dir },
+        .files = &.{ "metatile.c", "nesdoug.c", "vram_buffer.c" },
+        .flags = &.{},
+    });
+
+    // Banked-mapper platforms (nes-cnrom, nes-unrom, nes-mmc1) have a mapper.c and
+    // optionally a mapper.s in their platform directory providing bank-switch functions.
+    if (variant_dir) |vd| {
+        libnes_c.root_module.addIncludePath(.{ .cwd_relative = vd });
+        libnes_c.root_module.addIncludePath(.{ .cwd_relative = b.fmt("{s}/rompoke", .{nes_dir}) });
+        libnes_c.root_module.addCSourceFiles(.{
+            .root  = .{ .cwd_relative = vd },
+            .files = &.{"mapper.c"},
+            .flags = &.{},
+        });
+        if (has_mapper_s) {
+            libneslib.root_module.addCSourceFiles(.{
+                .root  = .{ .cwd_relative = vd },
+                .files = &.{"mapper.s"},
+                .flags = &.{},
+            });
+        }
+    }
+
+    return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc, .neslib = libneslib, .nesdoug = libnesdoug, .nes_c = libnes_c };
 }
 
 fn buildNeo6502(
@@ -256,18 +347,376 @@ fn buildNeo6502(
     return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc };
 }
 
+fn buildAtari2600_4k(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    opt: std.builtin.OptimizeMode,
+    libcrt: *std.Build.Step.Compile,
+    a26_dir: []const u8,
+    crt0_dir: []const u8,
+    com_inc: []const u8,
+    com_asm: []const u8,
+) Libs {
+    // libcrt0: copy-zp-data + copy-data + exit-loop (crt0.S is a standalone object added by the exe).
+    const libcrt0 = addLib(b, "crt0", target, opt);
+    libcrt0.root_module.addIncludePath(.{ .cwd_relative = com_asm });
+    libcrt0.root_module.addIncludePath(.{ .cwd_relative = com_inc });
+    libcrt0.root_module.addCSourceFiles(.{
+        .root  = .{ .cwd_relative = crt0_dir },
+        .files = &.{ "copy-zp-data.c", "copy-data.c" },
+        .flags = &.{"-fno-lto"},
+    });
+    libcrt0.root_module.addCSourceFiles(.{
+        .root  = .{ .cwd_relative = b.fmt("{s}/exit", .{crt0_dir}) },
+        .files = &.{"exit-loop.c"},
+        .flags = &.{"-fno-lto"},
+    });
+
+    // libc: frameloop + vcslib.
+    const libc = addLib(b, "c", target, opt);
+    libc.root_module.addIncludePath(.{ .cwd_relative = a26_dir });
+    libc.root_module.addIncludePath(.{ .cwd_relative = com_inc });
+    libc.root_module.addIncludePath(.{ .cwd_relative = com_asm });
+    libc.root_module.addCSourceFiles(.{
+        .root  = .{ .cwd_relative = a26_dir },
+        .files = &.{ "frameloop.c", "vcslib.S" },
+        .flags = &.{},
+    });
+
+    return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc };
+}
+
+fn buildAtari8Dos(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    opt: std.builtin.OptimizeMode,
+    libcrt: *std.Build.Step.Compile,
+    a8_common_dir: []const u8,
+    a8_dos_dir: []const u8,
+    crt0_dir: []const u8,
+    com_inc: []const u8,
+    com_asm: []const u8,
+) Libs {
+    // libcrt0: atari8-common init-stack + atari8-dos _Exit + common startup files.
+    const libcrt0 = addLib(b, "crt0", target, opt);
+    libcrt0.root_module.addIncludePath(.{ .cwd_relative = com_asm });
+    libcrt0.root_module.addIncludePath(.{ .cwd_relative = com_inc });
+    libcrt0.root_module.addCSourceFiles(.{
+        .root  = .{ .cwd_relative = a8_common_dir },
+        .files = &.{"init-stack.S"},
+        .flags = &.{},
+    });
+    libcrt0.root_module.addCSourceFiles(.{
+        .root  = .{ .cwd_relative = a8_dos_dir },
+        .files = &.{"_Exit.c"},
+        .flags = &.{},
+    });
+    libcrt0.root_module.addCSourceFiles(.{
+        .root  = .{ .cwd_relative = crt0_dir },
+        .files = &.{ "copy-zp-data.c", "zero-bss.c" },
+        .flags = &.{"-fno-lto"},
+    });
+    libcrt0.root_module.addCSourceFiles(.{
+        .root  = .{ .cwd_relative = b.fmt("{s}/exit", .{crt0_dir}) },
+        .files = &.{"exit-custom.S"},
+        .flags = &.{},
+    });
+
+    // libc: atari8 I/O.
+    const libc = addLib(b, "c", target, opt);
+    libc.root_module.addIncludePath(.{ .cwd_relative = a8_common_dir });
+    libc.root_module.addIncludePath(.{ .cwd_relative = com_inc });
+    libc.root_module.addIncludePath(.{ .cwd_relative = com_asm });
+    libc.root_module.addCSourceFiles(.{
+        .root  = .{ .cwd_relative = a8_common_dir },
+        .files = &.{ "putchar.c", "getchar.c" },
+        .flags = &.{},
+    });
+    libc.root_module.addCSourceFiles(.{
+        .root  = .{ .cwd_relative = a8_common_dir },
+        .files = &.{
+            "close.s",       "fdtab.s",      "fdtable.s",    "fdtoiocb.s",
+            "findfreeiocb.s","getfd.s",       "open.s",       "oserror.s",
+            "rwcommon.s",    "sysremove.s",   "write.s",
+        },
+        .flags = &.{},
+    });
+
+    return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc };
+}
+
+fn buildCx16(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    opt: std.builtin.OptimizeMode,
+    libcrt: *std.Build.Step.Compile,
+    cx16_dir: []const u8,
+    crt0_dir: []const u8,
+    com_inc: []const u8,
+    com_asm: []const u8,
+    comm_dir: []const u8,
+) Libs {
+    const cpu_flag = "-mcpu=mosw65c02";
+    const cx16_def = "-D__CX16__";
+
+    const libcrt0 = addLib(b, "crt0", target, opt);
+    libcrt0.root_module.addIncludePath(.{ .cwd_relative = com_asm });
+    libcrt0.root_module.addIncludePath(.{ .cwd_relative = com_inc });
+    libcrt0.root_module.addCSourceFiles(.{
+        .root  = .{ .cwd_relative = crt0_dir },
+        .files = &.{ "init-stack.S", "copy-zp-data.c", "zero-bss.c" },
+        .flags = &.{ "-fno-lto", cpu_flag, cx16_def },
+    });
+    libcrt0.root_module.addCSourceFiles(.{
+        .root  = .{ .cwd_relative = b.fmt("{s}/exit", .{crt0_dir}) },
+        .files = &.{"exit-return.c"},
+        .flags = &.{ "-fno-lto", cpu_flag, cx16_def },
+    });
+
+    const libc = addLib(b, "c", target, opt);
+    libc.root_module.addIncludePath(.{ .cwd_relative = cx16_dir });
+    libc.root_module.addIncludePath(.{ .cwd_relative = comm_dir });
+    libc.root_module.addIncludePath(.{ .cwd_relative = com_asm });
+    libc.root_module.addIncludePath(.{ .cwd_relative = com_inc });
+    libc.root_module.addCSourceFiles(.{
+        .root  = .{ .cwd_relative = cx16_dir },
+        .files = &.{
+            "kernal.S",
+            "cx16_k_bsave.s",
+            "cx16_k_clock_get_date_time.s", "cx16_k_clock_set_date_time.s",
+            "cx16_k_console_get_char.s",    "cx16_k_console_init.s",
+            "cx16_k_console_put_char.s",    "cx16_k_console_put_image.s",
+            "cx16_k_console_set_paging_message.s",
+            "cx16_k_enter_basic.s",         "cx16_k_entropy_get.s",
+            "cx16_k_fb_cursor_next_line.s", "cx16_k_fb_cursor_position.s",
+            "cx16_k_fb_fill_pixels.s",      "cx16_k_fb_filter_pixels.s",
+            "cx16_k_fb_get_info.s",         "cx16_k_fb_get_pixel.s",
+            "cx16_k_fb_get_pixels.s",       "cx16_k_fb_init.s",
+            "cx16_k_fb_move_pixels.s",
+            "cx16_k_fb_set_8_pixels.s",     "cx16_k_fb_set_8_pixels_opaque.s",
+            "cx16_k_fb_set_palette.s",
+            "cx16_k_graph_clear.s",         "cx16_k_graph_draw_image.s",
+            "cx16_k_graph_draw_line.s",     "cx16_k_graph_draw_oval.s",
+            "cx16_k_graph_draw_rect.s",     "cx16_k_graph_get_char_size.s",
+            "cx16_k_graph_init.s",          "cx16_k_graph_move_rect.s",
+            "cx16_k_graph_put_char.s",      "cx16_k_graph_set_colors.s",
+            "cx16_k_graph_set_font.s",      "cx16_k_graph_set_window.s",
+            "cx16_k_i2c_read_byte.s",       "cx16_k_i2c_write_byte.s",
+            "cx16_k_joystick_get.c",
+            "cx16_k_joystick_scan.s",       "cx16_k_kbdbuf_get_modifiers.s",
+            "cx16_k_kbdbuf_peek.s",         "cx16_k_kbdbuf_put.s",
+            "cx16_k_keymap_get_id.s",       "cx16_k_keymap_set.s",
+            "cx16_k_macptr.s",
+            "cx16_k_memory_copy.s",         "cx16_k_memory_crc.s",
+            "cx16_k_memory_decompress.s",   "cx16_k_memory_fill.s",
+            "cx16_k_monitor.s",
+            "cx16_k_mouse_config.s",        "cx16_k_mouse_get.s",
+            "cx16_k_mouse_scan.s",          "cx16_k_rdtim.s",
+            "cx16_k_screen_mode_get.s",     "cx16_k_screen_mode_set.s",
+            "cx16_k_screen_set_charset.s",
+            "cx16_k_sprite_set_image.s",    "cx16_k_sprite_set_position.s",
+            "filevars.s",
+            "get_numbanks.s", "get_ostype.s", "get_tv.s", "set_tv.s",
+            "vera_layer_enable.s",          "vera_sprites_enable.s",
+            "videomode.s",                  "vpeek.s",
+            "vpoke.s",                      "waitvsync.s",
+            "char-conv.c",
+        },
+        .flags = &.{ cpu_flag, cx16_def },
+    });
+    libc.root_module.addCSourceFiles(.{
+        .root  = .{ .cwd_relative = comm_dir },
+        .files = &.{
+            "abort.c",       "putchar.c",       "getchar.c",
+            "cbm_k_bsout.c", "cbm_k_chrout.c",  "chrout.c",
+            "cbm_k_getin.c",
+        },
+        .flags = &.{ cpu_flag, cx16_def },
+    });
+
+    return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc };
+}
+
+fn buildLynxBll(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    opt: std.builtin.OptimizeMode,
+    libcrt: *std.Build.Step.Compile,
+    lynx_dir: []const u8,
+    crt0_dir: []const u8,
+    com_inc: []const u8,
+    com_asm: []const u8,
+) Libs {
+    const cpu_flag = "-mcpu=mosw65c02";
+
+    const libcrt0 = addLib(b, "crt0", target, opt);
+    libcrt0.root_module.addIncludePath(.{ .cwd_relative = com_asm });
+    libcrt0.root_module.addIncludePath(.{ .cwd_relative = com_inc });
+    libcrt0.root_module.addCSourceFiles(.{
+        .root  = .{ .cwd_relative = crt0_dir },
+        .files = &.{ "init-stack.S", "copy-zp-data.c", "zero-bss.c" },
+        .flags = &.{ "-fno-lto", cpu_flag },
+    });
+    libcrt0.root_module.addCSourceFiles(.{
+        .root  = .{ .cwd_relative = b.fmt("{s}/exit", .{crt0_dir}) },
+        .files = &.{"exit-loop.c"},
+        .flags = &.{ "-fno-lto", cpu_flag },
+    });
+
+    // lynx-c has no source files — emit a tiny stub so the static archive isn't empty.
+    const libc = addLib(b, "c", target, opt);
+    libc.root_module.addIncludePath(.{ .cwd_relative = lynx_dir });
+    libc.root_module.addIncludePath(.{ .cwd_relative = com_inc });
+    const stub_wf = b.addWriteFiles();
+    const stub_c = stub_wf.add("lynx_stub.c", "// lynx-c stub — no platform sources required.\nstatic int lynx_stub_marker;\n");
+    libc.root_module.addCSourceFile(.{ .file = stub_c, .flags = &.{cpu_flag} });
+
+    return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc };
+}
+
+fn buildPce(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    opt: std.builtin.OptimizeMode,
+    libcrt: *std.Build.Step.Compile,
+    pce_dir: []const u8,
+    pce_common_dir: []const u8,
+    crt0_dir: []const u8,
+    com_inc: []const u8,
+    com_asm: []const u8,
+) Libs {
+    const libpce_src = b.fmt("{s}/libpce/src", .{pce_common_dir});
+    const libpce_inc = b.fmt("{s}/libpce/include", .{pce_common_dir});
+    const cpu_flag = "-mcpu=moshuc6280";
+
+    // libcrt0: pce-specific crt0 files + common init-stack + exit-loop.
+    // Note: crt0/crt0.S is a standalone object added per-exe (not in this lib).
+    const libcrt0 = addLib(b, "crt0", target, opt);
+    libcrt0.root_module.addIncludePath(.{ .cwd_relative = com_asm });
+    libcrt0.root_module.addIncludePath(.{ .cwd_relative = com_inc });
+    libcrt0.root_module.addIncludePath(.{ .cwd_relative = pce_common_dir });
+    libcrt0.root_module.addCSourceFiles(.{
+        .root  = .{ .cwd_relative = crt0_dir },
+        .files = &.{"init-stack.S"},
+        .flags = &.{cpu_flag},
+    });
+    libcrt0.root_module.addCSourceFiles(.{
+        .root  = .{ .cwd_relative = b.fmt("{s}/crt0", .{pce_dir}) },
+        .files = &.{
+            "copy-data.S", "copy-zp-data.S",
+            "irq.S",
+            "zero-bss.S",  "zero-zp-bss.S",
+        },
+        .flags = &.{cpu_flag},
+    });
+    libcrt0.root_module.addCSourceFiles(.{
+        .root  = .{ .cwd_relative = b.fmt("{s}/exit", .{crt0_dir}) },
+        .files = &.{"exit-loop.c"},
+        .flags = &.{ "-fno-lto", cpu_flag },
+    });
+
+    // libc: pce-common libpce hardware library.
+    const libc = addLib(b, "c", target, opt);
+    libc.root_module.addIncludePath(.{ .cwd_relative = libpce_inc });
+    libc.root_module.addIncludePath(.{ .cwd_relative = pce_common_dir });
+    libc.root_module.addIncludePath(.{ .cwd_relative = com_inc });
+    libc.root_module.addIncludePath(.{ .cwd_relative = com_asm });
+    libc.root_module.addCSourceFiles(.{
+        .root  = .{ .cwd_relative = libpce_src },
+        .files = &.{
+            "bank.S", "bank-c.c",
+            "joypad.c",
+            "memory.S",
+            "psg.c",
+            "system.c",
+            "vce.c",
+            "vdc.c",
+        },
+        .flags = &.{cpu_flag},
+    });
+
+    return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc };
+}
+
+fn buildAtari8CartStd(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    opt: std.builtin.OptimizeMode,
+    libcrt: *std.Build.Step.Compile,
+    a8_common_dir: []const u8,
+    a8_cart_dir: []const u8,
+    crt0_dir: []const u8,
+    com_inc: []const u8,
+    com_asm: []const u8,
+) Libs {
+    const libcrt0 = addLib(b, "crt0", target, opt);
+    libcrt0.root_module.addIncludePath(.{ .cwd_relative = com_asm });
+    libcrt0.root_module.addIncludePath(.{ .cwd_relative = com_inc });
+    libcrt0.root_module.addCSourceFiles(.{
+        .root  = .{ .cwd_relative = a8_common_dir },
+        .files = &.{"init-stack.S"},
+        .flags = &.{},
+    });
+    libcrt0.root_module.addCSourceFiles(.{
+        .root  = .{ .cwd_relative = a8_cart_dir },
+        .files = &.{"syms.s"},
+        .flags = &.{},
+    });
+    libcrt0.root_module.addCSourceFiles(.{
+        .root  = .{ .cwd_relative = crt0_dir },
+        .files = &.{ "copy-data.c", "zero-bss.c" },
+        .flags = &.{"-fno-lto"},
+    });
+    libcrt0.root_module.addCSourceFiles(.{
+        .root  = .{ .cwd_relative = b.fmt("{s}/exit", .{crt0_dir}) },
+        .files = &.{"exit-loop.c"},
+        .flags = &.{"-fno-lto"},
+    });
+
+    const libc = addLib(b, "c", target, opt);
+    libc.root_module.addIncludePath(.{ .cwd_relative = a8_common_dir });
+    libc.root_module.addIncludePath(.{ .cwd_relative = com_inc });
+    libc.root_module.addIncludePath(.{ .cwd_relative = com_asm });
+    libc.root_module.addCSourceFiles(.{
+        .root  = .{ .cwd_relative = a8_common_dir },
+        .files = &.{ "putchar.c", "getchar.c" },
+        .flags = &.{},
+    });
+    libc.root_module.addCSourceFiles(.{
+        .root  = .{ .cwd_relative = a8_common_dir },
+        .files = &.{
+            "close.s", "fdtab.s", "fdtable.s", "fdtoiocb.s",
+            "findfreeiocb.s", "getfd.s", "open.s", "oserror.s",
+            "rwcommon.s", "sysremove.s", "write.s",
+        },
+        .flags = &.{},
+    });
+
+    return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc };
+}
+
 // ── Standalone entry point ────────────────────────────────────────────────────
 
 pub fn build(b: *std.Build) void {
     const sdk_root = b.build_root.path orelse ".";
-    const filter   = b.option([]const u8, "platform", "Build only this platform (sim, mega65, c64, nes, neo6502)");
+    const filter   = b.option([]const u8, "platform", "Build only this platform (sim, mega65, c64, nes, neo6502, atari2600-4k, atari8-dos)");
 
     for ([_]Platform{
-        .{ .name = "sim",     .query = .{ .cpu_arch = .mos, .os_tag = .freestanding, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos6502 } } },
-        .{ .name = "mega65",  .query = .{ .cpu_arch = .mos, .os_tag = .freestanding, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos45gs02 } } },
-        .{ .name = "c64",     .query = .{ .cpu_arch = .mos, .os_tag = .freestanding, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos6502 } } },
-        .{ .name = "nes",     .query = .{ .cpu_arch = .mos, .os_tag = .nes } },
-        .{ .name = "neo6502", .query = .{ .cpu_arch = .mos, .os_tag = .freestanding, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mosw65c02 } } },
+        .{ .name = "sim",         .query = .{ .cpu_arch = .mos, .os_tag = .freestanding, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos6502 } } },
+        .{ .name = "mega65",      .query = .{ .cpu_arch = .mos, .os_tag = .freestanding, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos45gs02 } } },
+        .{ .name = "c64",         .query = .{ .cpu_arch = .mos, .os_tag = .freestanding, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos6502 } } },
+        .{ .name = "nes",         .query = .{ .cpu_arch = .mos, .os_tag = .nes } },
+        .{ .name = "neo6502",     .query = .{ .cpu_arch = .mos, .os_tag = .freestanding, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mosw65c02 } } },
+        .{ .name = "atari2600-4k",.query = .{ .cpu_arch = .mos, .os_tag = .freestanding, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos6502x } } },
+        .{ .name = "atari8-dos",  .query = .{ .cpu_arch = .mos, .os_tag = .atari8 } },
+        .{ .name = "cx16",        .query = .{ .cpu_arch = .mos, .os_tag = .cx16, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mosw65c02 } } },
+        .{ .name = "lynx-bll",    .query = .{ .cpu_arch = .mos, .os_tag = .lynx, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mosw65c02 } } },
+        .{ .name = "pce",         .query = .{ .cpu_arch = .mos, .os_tag = .pce, .cpu_model = .{ .explicit = &std.Target.mos.cpu.moshuc6280 } } },
+        .{ .name = "nes-cnrom",   .query = .{ .cpu_arch = .mos, .os_tag = .nes } },
+        .{ .name = "nes-unrom",   .query = .{ .cpu_arch = .mos, .os_tag = .nes } },
+        .{ .name = "nes-mmc1",    .query = .{ .cpu_arch = .mos, .os_tag = .nes } },
+        .{ .name = "atari2600-3e",.query = .{ .cpu_arch = .mos, .os_tag = .freestanding, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos6502x } } },
+        .{ .name = "atari8-cart-std", .query = .{ .cpu_arch = .mos, .os_tag = .atari8 } },
     }) |pd| {
         if (filter) |f| if (!std.mem.eql(u8, f, pd.name)) continue;
         const libs = buildPlatform(b, sdk_root, pd);
@@ -276,11 +725,16 @@ pub fn build(b: *std.Build) void {
         installLib(b, libs.c,    pd.name);
         if (libs.neslib)  |l| installLib(b, l, pd.name);
         if (libs.nesdoug) |l| installLib(b, l, pd.name);
+        if (libs.nes_c)   |l| installLib(b, l, pd.name);
     }
 }
 
 fn addLib(b: *std.Build, name: []const u8, target: std.Build.ResolvedTarget, opt: std.builtin.OptimizeMode) *std.Build.Step.Compile {
-    return b.addLibrary(.{ .name = name, .linkage = .static, .root_module = b.createModule(.{ .target = target, .optimize = opt }) });
+    const lib = b.addLibrary(.{ .name = name, .linkage = .static, .root_module = b.createModule(.{ .target = target, .optimize = opt }) });
+    // Match prebuilt llvm-mos-sdk behaviour: libraries were built with LTO enabled.
+    // Files that must remain machine-code (startup/init) override this via -fno-lto in their flags.
+    lib.lto = .full;
+    return lib;
 }
 
 fn installLib(b: *std.Build, lib: *std.Build.Step.Compile, platform: []const u8) void {

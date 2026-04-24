@@ -1,3 +1,5 @@
+// Copyright (c) 2024 Matheus C. França
+// SPDX-License-Identifier: Apache-2.0
 //! NES controller demo: two sprites controlled by P1 and P2; background flashes on collision.
 const neslib = @import("neslib");
 

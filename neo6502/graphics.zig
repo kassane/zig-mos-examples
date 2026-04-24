@@ -1,3 +1,5 @@
+// Copyright (c) 2024 Matheus C. França
+// SPDX-License-Identifier: Apache-2.0
 //! Neo6502 graphics demo: concentric rectangles, an ellipse, and shadowed text.
 const api = @import("neo6502");
 

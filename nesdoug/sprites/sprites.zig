@@ -1,3 +1,5 @@
+// Copyright (c) 2024 Matheus C. França
+// SPDX-License-Identifier: Apache-2.0
 //! NES sprites demo: two ASCII-tile sprites bouncing around the screen.
 const neslib = @import("neslib");
 

@@ -1,3 +1,5 @@
+// Copyright (c) 2024 Matheus C. França
+// SPDX-License-Identifier: Apache-2.0
 // Converts a MOS ELF (with .symtab) to a Mesen label file (.mlb).
 // Usage: elf2mlb <binary> <output.mlb> <output.elf>
 //   <binary>     - path to the NES binary in the build cache

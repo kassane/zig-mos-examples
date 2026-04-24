@@ -1,7 +1,0 @@
-.{
-    .name = .color_cycle,
-    .version = "0.0.0",
-    .minimum_zig_version = "0.16.0",
-    .paths = .{"."},
-    .fingerprint = 0xf1e2d3c4b5a60718,
-}

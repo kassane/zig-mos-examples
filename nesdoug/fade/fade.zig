@@ -1,3 +1,5 @@
+// Copyright (c) 2024 Matheus C. França
+// SPDX-License-Identifier: Apache-2.0
 //! NES palette-fade demo: fades the screen in and out using pal_bright (0 = black, 4 = normal).
 const neslib = @import("neslib");
 
