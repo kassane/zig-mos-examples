@@ -4,21 +4,21 @@ const std = @import("std");
 const sdk_mod = @import("sdk/build.zig");
 
 const SdkLibs = struct {
-    sim:       ?sdk_mod.Libs = null,
-    mega65:    ?sdk_mod.Libs = null,
-    c64:       ?sdk_mod.Libs = null,
-    nes:       ?sdk_mod.Libs = null,
-    neo6502:   ?sdk_mod.Libs = null,
+    sim: ?sdk_mod.Libs = null,
+    mega65: ?sdk_mod.Libs = null,
+    c64: ?sdk_mod.Libs = null,
+    nes: ?sdk_mod.Libs = null,
+    neo6502: ?sdk_mod.Libs = null,
     atari2600: ?sdk_mod.Libs = null,
     atari8dos: ?sdk_mod.Libs = null,
-    cx16:      ?sdk_mod.Libs = null,
-    lynxbll:   ?sdk_mod.Libs = null,
-    pce:       ?sdk_mod.Libs = null,
+    cx16: ?sdk_mod.Libs = null,
+    lynxbll: ?sdk_mod.Libs = null,
+    pce: ?sdk_mod.Libs = null,
     nes_cnrom: ?sdk_mod.Libs = null,
     nes_unrom: ?sdk_mod.Libs = null,
-    nes_mmc1:  ?sdk_mod.Libs = null,
-    a2600_3e:  ?sdk_mod.Libs = null,
-    a8cart:    ?sdk_mod.Libs = null,
+    nes_mmc1: ?sdk_mod.Libs = null,
+    a2600_3e: ?sdk_mod.Libs = null,
+    a8cart: ?sdk_mod.Libs = null,
 };
 
 pub fn build(b: *std.Build) void {
@@ -40,20 +40,20 @@ pub fn build(b: *std.Build) void {
     var sdk_libs = SdkLibs{};
 
     for ([_]sdk_mod.Platform{
-        .{ .name = "sim",         .query = .{ .cpu_arch = .mos, .os_tag = .freestanding, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos6502 } } },
-        .{ .name = "mega65",      .query = .{ .cpu_arch = .mos, .os_tag = .freestanding, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos45gs02 } } },
-        .{ .name = "c64",         .query = .{ .cpu_arch = .mos, .os_tag = .freestanding, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos6502 } } },
-        .{ .name = "nes",         .query = .{ .cpu_arch = .mos, .os_tag = .nes } },
-        .{ .name = "neo6502",     .query = .{ .cpu_arch = .mos, .os_tag = .freestanding, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mosw65c02 } } },
-        .{ .name = "atari2600-4k",.query = .{ .cpu_arch = .mos, .os_tag = .freestanding, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos6502x } } },
-        .{ .name = "atari8-dos",  .query = .{ .cpu_arch = .mos, .os_tag = .atari8 } },
-        .{ .name = "cx16",        .query = .{ .cpu_arch = .mos, .os_tag = .cx16, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mosw65c02 } } },
-        .{ .name = "lynx-bll",    .query = .{ .cpu_arch = .mos, .os_tag = .lynx, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mosw65c02 } } },
-        .{ .name = "pce",         .query = .{ .cpu_arch = .mos, .os_tag = .pce, .cpu_model = .{ .explicit = &std.Target.mos.cpu.moshuc6280 } } },
-        .{ .name = "nes-cnrom",   .query = .{ .cpu_arch = .mos, .os_tag = .nes } },
-        .{ .name = "nes-unrom",   .query = .{ .cpu_arch = .mos, .os_tag = .nes } },
-        .{ .name = "nes-mmc1",    .query = .{ .cpu_arch = .mos, .os_tag = .nes } },
-        .{ .name = "atari2600-3e",.query = .{ .cpu_arch = .mos, .os_tag = .freestanding, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos6502x } } },
+        .{ .name = "sim", .query = .{ .cpu_arch = .mos, .os_tag = .freestanding, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos6502 } } },
+        .{ .name = "mega65", .query = .{ .cpu_arch = .mos, .os_tag = .freestanding, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos45gs02 } } },
+        .{ .name = "c64", .query = .{ .cpu_arch = .mos, .os_tag = .freestanding, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos6502 } } },
+        .{ .name = "nes", .query = .{ .cpu_arch = .mos, .os_tag = .nes } },
+        .{ .name = "neo6502", .query = .{ .cpu_arch = .mos, .os_tag = .freestanding, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mosw65c02 } } },
+        .{ .name = "atari2600-4k", .query = .{ .cpu_arch = .mos, .os_tag = .freestanding, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos6502x } } },
+        .{ .name = "atari8-dos", .query = .{ .cpu_arch = .mos, .os_tag = .atari8 } },
+        .{ .name = "cx16", .query = .{ .cpu_arch = .mos, .os_tag = .cx16, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mosw65c02 } } },
+        .{ .name = "lynx-bll", .query = .{ .cpu_arch = .mos, .os_tag = .lynx, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mosw65c02 } } },
+        .{ .name = "pce", .query = .{ .cpu_arch = .mos, .os_tag = .pce, .cpu_model = .{ .explicit = &std.Target.mos.cpu.moshuc6280 } } },
+        .{ .name = "nes-cnrom", .query = .{ .cpu_arch = .mos, .os_tag = .nes } },
+        .{ .name = "nes-unrom", .query = .{ .cpu_arch = .mos, .os_tag = .nes } },
+        .{ .name = "nes-mmc1", .query = .{ .cpu_arch = .mos, .os_tag = .nes } },
+        .{ .name = "atari2600-3e", .query = .{ .cpu_arch = .mos, .os_tag = .freestanding, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos6502x } } },
         .{ .name = "atari8-cart-std", .query = .{ .cpu_arch = .mos, .os_tag = .atari8 } },
     }) |pd| {
         const libs = sdk_mod.buildPlatform(b, sdk_src_raw, pd);
@@ -61,35 +61,35 @@ pub fn build(b: *std.Build) void {
         for ([3]*std.Build.Step.Compile{ libs.crt, libs.crt0, libs.c }) |lib| {
             sdk_step.dependOn(&b.addInstallArtifact(lib, .{ .dest_dir = .{ .override = .{ .custom = dest } } }).step);
         }
-        if (libs.neslib)  |l| sdk_step.dependOn(&b.addInstallArtifact(l, .{ .dest_dir = .{ .override = .{ .custom = dest } } }).step);
+        if (libs.neslib) |l| sdk_step.dependOn(&b.addInstallArtifact(l, .{ .dest_dir = .{ .override = .{ .custom = dest } } }).step);
         if (libs.nesdoug) |l| sdk_step.dependOn(&b.addInstallArtifact(l, .{ .dest_dir = .{ .override = .{ .custom = dest } } }).step);
-        if (libs.nes_c)   |l| sdk_step.dependOn(&b.addInstallArtifact(l, .{ .dest_dir = .{ .override = .{ .custom = dest } } }).step);
-        if (std.mem.eql(u8, pd.name, "sim"))         sdk_libs.sim       = libs;
-        if (std.mem.eql(u8, pd.name, "mega65"))      sdk_libs.mega65    = libs;
-        if (std.mem.eql(u8, pd.name, "c64"))         sdk_libs.c64       = libs;
-        if (std.mem.eql(u8, pd.name, "nes"))         sdk_libs.nes       = libs;
-        if (std.mem.eql(u8, pd.name, "neo6502"))     sdk_libs.neo6502   = libs;
-        if (std.mem.eql(u8, pd.name, "atari2600-4k"))sdk_libs.atari2600 = libs;
-        if (std.mem.eql(u8, pd.name, "atari8-dos"))  sdk_libs.atari8dos = libs;
-        if (std.mem.eql(u8, pd.name, "cx16"))        sdk_libs.cx16      = libs;
-        if (std.mem.eql(u8, pd.name, "lynx-bll"))    sdk_libs.lynxbll   = libs;
-        if (std.mem.eql(u8, pd.name, "pce"))         sdk_libs.pce       = libs;
-        if (std.mem.eql(u8, pd.name, "nes-cnrom"))   sdk_libs.nes_cnrom = libs;
-        if (std.mem.eql(u8, pd.name, "nes-unrom"))   sdk_libs.nes_unrom = libs;
-        if (std.mem.eql(u8, pd.name, "nes-mmc1"))    sdk_libs.nes_mmc1  = libs;
-        if (std.mem.eql(u8, pd.name, "atari2600-3e"))sdk_libs.a2600_3e  = libs;
+        if (libs.nes_c) |l| sdk_step.dependOn(&b.addInstallArtifact(l, .{ .dest_dir = .{ .override = .{ .custom = dest } } }).step);
+        if (std.mem.eql(u8, pd.name, "sim")) sdk_libs.sim = libs;
+        if (std.mem.eql(u8, pd.name, "mega65")) sdk_libs.mega65 = libs;
+        if (std.mem.eql(u8, pd.name, "c64")) sdk_libs.c64 = libs;
+        if (std.mem.eql(u8, pd.name, "nes")) sdk_libs.nes = libs;
+        if (std.mem.eql(u8, pd.name, "neo6502")) sdk_libs.neo6502 = libs;
+        if (std.mem.eql(u8, pd.name, "atari2600-4k")) sdk_libs.atari2600 = libs;
+        if (std.mem.eql(u8, pd.name, "atari8-dos")) sdk_libs.atari8dos = libs;
+        if (std.mem.eql(u8, pd.name, "cx16")) sdk_libs.cx16 = libs;
+        if (std.mem.eql(u8, pd.name, "lynx-bll")) sdk_libs.lynxbll = libs;
+        if (std.mem.eql(u8, pd.name, "pce")) sdk_libs.pce = libs;
+        if (std.mem.eql(u8, pd.name, "nes-cnrom")) sdk_libs.nes_cnrom = libs;
+        if (std.mem.eql(u8, pd.name, "nes-unrom")) sdk_libs.nes_unrom = libs;
+        if (std.mem.eql(u8, pd.name, "nes-mmc1")) sdk_libs.nes_mmc1 = libs;
+        if (std.mem.eql(u8, pd.name, "atari2600-3e")) sdk_libs.a2600_3e = libs;
         if (std.mem.eql(u8, pd.name, "atari8-cart-std")) sdk_libs.a8cart = libs;
     }
 
     // Translate neslib.h and nesdoug.h from the MOS SDK into Zig modules.
     const nes_target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .nes });
-    const neslib_mod  = nesHeaderMod(b, sdk_dep, nes_target, "neslib");
+    const neslib_mod = nesHeaderMod(b, sdk_dep, nes_target, "neslib");
     const nesdoug_mod = nesHeaderMod(b, sdk_dep, nes_target, "nesdoug");
 
     // Translate mapper headers for NES banked-ROM platforms.
     const nes_cnrom_mapper_mod = nesMapperHeaderMod(b, sdk_dep, nes_target, "nes-cnrom");
     const nes_unrom_mapper_mod = nesMapperHeaderMod(b, sdk_dep, nes_target, "nes-unrom");
-    const nes_mmc1_mapper_mod  = nesMapperHeaderMod(b, sdk_dep, nes_target, "nes-mmc1");
+    const nes_mmc1_mapper_mod = nesMapperHeaderMod(b, sdk_dep, nes_target, "nes-mmc1");
 
     // Translate mega65.h into a Zig module.
     const mega65_target = b.resolveTargetQuery(.{
@@ -101,8 +101,8 @@ pub fn build(b: *std.Build) void {
 
     // Translated headers for CX16.
     const cx16_target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .cx16, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mosw65c02 } });
-    const cx16_mod  = cx16HeaderMod(b, sdk_dep, cx16_target);
-    const cbm_mod   = cbmHeaderMod(b, sdk_dep, cx16_target);
+    const cx16_mod = cx16HeaderMod(b, sdk_dep, cx16_target);
+    const cbm_mod = cbmHeaderMod(b, sdk_dep, cx16_target);
 
     // Translated headers for C64.
     const c64_build_target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .freestanding, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos6502 } });
@@ -202,15 +202,15 @@ pub fn build(b: *std.Build) void {
     gen_previews.dependOn(&run_svgcheck.step);
 
     for ([_]struct { name: []const u8, chr: []const u8 }{
-        .{ .name = "hello1",      .chr = "nesdoug/hello1/Alpha.chr" },
-        .{ .name = "hello2",      .chr = "nesdoug/hello2/Alpha.chr" },
-        .{ .name = "hello3",      .chr = "nesdoug/hello3/Alpha.chr" },
-        .{ .name = "zig-logo",    .chr = "nesdoug/zig-logo/zig-mark.chr" },
-        .{ .name = "fade",        .chr = "nesdoug/fade/Girl5.chr" },
-        .{ .name = "sprites",     .chr = "nesdoug/sprites/Alpha2.chr" },
-        .{ .name = "pads",        .chr = "nesdoug/pads/Alpha3.chr" },
+        .{ .name = "hello1", .chr = "nesdoug/hello1/Alpha.chr" },
+        .{ .name = "hello2", .chr = "nesdoug/hello2/Alpha.chr" },
+        .{ .name = "hello3", .chr = "nesdoug/hello3/Alpha.chr" },
+        .{ .name = "zig-logo", .chr = "nesdoug/zig-logo/zig-mark.chr" },
+        .{ .name = "fade", .chr = "nesdoug/fade/Girl5.chr" },
+        .{ .name = "sprites", .chr = "nesdoug/sprites/Alpha2.chr" },
+        .{ .name = "pads", .chr = "nesdoug/pads/Alpha3.chr" },
         .{ .name = "color-cycle", .chr = "nesdoug/color-cycle/blocks.chr" },
-        .{ .name = "bat-ball",    .chr = "nesdoug/sprites/Alpha2.chr" },
+        .{ .name = "bat-ball", .chr = "nesdoug/sprites/Alpha2.chr" },
     }) |cf| {
         const run = b.addRunArtifact(chr2svg);
         run.addFileArg(b.path(cf.chr));
@@ -687,7 +687,11 @@ fn addNesExe(
     chr_src: []const u8,
     with_nesdoug: bool,
 ) *std.Build.Step.Compile {
-    const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .nes });
+    const target = b.resolveTargetQuery(.{
+        .cpu_arch = .mos,
+        .os_tag = .freestanding,
+        .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos6502 },
+    });
 
     // Wrapper linker script: add SEARCH_DIRs for all .ld include files, then INCLUDE the main script.
     const wf = b.addWriteFiles();
@@ -734,9 +738,9 @@ fn addNesExe(
     exe.root_module.linkLibrary(libs.crt);
     exe.root_module.linkLibrary(libs.crt0);
     exe.root_module.linkLibrary(libs.c);
-    if (libs.neslib)  |neslib|  exe.root_module.linkLibrary(neslib);
+    if (libs.neslib) |neslib| exe.root_module.linkLibrary(neslib);
     if (with_nesdoug) if (libs.nesdoug) |nesdoug| exe.root_module.linkLibrary(nesdoug);
-    if (libs.nes_c)   |nc|       exe.root_module.linkLibrary(nc);
+    if (libs.nes_c) |nc| exe.root_module.linkLibrary(nc);
     exe.setLinkerScript(wrapper_ld);
 
     return exe;
@@ -756,9 +760,9 @@ fn addC64Exe(
     const wf = b.addWriteFiles();
     const libc_txt = wf.add("libc.txt", b.fmt(
         "include_dir={s}/mos-platform/c64\n" ++
-        "sys_include_dir={s}/mos-platform/common/include\n" ++
-        "crt_dir={s}/mos-platform/c64\n" ++
-        "msvc_lib_dir=\nkernel32_lib_dir=\ngcc_dir=\n",
+            "sys_include_dir={s}/mos-platform/common/include\n" ++
+            "crt_dir={s}/mos-platform/c64\n" ++
+            "msvc_lib_dir=\nkernel32_lib_dir=\ngcc_dir=\n",
         .{ sdk_src, sdk_src, sdk_src },
     ));
     // Inline c64/link.ld + commodore/commodore.ld, replacing INPUT() directives with
@@ -823,9 +827,9 @@ fn addMega65Exe(
     const wf = b.addWriteFiles();
     const libc_txt = wf.add("libc.txt", b.fmt(
         "include_dir={s}/mos-platform/mega65\n" ++
-        "sys_include_dir={s}/mos-platform/common/include\n" ++
-        "crt_dir={s}/mos-platform/mega65\n" ++
-        "msvc_lib_dir=\nkernel32_lib_dir=\ngcc_dir=\n",
+            "sys_include_dir={s}/mos-platform/common/include\n" ++
+            "crt_dir={s}/mos-platform/mega65\n" ++
+            "msvc_lib_dir=\nkernel32_lib_dir=\ngcc_dir=\n",
         .{ sdk_src, sdk_src, sdk_src },
     ));
     // Inline mega65/link.ld + commodore/commodore.ld, replacing INPUT() directives with
@@ -890,9 +894,9 @@ fn addNeo6502Exe(
     const wf = b.addWriteFiles();
     const libc_txt = wf.add("libc.txt", b.fmt(
         "include_dir={s}/mos-platform/neo6502/api/neo\n" ++
-        "sys_include_dir={s}/mos-platform/common/include\n" ++
-        "crt_dir={s}/mos-platform/neo6502\n" ++
-        "msvc_lib_dir=\nkernel32_lib_dir=\ngcc_dir=\n",
+            "sys_include_dir={s}/mos-platform/common/include\n" ++
+            "crt_dir={s}/mos-platform/neo6502\n" ++
+            "msvc_lib_dir=\nkernel32_lib_dir=\ngcc_dir=\n",
         .{ sdk_src, sdk_src, sdk_src },
     ));
     const wrapper_ld = wf.add("neo6502-wrapper.ld", b.fmt(
@@ -1019,9 +1023,9 @@ fn addAtari8DosExe(
     const wf = b.addWriteFiles();
     const libc_txt = wf.add("libc.txt", b.fmt(
         "include_dir={s}/mos-platform/atari8-common\n" ++
-        "sys_include_dir={s}/mos-platform/common/include\n" ++
-        "crt_dir={s}/mos-platform/atari8-dos\n" ++
-        "msvc_lib_dir=\nkernel32_lib_dir=\ngcc_dir=\n",
+            "sys_include_dir={s}/mos-platform/common/include\n" ++
+            "crt_dir={s}/mos-platform/atari8-dos\n" ++
+            "msvc_lib_dir=\nkernel32_lib_dir=\ngcc_dir=\n",
         .{ sdk_src, sdk_src, sdk_src },
     ));
     const wrapper_ld = wf.add("atari8-dos-wrapper.ld", b.fmt(
@@ -1065,9 +1069,9 @@ fn addCx16Exe(
     const wf = b.addWriteFiles();
     const libc_txt = wf.add("libc.txt", b.fmt(
         "include_dir={s}/mos-platform/cx16\n" ++
-        "sys_include_dir={s}/mos-platform/common/include\n" ++
-        "crt_dir={s}/mos-platform/cx16\n" ++
-        "msvc_lib_dir=\nkernel32_lib_dir=\ngcc_dir=\n",
+            "sys_include_dir={s}/mos-platform/common/include\n" ++
+            "crt_dir={s}/mos-platform/cx16\n" ++
+            "msvc_lib_dir=\nkernel32_lib_dir=\ngcc_dir=\n",
         .{ sdk_src, sdk_src, sdk_src },
     ));
     const wrapper_ld = wf.add("cx16-wrapper.ld", b.fmt(
@@ -1206,7 +1210,11 @@ fn addNesCnromExe(
     root_src: []const u8,
     chr_src: []const u8,
 ) *std.Build.Step.Compile {
-    const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .nes });
+    const target = b.resolveTargetQuery(.{
+        .cpu_arch = .mos,
+        .os_tag = .freestanding,
+        .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos6502 },
+    });
 
     const wf = b.addWriteFiles();
     const wrapper_ld = wf.add("nes-cnrom-wrapper.ld", b.fmt(
@@ -1249,9 +1257,9 @@ fn addNesCnromExe(
     exe.root_module.linkLibrary(libs.crt);
     exe.root_module.linkLibrary(libs.crt0);
     exe.root_module.linkLibrary(libs.c);
-    if (libs.neslib)  |neslib|  exe.root_module.linkLibrary(neslib);
+    if (libs.neslib) |neslib| exe.root_module.linkLibrary(neslib);
     if (libs.nesdoug) |nesdoug| exe.root_module.linkLibrary(nesdoug);
-    if (libs.nes_c)   |nc|      exe.root_module.linkLibrary(nc);
+    if (libs.nes_c) |nc| exe.root_module.linkLibrary(nc);
     exe.setLinkerScript(wrapper_ld);
 
     return exe;
@@ -1265,7 +1273,11 @@ fn addNesUnromExe(
     name: []const u8,
     root_src: []const u8,
 ) *std.Build.Step.Compile {
-    const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .nes });
+    const target = b.resolveTargetQuery(.{
+        .cpu_arch = .mos,
+        .os_tag = .freestanding,
+        .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos6502 },
+    });
 
     // Pre-build reset.s as a separate object so the linker script's INPUT(reset.o)
     // can resolve via SEARCH_DIR. We install the .o to a dedicated subdir inside
@@ -1308,9 +1320,9 @@ fn addNesUnromExe(
     exe.root_module.linkLibrary(libs.crt);
     exe.root_module.linkLibrary(libs.crt0);
     exe.root_module.linkLibrary(libs.c);
-    if (libs.neslib)  |neslib|  exe.root_module.linkLibrary(neslib);
+    if (libs.neslib) |neslib| exe.root_module.linkLibrary(neslib);
     if (libs.nesdoug) |nesdoug| exe.root_module.linkLibrary(nesdoug);
-    if (libs.nes_c)   |nc|      exe.root_module.linkLibrary(nc);
+    if (libs.nes_c) |nc| exe.root_module.linkLibrary(nc);
     exe.setLinkerScript(wrapper_ld);
     exe.step.dependOn(&install_reset.step);
 
@@ -1325,7 +1337,11 @@ fn addNesMmc1Exe(
     name: []const u8,
     root_src: []const u8,
 ) *std.Build.Step.Compile {
-    const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .nes });
+    const target = b.resolveTargetQuery(.{
+        .cpu_arch = .mos,
+        .os_tag = .freestanding,
+        .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos6502 },
+    });
 
     const reset_obj = b.addObject(.{
         .name = "reset",
@@ -1366,9 +1382,9 @@ fn addNesMmc1Exe(
     exe.root_module.linkLibrary(libs.crt);
     exe.root_module.linkLibrary(libs.crt0);
     exe.root_module.linkLibrary(libs.c);
-    if (libs.neslib)  |neslib|  exe.root_module.linkLibrary(neslib);
+    if (libs.neslib) |neslib| exe.root_module.linkLibrary(neslib);
     if (libs.nesdoug) |nesdoug| exe.root_module.linkLibrary(nesdoug);
-    if (libs.nes_c)   |nc|      exe.root_module.linkLibrary(nc);
+    if (libs.nes_c) |nc| exe.root_module.linkLibrary(nc);
     exe.setLinkerScript(wrapper_ld);
     exe.step.dependOn(&install_reset.step);
 
@@ -1445,9 +1461,9 @@ fn addAtari8CartStdExe(
     const wf = b.addWriteFiles();
     const libc_txt = wf.add("libc.txt", b.fmt(
         "include_dir={s}/mos-platform/atari8-common\n" ++
-        "sys_include_dir={s}/mos-platform/common/include\n" ++
-        "crt_dir={s}/mos-platform/atari8-cart-std\n" ++
-        "msvc_lib_dir=\nkernel32_lib_dir=\ngcc_dir=\n",
+            "sys_include_dir={s}/mos-platform/common/include\n" ++
+            "crt_dir={s}/mos-platform/atari8-cart-std\n" ++
+            "msvc_lib_dir=\nkernel32_lib_dir=\ngcc_dir=\n",
         .{ sdk_src, sdk_src, sdk_src },
     ));
     const wrapper_ld = wf.add("atari8-cart-std-wrapper.ld", b.fmt(
@@ -1614,9 +1630,9 @@ fn addApple2Exe(
     const wf = b.addWriteFiles();
     const libc_txt = wf.add("libc.txt", b.fmt(
         "include_dir={s}/mos-platform/common/include\n" ++
-        "sys_include_dir={s}/mos-platform/common/include\n" ++
-        "crt_dir={s}/mos-platform/common\n" ++
-        "msvc_lib_dir=\nkernel32_lib_dir=\ngcc_dir=\n",
+            "sys_include_dir={s}/mos-platform/common/include\n" ++
+            "crt_dir={s}/mos-platform/common\n" ++
+            "msvc_lib_dir=\nkernel32_lib_dir=\ngcc_dir=\n",
         .{ sdk_src, sdk_src, sdk_src },
     ));
 

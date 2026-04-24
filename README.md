@@ -1,10 +1,12 @@
 # zig-mos-examples
 
 <div align="center">
-<img width="480" alt="Image" src="https://github.com/user-attachments/assets/fb6a11de-fd07-45c8-be6b-d3d7f5629c34" />
+  <img width="480" alt="zig-logo running on NES" src=".github/zig-logo.gif" />
+  <br/>
+  <em>Zig logo example running on NES (Mesen emulator)</em>
 </div>
 
-Zig examples targeting MOS 6502 platforms via zig-mos-bootstrap and llvm-mos-sdk.
+Zig examples targeting MOS 6502 platforms via [zig-mos-bootstrap](https://github.com/kassane/zig-mos-bootstrap) and [llvm-mos-sdk](https://github.com/llvm-mos/llvm-mos-sdk).
 
 ## Requirements
 
@@ -79,6 +81,31 @@ zig build apple2-hello -Dapple2-sdk=/path/to/apple-ii-port-work
 ```
 
 Output files land in `zig-out/bin/`.
+
+## Gallery
+
+### NES
+
+| Example | Preview |
+|---------|---------|
+| `nes-zig-logo` — Zig mark logo with shimmer palette animation | ![](.github/zig-logo.gif) |
+| `nes-hello1` / `nes-hello2` / `nes-hello3` — text hello-world variants | ![](.github/hello.gif) |
+| `nes-fade` — full-screen palette fade in/out | ![](.github/fade.gif) |
+| `nes-sprites` — OAM sprite rendering | ![](.github/sprites.gif) |
+| `nes-bat-ball` — simple ball-and-bat game loop | ![](.github/bat-ball.gif) |
+| `nes-color-cycle` — background colour cycling | ![](.github/color-cycle.gif) |
+| `nes-pads` — controller input display | ![](.github/pads.gif) |
+| `nes-cnrom-hello` — CNROM banked CHR ROM | ![](.github/cnrom-hello.gif) |
+| `nes-unrom-hello` — UNROM banked PRG ROM | ![](.github/unrom-hello.gif) |
+| `nes-mmc1-hello` — MMC1 mapper | ![](.github/mmc1-hello.gif) |
+
+### Other platforms
+
+| Example | Preview |
+|---------|---------|
+| `c64-plasma` — Commodore 64 plasma effect | ![](.github/c64-plasma.gif) |
+| `pce-color-cycle-banked` — PC Engine banked colour cycle | ![](.github/pce-color-cycle-banked.gif) |
+| `atari2600-colorbar` — Atari 2600 colour bars | ![](.github/atari2600-colorbar.gif) |
 
 ## Platforms
 
