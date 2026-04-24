@@ -1,11 +1,5 @@
 # zig-mos-examples
 
-<div align="center">
-  <img width="480" alt="zig-logo running on NES" src=".github/zig-logo.gif" />
-  <br/>
-  <em>Zig logo example running on NES (Mesen emulator)</em>
-</div>
-
 Zig examples targeting MOS 6502 platforms via [zig-mos-bootstrap](https://github.com/kassane/zig-mos-bootstrap) and [llvm-mos-sdk](https://github.com/llvm-mos/llvm-mos-sdk).
 
 ## Requirements
