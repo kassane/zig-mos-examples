@@ -720,6 +720,7 @@ fn addNesExe(
         }),
     });
     exe.bundle_compiler_rt = false;
+    exe.lto = .full;
     // crt0.S provides .call_main (jsr main) — must be a direct object, not an
     // archive member, because it defines no symbols so the linker won't extract it.
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/common/crt0/crt0.S"));
@@ -789,6 +790,7 @@ fn addC64Exe(
         }),
     });
     exe.bundle_compiler_rt = false;
+    exe.lto = .full;
     // basic-header.S and unmap-basic.S replace INPUT(basic-header.o) / INPUT(unmap-basic.o).
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/c64/basic-header.S"));
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/c64/unmap-basic.S"));
@@ -856,6 +858,7 @@ fn addMega65Exe(
         }),
     });
     exe.bundle_compiler_rt = false;
+    exe.lto = .full;
     // basic-header.S and unmap-basic.S replace INPUT(basic-header.o) / INPUT(unmap-basic.o).
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/mega65/basic-header.S"));
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/mega65/unmap-basic.S"));
@@ -907,6 +910,7 @@ fn addNeo6502Exe(
         }),
     });
     exe.bundle_compiler_rt = false;
+    exe.lto = .full;
     exe.root_module.linkLibrary(libs.crt);
     exe.root_module.linkLibrary(libs.crt0);
     exe.root_module.linkLibrary(libs.c);
@@ -948,6 +952,7 @@ fn addSimExe(
         }),
     });
     exe.bundle_compiler_rt = false;
+    exe.lto = .full;
     exe.root_module.addAssemblyFile(b.path("sim/call_main.s"));
     exe.root_module.linkLibrary(libs.crt);
     exe.root_module.linkLibrary(libs.crt0);
@@ -988,6 +993,7 @@ fn addAtari2600Exe(
         }),
     });
     exe.bundle_compiler_rt = false;
+    exe.lto = .full;
     // atari2600-common/crt0.S is a standalone object (not part of the library).
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/atari2600-common/crt0.S"));
     exe.root_module.addIncludePath(sdk_dep.path("mos-platform/atari2600-common"));
@@ -1033,6 +1039,7 @@ fn addAtari8DosExe(
         }),
     });
     exe.bundle_compiler_rt = false;
+    exe.lto = .full;
     exe.root_module.addIncludePath(sdk_dep.path("mos-platform/atari8-common"));
     exe.root_module.addIncludePath(sdk_dep.path("mos-platform/common/include"));
     exe.root_module.linkLibrary(libs.crt);
@@ -1090,6 +1097,7 @@ fn addCx16Exe(
         }),
     });
     exe.bundle_compiler_rt = false;
+    exe.lto = .full;
     exe.root_module.addAssemblyFile(b.path("cx16/call_main.s"));
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/cx16/basic-header.S"));
     exe.root_module.addIncludePath(sdk_dep.path("mos-platform/cx16"));
@@ -1132,6 +1140,7 @@ fn addLynxBllExe(
         }),
     });
     exe.bundle_compiler_rt = false;
+    exe.lto = .full;
     exe.root_module.addAssemblyFile(b.path("lynx/call_main.s"));
     exe.root_module.addIncludePath(sdk_dep.path("mos-platform/lynx"));
     exe.root_module.addIncludePath(sdk_dep.path("mos-platform/common/include"));
@@ -1170,6 +1179,7 @@ fn addPceExe(
         }),
     });
     exe.bundle_compiler_rt = false;
+    exe.lto = .full;
     // crt0/crt0.S is a standalone object — needs huc6280 cpu and access to common/asminc/imag.inc.
     exe.root_module.addCSourceFile(.{
         .file = sdk_dep.path("mos-platform/pce/crt0/crt0.S"),
@@ -1230,6 +1240,7 @@ fn addNesCnromExe(
         }),
     });
     exe.bundle_compiler_rt = false;
+    exe.lto = .full;
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/common/crt0/crt0.S"));
     exe.root_module.addAssemblyFile(chr_asm);
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes-cnrom/ines.s"));
@@ -1238,8 +1249,9 @@ fn addNesCnromExe(
     exe.root_module.linkLibrary(libs.crt);
     exe.root_module.linkLibrary(libs.crt0);
     exe.root_module.linkLibrary(libs.c);
-    if (libs.neslib) |neslib| exe.root_module.linkLibrary(neslib);
-    if (libs.nes_c)  |nc|     exe.root_module.linkLibrary(nc);
+    if (libs.neslib)  |neslib|  exe.root_module.linkLibrary(neslib);
+    if (libs.nesdoug) |nesdoug| exe.root_module.linkLibrary(nesdoug);
+    if (libs.nes_c)   |nc|      exe.root_module.linkLibrary(nc);
     exe.setLinkerScript(wrapper_ld);
 
     return exe;
@@ -1288,6 +1300,7 @@ fn addNesUnromExe(
         }),
     });
     exe.bundle_compiler_rt = false;
+    exe.lto = .full;
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/common/crt0/crt0.S"));
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes-unrom/ines.s"));
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes/ines.s"));
@@ -1295,8 +1308,9 @@ fn addNesUnromExe(
     exe.root_module.linkLibrary(libs.crt);
     exe.root_module.linkLibrary(libs.crt0);
     exe.root_module.linkLibrary(libs.c);
-    if (libs.neslib) |neslib| exe.root_module.linkLibrary(neslib);
-    if (libs.nes_c)  |nc|     exe.root_module.linkLibrary(nc);
+    if (libs.neslib)  |neslib|  exe.root_module.linkLibrary(neslib);
+    if (libs.nesdoug) |nesdoug| exe.root_module.linkLibrary(nesdoug);
+    if (libs.nes_c)   |nc|      exe.root_module.linkLibrary(nc);
     exe.setLinkerScript(wrapper_ld);
     exe.step.dependOn(&install_reset.step);
 
@@ -1343,6 +1357,7 @@ fn addNesMmc1Exe(
         }),
     });
     exe.bundle_compiler_rt = false;
+    exe.lto = .full;
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/common/crt0/crt0.S"));
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes-mmc1/ines.s"));
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes-mmc1/init-prg-ram-0.s"));
@@ -1351,8 +1366,9 @@ fn addNesMmc1Exe(
     exe.root_module.linkLibrary(libs.crt);
     exe.root_module.linkLibrary(libs.crt0);
     exe.root_module.linkLibrary(libs.c);
-    if (libs.neslib) |neslib| exe.root_module.linkLibrary(neslib);
-    if (libs.nes_c)  |nc|     exe.root_module.linkLibrary(nc);
+    if (libs.neslib)  |neslib|  exe.root_module.linkLibrary(neslib);
+    if (libs.nesdoug) |nesdoug| exe.root_module.linkLibrary(nesdoug);
+    if (libs.nes_c)   |nc|      exe.root_module.linkLibrary(nc);
     exe.setLinkerScript(wrapper_ld);
     exe.step.dependOn(&install_reset.step);
 
@@ -1402,6 +1418,7 @@ fn addAtari2600_3eExe(
         }),
     });
     exe.bundle_compiler_rt = false;
+    exe.lto = .full;
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/atari2600-common/crt0.S"));
     exe.root_module.addIncludePath(sdk_dep.path("mos-platform/atari2600-3e"));
     exe.root_module.addIncludePath(sdk_dep.path("mos-platform/atari2600-common"));
@@ -1449,6 +1466,7 @@ fn addAtari8CartStdExe(
         }),
     });
     exe.bundle_compiler_rt = false;
+    exe.lto = .full;
     exe.root_module.addIncludePath(sdk_dep.path("mos-platform/atari8-common"));
     exe.root_module.addIncludePath(sdk_dep.path("mos-platform/common/include"));
     exe.root_module.linkLibrary(libs.crt);
@@ -1611,6 +1629,7 @@ fn addApple2Exe(
         }),
     });
     exe.bundle_compiler_rt = false;
+    exe.lto = .full;
     exe.root_module.addIncludePath(.{ .cwd_relative = b.fmt("{s}/apple-iie-prodos", .{lib_root}) });
     exe.root_module.addIncludePath(.{ .cwd_relative = b.fmt("{s}/apple-iie-prodos-cli", .{lib_root}) });
     exe.root_module.addIncludePath(.{ .cwd_relative = b.fmt("{s}/apple-iie-prodos-hires", .{lib_root}) });

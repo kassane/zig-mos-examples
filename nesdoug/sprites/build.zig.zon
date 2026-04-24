@@ -1,7 +1,0 @@
-.{
-    .name = .sprites,
-    .version = "0.0.0",
-    .minimum_zig_version = "0.16.0",
-    .paths = .{"."},
-    .fingerprint = 0xc1d2e3f4a5b60718,
-}
