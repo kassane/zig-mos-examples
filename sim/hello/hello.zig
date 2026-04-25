@@ -115,7 +115,7 @@ fn countPrimes() u8 {
     return count;
 }
 
-export fn main() void {
+pub fn main() void {
     writeStr("mos-sim benchmarks\n");
     writeStr("==================\n");
 

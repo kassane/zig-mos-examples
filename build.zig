@@ -941,11 +941,7 @@ fn addSimExe(
     name: []const u8,
     root_src: []const u8,
 ) *std.Build.Step.Compile {
-    const target = b.resolveTargetQuery(.{
-        .cpu_arch = .mos,
-        .os_tag = .freestanding,
-        .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos6502 },
-    });
+    const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .sim });
 
     const wf = b.addWriteFiles();
     const wrapper_ld = wf.add("sim-wrapper.ld", b.fmt(
@@ -963,7 +959,6 @@ fn addSimExe(
         }),
     });
     exe.bundle_compiler_rt = false;
-    exe.lto = .full;
     exe.root_module.linkLibrary(libs.crt);
     exe.root_module.linkLibrary(libs.crt0);
     exe.root_module.linkLibrary(libs.c);
@@ -1527,12 +1522,22 @@ fn addSnesExe(
         }),
     });
     exe.bundle_compiler_rt = false;
-    exe.lto = .full;
-    // crt0.S: switches W65C816S from emulation to native mode — defines no symbols,
-    // so must be added directly (not via archive) to ensure the linker includes it.
-    exe.root_module.addAssemblyFile(b.path("snes/crt0.S"));
-    // ROM header ($FFC0) and interrupt vectors ($FFE4): placed at fixed addresses by lorom.ld.
-    exe.root_module.addAssemblyFile(b.path("snes/header.s"));
+    const opt = exe.root_module.optimize.?;
+    exe.root_module.addImport("snes", b.createModule(.{
+        .root_source_file = b.path("snes/hardware.zig"),
+        .target = target,
+        .optimize = opt,
+    }));
+    exe.root_module.addImport("crt0", b.createModule(.{
+        .root_source_file = b.path("snes/crt0.zig"),
+        .target = target,
+        .optimize = opt,
+    }));
+    exe.root_module.addImport("snes_header", b.createModule(.{
+        .root_source_file = b.path("snes/header.zig"),
+        .target = target,
+        .optimize = opt,
+    }));
     exe.root_module.linkLibrary(libs.crt);
     exe.root_module.linkLibrary(libs.crt0);
     exe.root_module.linkLibrary(libs.c);
