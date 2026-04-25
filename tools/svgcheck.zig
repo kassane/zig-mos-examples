@@ -64,15 +64,15 @@ fn checkSvg(path: []const u8, data: []const u8) bool {
 
 pub fn main(init: std.process.Init) !void {
     const alloc = init.gpa;
-    const io    = init.io;
-    const cwd   = std.Io.Dir.cwd();
+    const io = init.io;
+    const cwd = std.Io.Dir.cwd();
 
     var args_iter = try init.minimal.args.iterateAllocator(alloc);
     defer args_iter.deinit();
     _ = args_iter.next();
 
     var any_arg = false;
-    var all_ok  = true;
+    var all_ok = true;
 
     while (args_iter.next()) |path| {
         any_arg = true;

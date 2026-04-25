@@ -19,6 +19,7 @@ const SdkLibs = struct {
     nes_mmc1: ?sdk_mod.Libs = null,
     a2600_3e: ?sdk_mod.Libs = null,
     a8cart: ?sdk_mod.Libs = null,
+    snes: ?sdk_mod.Libs = null,
 };
 
 pub fn build(b: *std.Build) void {
@@ -40,21 +41,22 @@ pub fn build(b: *std.Build) void {
     var sdk_libs = SdkLibs{};
 
     for ([_]sdk_mod.Platform{
-        .{ .name = "sim", .query = .{ .cpu_arch = .mos, .os_tag = .freestanding, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos6502 } } },
-        .{ .name = "mega65", .query = .{ .cpu_arch = .mos, .os_tag = .freestanding, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos45gs02 } } },
-        .{ .name = "c64", .query = .{ .cpu_arch = .mos, .os_tag = .freestanding, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos6502 } } },
+        .{ .name = "sim", .query = .{ .cpu_arch = .mos, .os_tag = .sim } },
+        .{ .name = "mega65", .query = .{ .cpu_arch = .mos, .os_tag = .mega65 } },
+        .{ .name = "c64", .query = .{ .cpu_arch = .mos, .os_tag = .c64 } },
         .{ .name = "nes", .query = .{ .cpu_arch = .mos, .os_tag = .nes } },
         .{ .name = "neo6502", .query = .{ .cpu_arch = .mos, .os_tag = .freestanding, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mosw65c02 } } },
         .{ .name = "atari2600-4k", .query = .{ .cpu_arch = .mos, .os_tag = .freestanding, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos6502x } } },
         .{ .name = "atari8-dos", .query = .{ .cpu_arch = .mos, .os_tag = .atari8 } },
-        .{ .name = "cx16", .query = .{ .cpu_arch = .mos, .os_tag = .cx16, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mosw65c02 } } },
-        .{ .name = "lynx-bll", .query = .{ .cpu_arch = .mos, .os_tag = .lynx, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mosw65c02 } } },
-        .{ .name = "pce", .query = .{ .cpu_arch = .mos, .os_tag = .pce, .cpu_model = .{ .explicit = &std.Target.mos.cpu.moshuc6280 } } },
+        .{ .name = "cx16", .query = .{ .cpu_arch = .mos, .os_tag = .cx16 } },
+        .{ .name = "lynx-bll", .query = .{ .cpu_arch = .mos, .os_tag = .lynx } },
+        .{ .name = "pce", .query = .{ .cpu_arch = .mos, .os_tag = .pce } },
         .{ .name = "nes-cnrom", .query = .{ .cpu_arch = .mos, .os_tag = .nes } },
         .{ .name = "nes-unrom", .query = .{ .cpu_arch = .mos, .os_tag = .nes } },
         .{ .name = "nes-mmc1", .query = .{ .cpu_arch = .mos, .os_tag = .nes } },
         .{ .name = "atari2600-3e", .query = .{ .cpu_arch = .mos, .os_tag = .freestanding, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos6502x } } },
         .{ .name = "atari8-cart-std", .query = .{ .cpu_arch = .mos, .os_tag = .atari8 } },
+        .{ .name = "snes", .query = .{ .cpu_arch = .mos, .os_tag = .snes } },
     }) |pd| {
         const libs = sdk_mod.buildPlatform(b, sdk_src_raw, pd);
         const dest = b.fmt("mos-platform/{s}/lib", .{pd.name});
@@ -80,6 +82,7 @@ pub fn build(b: *std.Build) void {
         if (std.mem.eql(u8, pd.name, "nes-mmc1")) sdk_libs.nes_mmc1 = libs;
         if (std.mem.eql(u8, pd.name, "atari2600-3e")) sdk_libs.a2600_3e = libs;
         if (std.mem.eql(u8, pd.name, "atari8-cart-std")) sdk_libs.a8cart = libs;
+        if (std.mem.eql(u8, pd.name, "snes")) sdk_libs.snes = libs;
     }
 
     // Translate neslib.h and nesdoug.h from the MOS SDK into Zig modules.
@@ -93,28 +96,24 @@ pub fn build(b: *std.Build) void {
     const nes_mmc1_mapper_mod = nesMapperHeaderMod(b, sdk_dep, nes_target, "nes-mmc1");
 
     // Translate mega65.h into a Zig module.
-    const mega65_target = b.resolveTargetQuery(.{
-        .cpu_arch = .mos,
-        .os_tag = .freestanding,
-        .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos45gs02 },
-    });
+    const mega65_target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .mega65 });
     const mega65_mod = mega65HeaderMod(b, sdk_dep, mega65_target);
 
     // Translated headers for CX16.
-    const cx16_target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .cx16, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mosw65c02 } });
+    const cx16_target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .cx16 });
     const cx16_mod = cx16HeaderMod(b, sdk_dep, cx16_target);
     const cbm_mod = cbmHeaderMod(b, sdk_dep, cx16_target);
 
     // Translated headers for C64.
-    const c64_build_target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .freestanding, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos6502 } });
+    const c64_build_target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .c64 });
     const c64_mod = c64HeaderMod(b, sdk_dep, c64_build_target);
 
     // Translated headers for Lynx.
-    const lynx_build_target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .lynx, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mosw65c02 } });
+    const lynx_build_target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .lynx });
     const lynx_mod = lynxHeaderMod(b, sdk_dep, lynx_build_target);
 
     // Translated headers for Sim.
-    const sim_build_target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .freestanding, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos6502 } });
+    const sim_build_target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .sim });
     const sim_io_mod = simIoHeaderMod(b, sdk_dep, sim_build_target);
 
     // Translated GTIA headers for Atari 8-bit.
@@ -578,6 +577,16 @@ pub fn build(b: *std.Build) void {
         run_bininfo.addFileArg(exe.getEmittedBin());
     }
 
+    // ---- SNES LoROM hello ----
+    {
+        const step = b.step("snes-hello", "Build SNES LoROM hello example");
+        const exe = addSnesExe(b, sdk_src, sdk_libs.snes orelse @panic("snes libs not built"), "snes-hello", "snes/hello/hello.zig");
+        const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "snes-hello.sfc" });
+        step.dependOn(&install.step);
+        b.getInstallStep().dependOn(&install.step);
+        run_bininfo.addFileArg(exe.getEmittedBin());
+    }
+
     // ---- Atari 8-bit cartridge hello ----
     {
         const step = b.step("atari8-cart-hello", "Build Atari 8-bit standard cartridge hello example");
@@ -820,11 +829,7 @@ fn addMega65Exe(
     name: []const u8,
     root_src: []const u8,
 ) *std.Build.Step.Compile {
-    const target = b.resolveTargetQuery(.{
-        .cpu_arch = .mos,
-        .os_tag = .freestanding,
-        .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos45gs02 },
-    });
+    const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .mega65 });
 
     const wf = b.addWriteFiles();
     const libc_txt = wf.add("libc.txt", b.fmt(
@@ -959,7 +964,6 @@ fn addSimExe(
     });
     exe.bundle_compiler_rt = false;
     exe.lto = .full;
-    exe.root_module.addAssemblyFile(b.path("sim/call_main.s"));
     exe.root_module.linkLibrary(libs.crt);
     exe.root_module.linkLibrary(libs.crt0);
     exe.root_module.linkLibrary(libs.c);
@@ -1104,7 +1108,6 @@ fn addCx16Exe(
     });
     exe.bundle_compiler_rt = false;
     exe.lto = .full;
-    exe.root_module.addAssemblyFile(b.path("cx16/call_main.s"));
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/cx16/basic-header.S"));
     exe.root_module.addIncludePath(sdk_dep.path("mos-platform/cx16"));
     exe.root_module.addIncludePath(sdk_dep.path("mos-platform/commodore"));
@@ -1147,7 +1150,6 @@ fn addLynxBllExe(
     });
     exe.bundle_compiler_rt = false;
     exe.lto = .full;
-    exe.root_module.addAssemblyFile(b.path("lynx/call_main.s"));
     exe.root_module.addIncludePath(sdk_dep.path("mos-platform/lynx"));
     exe.root_module.addIncludePath(sdk_dep.path("mos-platform/common/include"));
     exe.root_module.linkLibrary(libs.crt);
@@ -1495,6 +1497,45 @@ fn addAtari8CartStdExe(
     exe.root_module.linkLibrary(libs.c);
     exe.setLibCFile(libc_txt);
     exe.root_module.link_libc = true;
+    exe.setLinkerScript(wrapper_ld);
+
+    return exe;
+}
+
+fn addSnesExe(
+    b: *std.Build,
+    sdk_src: []const u8,
+    libs: sdk_mod.Libs,
+    name: []const u8,
+    root_src: []const u8,
+) *std.Build.Step.Compile {
+    const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .snes });
+
+    const build_root = b.build_root.path orelse ".";
+    const wf = b.addWriteFiles();
+    const wrapper_ld = wf.add("snes-lorom-wrapper.ld", b.fmt(
+        \\SEARCH_DIR("{s}/mos-platform/common/ldscripts");
+        \\INCLUDE "{s}/snes/lorom.ld"
+    , .{ sdk_src, build_root }));
+
+    const exe = b.addExecutable(.{
+        .name = name,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path(root_src),
+            .target = target,
+            .optimize = .ReleaseFast,
+        }),
+    });
+    exe.bundle_compiler_rt = false;
+    exe.lto = .full;
+    // crt0.S: switches W65C816S from emulation to native mode — defines no symbols,
+    // so must be added directly (not via archive) to ensure the linker includes it.
+    exe.root_module.addAssemblyFile(b.path("snes/crt0.S"));
+    // ROM header ($FFC0) and interrupt vectors ($FFE4): placed at fixed addresses by lorom.ld.
+    exe.root_module.addAssemblyFile(b.path("snes/header.s"));
+    exe.root_module.linkLibrary(libs.crt);
+    exe.root_module.linkLibrary(libs.crt0);
+    exe.root_module.linkLibrary(libs.c);
     exe.setLinkerScript(wrapper_ld);
 
     return exe;

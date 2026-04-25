@@ -81,7 +81,7 @@ fn unlock_vic4() void {
 
 /// Switch to 3.5 MHz C65 FAST mode (no VFAST).
 fn speed_mode3() void {
-    vic.ctrlb |= 0x40;           // VIC3_FAST_MASK
+    vic.ctrlb |= 0x40; // VIC3_FAST_MASK
     vic.ctrlc &= ~@as(u8, 0x40); // clear VIC4_VFAST_MASK
 }
 

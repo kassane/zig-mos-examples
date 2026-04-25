@@ -36,7 +36,7 @@ const all_palette: [32]u8 = .{
 };
 
 var ball: Obj = .{ .x = 120, .y = 80, .w = BALL_W, .h = BALL_H };
-var bat:  Obj = .{ .x = 112, .y = BAT_Y, .w = BAT_W, .h = BAT_H };
+var bat: Obj = .{ .x = 112, .y = BAT_Y, .w = BAT_W, .h = BAT_H };
 var ball_dx: i8 = 1;
 var ball_dy: i8 = 1;
 var lives: u8 = 3;
@@ -59,15 +59,24 @@ export fn main() callconv(.c) void {
         neslib.ppu_wait_nmi();
 
         const pad = neslib.pad_poll(0);
-        if (pad & 0x02 != 0 and bat.x > 8)   bat.x -= 2; // PAD_LEFT
+        if (pad & 0x02 != 0 and bat.x > 8) bat.x -= 2; // PAD_LEFT
         if (pad & 0x01 != 0 and bat.x < 224) bat.x += 2; // PAD_RIGHT
 
         ball.x = @intCast(@as(i16, ball.x) + ball_dx);
         ball.y = @intCast(@as(i16, ball.y) + ball_dy);
 
-        if (ball.x <= 8)   { ball.x = 8;   ball_dx =  1; }
-        if (ball.x >= 248) { ball.x = 248;  ball_dx = -1; }
-        if (ball.y <= 8)   { ball.y = 8;   ball_dy =  1; }
+        if (ball.x <= 8) {
+            ball.x = 8;
+            ball_dx = 1;
+        }
+        if (ball.x >= 248) {
+            ball.x = 248;
+            ball_dx = -1;
+        }
+        if (ball.y <= 8) {
+            ball.y = 8;
+            ball_dy = 1;
+        }
 
         if (nesdoug.check_collision(@ptrCast(&ball), @ptrCast(&bat)) != 0) {
             ball_dy = -1;
@@ -81,10 +90,10 @@ export fn main() callconv(.c) void {
         }
 
         neslib.oam_clear();
-        neslib.oam_spr(ball.x,       ball.y, 'O', 0x00);
-        neslib.oam_spr(bat.x,        bat.y,  '=', 0x01);
-        neslib.oam_spr(bat.x + 8,    bat.y,  '=', 0x01);
-        neslib.oam_spr(bat.x + 16,   bat.y,  '=', 0x01);
+        neslib.oam_spr(ball.x, ball.y, 'O', 0x00);
+        neslib.oam_spr(bat.x, bat.y, '=', 0x01);
+        neslib.oam_spr(bat.x + 8, bat.y, '=', 0x01);
+        neslib.oam_spr(bat.x + 16, bat.y, '=', 0x01);
     }
 
     // Game over — freeze.

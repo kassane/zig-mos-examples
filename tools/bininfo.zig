@@ -91,9 +91,9 @@ fn checkA26(path: []const u8, data: []const u8) bool {
     }
     // 6502 vectors are at the end of the address space mapped by the ROM.
     // For any cart size: last 6 bytes = NMI(2) + RESET(2) + IRQ(2).
-    const nmi   = readU16Le(data, len - 6);
+    const nmi = readU16Le(data, len - 6);
     const reset = readU16Le(data, len - 4);
-    const irq   = readU16Le(data, len - 2);
+    const irq = readU16Le(data, len - 2);
     std.debug.print("{s}: [Atari 2600]  size={d}KB  NMI=${x:0>4}  RESET=${x:0>4}  IRQ=${x:0>4}\n", .{
         path, len / 1024, nmi, reset, irq,
     });
@@ -111,7 +111,7 @@ fn checkXex(path: []const u8, data: []const u8) bool {
     var ok = true;
     while (pos + 4 <= data.len) {
         const start = readU16Le(data, pos);
-        const end   = readU16Le(data, pos + 2);
+        const end = readU16Le(data, pos + 2);
         pos += 4;
         if (start == 0xFFFF) continue; // extra magic between segments
         if (end < start) {
@@ -237,9 +237,9 @@ fn checkFile(path: []const u8, data: []const u8) bool {
     // - RESET vector (at len-4) < 0x8000  →  Atari 8-bit cartridge (code in low RAM)
     // - Otherwise  →  PC Engine (IRQ/RESET vectors point to fixed bank 0xE000–0xFFFF)
     if (data.len >= 8192 and data.len % 8192 == 0 and data.len <= 524288) {
-        const nmi   = readU16Le(data, data.len - 6);
+        const nmi = readU16Le(data, data.len - 6);
         const reset = readU16Le(data, data.len - 4);
-        const irq   = readU16Le(data, data.len - 2);
+        const irq = readU16Le(data, data.len - 2);
         // A26: NMI unused (always 0), RESET and IRQ are identical and non-zero.
         if (nmi == 0x0000 and reset != 0 and irq == reset) return checkA26(path, data);
         // Atari 8-bit cart: RESET vector points to RAM/low-ROM (<0x8000), non-zero.
@@ -265,15 +265,15 @@ fn checkFile(path: []const u8, data: []const u8) bool {
 
 pub fn main(init: std.process.Init) !void {
     const alloc = init.gpa;
-    const io    = init.io;
-    const cwd   = std.Io.Dir.cwd();
+    const io = init.io;
+    const cwd = std.Io.Dir.cwd();
 
     var args_iter = try init.minimal.args.iterateAllocator(alloc);
     defer args_iter.deinit();
     _ = args_iter.next(); // skip argv[0]
 
     var any_arg = false;
-    var all_ok  = true;
+    var all_ok = true;
 
     while (args_iter.next()) |path| {
         any_arg = true;

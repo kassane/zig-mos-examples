@@ -20,7 +20,7 @@ export fn main() void {
     var sx = rand() % 280;
     var sy = rand() % 192;
 
-    /// Three attractor points for the Sierpiński IFS: bottom-left, bottom-right, top-centre.
+    // Three attractor points for the Sierpiński IFS: bottom-left, bottom-right, top-centre.
     const attractors = [3][2]u64{
         .{ 0, 192 },
         .{ 280, 192 },

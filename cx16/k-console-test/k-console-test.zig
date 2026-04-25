@@ -6,7 +6,7 @@
 //! returns to text mode.
 
 const cx16 = @import("cx16");
-const cbm  = @import("cbm");
+const cbm = @import("cbm");
 
 fn waitKey() void {
     while (cbm.cbm_k_getin() == 0) {}

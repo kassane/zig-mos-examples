@@ -13,8 +13,8 @@ const vic: *volatile mega65.__vic4 = @ptrFromInt(0xd000);
 
 export fn main() void {
     _ = std.c.printf("Hello World!\n");
-    vic.bordercol = 5;     // green border
-    lpoke(0x40000, 0);     // write 0 to Attic RAM $40000
+    vic.bordercol = 5; // green border
+    lpoke(0x40000, 0); // write 0 to Attic RAM $40000
     vic.screencol = lpeek(0x40000); // read it back → black screen
 }
 
