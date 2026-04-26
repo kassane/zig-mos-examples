@@ -179,11 +179,15 @@ jobs:
 
       - name: C64 smoke tests (VICE)
         run: |
+          # Locate VICE system directory dynamically — path differs between distros/versions.
+          # On Ubuntu 24.04 ROMs are under /usr/lib/vice/; on others /usr/share/vice/.
+          VICE_SYSDIR=$(dpkg -L vice 2>/dev/null | grep -m1 '/C64/' | sed 's|/C64/.*||' || echo "/usr/share/vice")
+          echo "Using VICE sysdir: $VICE_SYSDIR"
           smoke_c64() {
             local f=$1 rc=0
             # -limitcycles exits cleanly (rc=0) after N emulated cycles.
             # xvfb-run provides a virtual display; -headless not supported in apt VICE build.
-            timeout 10 xvfb-run -a x64sc -directory /usr/share/vice -warp -limitcycles 5000000 "zig-out/bin/$f" || rc=$?
+            timeout 10 xvfb-run -a x64sc -directory "$VICE_SYSDIR" -warp -limitcycles 5000000 "zig-out/bin/$f" || rc=$?
             if [ $rc -ne 0 ]; then
               echo "FAIL: $f (rc=$rc)"; exit 1
             fi
