@@ -26,10 +26,15 @@ zig build nes-fade
 zig build nes-sprites
 zig build nes-pads
 zig build nes-color-cycle
+zig build nes-fullbg
+zig build nes-random
 zig build nes-bat-ball
+zig build nes-mappers
 zig build nes-cnrom-hello
 zig build nes-unrom-hello
 zig build nes-mmc1-hello
+zig build nes-mmc3-hello
+zig build nes-gtrom-hello
 
 # Commodore 64
 zig build c64-hello
@@ -60,6 +65,8 @@ zig build neo6502-graphics
 
 # SNES
 zig build snes-hello
+zig build snes-color-cycle
+zig build snes-zig-logo
 
 # mos-sim (6502 simulator)
 zig build sim-hello
@@ -88,13 +95,25 @@ Output files land in `zig-out/bin/`.
 | `nes-zig-logo` — Zig mark logo with shimmer palette animation | ![](.github/zig-logo.gif) |
 | `nes-hello1` / `nes-hello2` / `nes-hello3` — text hello-world variants | ![](.github/hello.gif) |
 | `nes-fade` — full-screen palette fade in/out | ![](.github/fade.gif) |
+| `nes-fullbg` — full background with metatiles | |
 | `nes-sprites` — OAM sprite rendering | ![](.github/sprites.gif) |
-| `nes-bat-ball` — simple ball-and-bat game loop | ![](.github/bat-ball.gif) |
+| `nes-random` — 64 sprites at random positions, three fall speeds | |
+| `nes-bat-ball` — bat-and-ball game loop (CH05 port) | ![](.github/bat-ball.gif) |
 | `nes-color-cycle` — background colour cycling | ![](.github/color-cycle.gif) |
-| `nes-pads` — controller input display | ![](.github/pads.gif) |
+| `nes-pads` — controller input with two 16×16 metasprites | ![](.github/pads.gif) |
+| `nes-mappers` — CNROM 4-bank CHR demo, press Start to cycle banks | |
 | `nes-cnrom-hello` — CNROM banked CHR ROM | ![](.github/cnrom-hello.gif) |
 | `nes-unrom-hello` — UNROM banked PRG ROM | ![](.github/unrom-hello.gif) |
 | `nes-mmc1-hello` — MMC1 mapper | ![](.github/mmc1-hello.gif) |
+| `nes-mmc3-hello` — MMC3 mapper | |
+| `nes-gtrom-hello` — GTROM mapper | |
+
+### SNES
+
+| Example | Preview |
+|---------|---------|
+| `snes-zig-logo` — Zig mark logo on BG1 with shimmer palette animation | |
+| `snes-color-cycle` — backdrop hue rotation (192-step colour wheel) | |
 
 ### Other platforms
 
@@ -111,13 +130,18 @@ Output files land in `zig-out/bin/`.
 | `nes-hello1`, `nes-hello2`, `nes-hello3` | NES NROM | mos6502 | `.nes` |
 | `nes-zig-logo` | NES NROM | mos6502 | `.nes` |
 | `nes-fade` | NES NROM | mos6502 | `.nes` |
+| `nes-fullbg` | NES NROM | mos6502 | `.nes` |
 | `nes-sprites` | NES NROM | mos6502 | `.nes` |
+| `nes-random` | NES NROM | mos6502 | `.nes` |
 | `nes-pads` | NES NROM | mos6502 | `.nes` |
 | `nes-color-cycle` | NES NROM | mos6502 | `.nes` |
 | `nes-bat-ball` | NES NROM | mos6502 | `.nes` |
+| `nes-mappers` | NES CNROM (4-bank) | mos6502 | `.nes` |
 | `nes-cnrom-hello` | NES CNROM | mos6502 | `.nes` |
 | `nes-unrom-hello` | NES UNROM | mos6502 | `.nes` |
 | `nes-mmc1-hello` | NES MMC1 | mos6502 | `.nes` |
+| `nes-mmc3-hello` | NES MMC3 | mos6502 | `.nes` |
+| `nes-gtrom-hello` | NES GTROM | mos6502 | `.nes` |
 | `c64-hello`, `c64-fibonacci` | Commodore 64 | mos6502 | `.prg` |
 | `c64-plasma` | Commodore 64 | mos6502 | `.prg` |
 | `cx16-hello` | Commander X16 | mosw65c02 | `.prg` |
@@ -131,6 +155,8 @@ Output files land in `zig-out/bin/`.
 | `pce-color-cycle-banked` | PC Engine banked | mosw65c02 | `.pce` |
 | `neo6502-graphics` | Neo6502 | mosw65c02 | `.neo` |
 | `snes-hello` | SNES LoROM | mosw65816 | `.sfc` |
+| `snes-color-cycle` | SNES LoROM | mosw65816 | `.sfc` |
+| `snes-zig-logo` | SNES LoROM | mosw65816 | `.sfc` |
 | `sim-hello` | mos-sim (6502 simulator) | mos6502 | binary |
 | `mega65-hello`, `mega65-plasma` | MEGA65 | mos45gs02 | `.prg` |
 | `mega65-viciv` | MEGA65 VICIV | mos45gs02 | `.prg` |
@@ -162,9 +188,12 @@ sieve<127>: 31 primes  (6905 cycles)
 
 ## Platform notes
 
+- **NES mappers** — CNROM 4-bank CHR demo; press Start to cycle through 4 CHR banks with distinct palettes. ROM: 32 KB PRG + 32 KB CHR ROM (4×8 KB banks).
 - **NES CNROM hello** — uses translated `mapper.h` via `b.addTranslateC`; calls `set_chr_bank(0)` to initialise the CNROM CHR bank. ROM: 32 KB PRG + 8 KB CHR ROM.
 - **NES UNROM hello** — uses translated `mapper.h`; calls `set_prg_bank(0)` to initialise the UNROM PRG bank. ROM: 256 KB PRG + 8 KB CHR RAM.
 - **NES MMC1 hello** — uses translated `mapper.h`; calls `set_prg_bank(0)` and `set_mirroring(MIRROR_VERTICAL)` to initialise MMC1 registers. ROM: 256 KB PRG + 8 KB CHR RAM.
+- **NES MMC3 hello** — uses translated `mapper.h`; calls `set_prg_bank(0)` to initialise MMC3 PRG bank. ROM: 512 KB PRG + 256 KB CHR ROM.
+- **NES GTROM hello** — uses translated `mapper.h`; GTROM (Codemasters) flash mapper. ROM: 512 KB PRG flash.
 - **C64 hello** — uses translated `c64.h` (VIC-II typed struct) via `b.addTranslateC`; cycles VIC-II border colour register.
 - **CX16 hello** — uses CBM KERNAL `cbm_k_chrout` to print "HELLO X16!", then cycles the border colour register.
 - **Lynx hello** — uses translated `_mikey.h` (MIKEY typed struct) via `b.addTranslateC`; animates all 32 palette entries.
