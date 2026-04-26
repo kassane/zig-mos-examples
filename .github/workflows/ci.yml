@@ -8,20 +8,25 @@ on:
 
 jobs:
   build:
+    name: ${{ matrix.name }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
+            name: Linux x86_64
             zig_archive: zig-mos-x86_64-linux-musl-baseline.tar.xz
             zig_dir: zig-mos-x86_64-linux-musl-baseline
           - os: macos-latest
+            name: macOS aarch64
             zig_archive: zig-mos-aarch64-macos-baseline.tar.xz
             zig_dir: zig-mos-aarch64-macos-baseline
           - os: ubuntu-24.04-arm
+            name: Linux aarch64
             zig_archive: zig-mos-aarch64-linux-musl-baseline.tar.xz
             zig_dir: zig-mos-aarch64-linux-musl-baseline
           - os: windows-latest
+            name: Windows x86_64
             zig_archive: zig-mos-x86_64-windows-baseline.zip
             zig_dir: zig-mos-x86_64-windows-baseline
     runs-on: ${{ matrix.os }}
@@ -29,11 +34,11 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@main
 
       - name: Cache zig-mos toolchain
         id: cache-zig
-        uses: actions/cache@v4
+        uses: actions/cache@main
         with:
           path: ${{ matrix.zig_dir }}
           key: zig-mos-${{ matrix.zig_archive }}-v1
