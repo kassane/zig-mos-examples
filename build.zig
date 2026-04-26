@@ -185,7 +185,7 @@ pub fn build(b: *std.Build) void {
         .name = "mos-sim",
         .root_module = b.createModule(.{
             .target = b.graph.host,
-            .optimize = .ReleaseSafe,
+            .optimize = .ReleaseFast,
             .link_libc = true,
         }),
     });
