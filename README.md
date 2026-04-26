@@ -58,6 +58,9 @@ zig build pce-color-cycle-banked
 # Neo6502
 zig build neo6502-graphics
 
+# SNES
+zig build snes-hello
+
 # mos-sim (6502 simulator)
 zig build sim-hello
 ```
@@ -127,6 +130,7 @@ Output files land in `zig-out/bin/`.
 | `pce-color-cycle` | PC Engine | mosw65c02 | `.pce` |
 | `pce-color-cycle-banked` | PC Engine banked | mosw65c02 | `.pce` |
 | `neo6502-graphics` | Neo6502 | mosw65c02 | `.neo` |
+| `snes-hello` | SNES LoROM | mosw65816 | `.sfc` |
 | `sim-hello` | mos-sim (6502 simulator) | mos6502 | binary |
 | `mega65-hello`, `mega65-plasma` | MEGA65 | mos45gs02 | `.prg` |
 | `mega65-viciv` | MEGA65 VICIV | mos45gs02 | `.prg` |
@@ -151,9 +155,9 @@ zig-out/bin/mos-sim zig-out/bin/sim-hello
 ```
 mos-sim benchmarks
 ==================
-fib(10) =     55  ( 439 cycles)
-fib(20) =   6765  ( 857 cycles)
-sieve<127>: 31 primes  (6552 cycles)
+fib(10) =     55  (   7 cycles)
+fib(20) =   6765  (   4 cycles)
+sieve<127>: 31 primes  (6905 cycles)
 ```
 
 ## Platform notes

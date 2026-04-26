@@ -163,6 +163,48 @@ fn checkNeo(path: []const u8, data: []const u8) bool {
     return true;
 }
 
+fn checkSfc(path: []const u8, data: []const u8) bool {
+    const len = data.len;
+    if (len < 32768 or (len % 32768) != 0) {
+        std.debug.print("{s}: [SFC] ERROR: unexpected size {d}B (expected multiple of 32KB)\n", .{ path, len });
+        return false;
+    }
+    // LoROM internal header sits at $7FC0 within the first 32KB bank.
+    const hdr: usize = 0x7FC0;
+    const map_mode = data[hdr + 0x15]; // $7FD5: $20=LoROM/Slow, $30=LoROM/Fast, $21=HiROM, $31=HiROM/Fast
+    const rom_sz_byte = data[hdr + 0x17]; // $7FD7: 1KB << n
+    const chksum = readU16Le(data, hdr + 0x1E); // $7FDE
+    const chksum_comp = readU16Le(data, hdr + 0x1C); // $7FDC
+    const chk_ok = (chksum +% chksum_comp) == 0xFFFF;
+
+    // Title: 21 ASCII bytes at $7FC0, space-padded — trim trailing spaces.
+    var title: [21]u8 = data[hdr..][0..21].*;
+    var tlen: usize = 21;
+    while (tlen > 0 and title[tlen - 1] == ' ') tlen -= 1;
+
+    const map_name: []const u8 = switch (map_mode & 0x37) {
+        0x20 => "LoROM",
+        0x21 => "HiROM",
+        0x23 => "SA-1",
+        0x25 => "ExHiROM",
+        0x30 => "LoROM/Fast",
+        0x31 => "HiROM/Fast",
+        else => "unknown",
+    };
+
+    // Emulation-mode RESET vector: CPU $FFFC = file offset $7FFC (LoROM).
+    const reset = readU16Le(data, 0x7FFC);
+    // Native-mode NMI vector: CPU $FFEA = file offset $7FEA (LoROM).
+    const nmi_native = readU16Le(data, 0x7FEA);
+    const rom_kb: u32 = if (rom_sz_byte < 14) @as(u32, 1) << @truncate(rom_sz_byte) else 0;
+
+    std.debug.print(
+        "{s}: [SNES {s}]  size={d}KB  title=\"{s}\"  map=${x:0>2}  RESET=${x:0>4}  NMI(native)=${x:0>4}  rom={d}KB  chk={s}\n",
+        .{ path, map_name, len / 1024, title[0..tlen], map_mode, reset, nmi_native, rom_kb, if (chk_ok) "ok" else "BAD" },
+    );
+    return true;
+}
+
 fn checkPce(path: []const u8, data: []const u8) bool {
     const len = data.len;
     if (len == 0 or (len % 8192) != 0) {
@@ -227,6 +269,8 @@ fn checkFile(path: []const u8, data: []const u8) bool {
     if (std.ascii.eqlIgnoreCase(ext, ".pce")) return checkPce(path, data);
     if (std.ascii.eqlIgnoreCase(ext, ".bll")) return checkBll(path, data);
     if (std.ascii.eqlIgnoreCase(ext, ".rom")) return checkAtari8Cart(path, data);
+    if (std.ascii.eqlIgnoreCase(ext, ".sfc") or std.ascii.eqlIgnoreCase(ext, ".smc"))
+        return checkSfc(path, data);
 
     // Size-based fallback for extensionless cache-path files.
     // 2K/4K → always Atari 2600 (no other format uses these sizes here).
@@ -244,6 +288,14 @@ fn checkFile(path: []const u8, data: []const u8) bool {
         if (nmi == 0x0000 and reset != 0 and irq == reset) return checkA26(path, data);
         // Atari 8-bit cart: RESET vector points to RAM/low-ROM (<0x8000), non-zero.
         if (reset != 0 and reset < 0x8000) return checkAtari8Cart(path, data);
+        // SNES LoROM/HiROM: check internal header map-mode byte at $7FD5.
+        // Valid SNES map modes: $20/$30 (LoROM), $21/$31 (HiROM), $23 (SA-1), $25 (ExHiROM).
+        if (data.len >= 0x8000) {
+            const map = data[0x7FD5];
+            if (map == 0x20 or map == 0x21 or map == 0x23 or
+                map == 0x25 or map == 0x30 or map == 0x31)
+                return checkSfc(path, data);
+        }
         // PCE (including banked ROMs where the upper bank is zero-padded).
         return checkPce(path, data);
     }

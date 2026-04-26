@@ -5,7 +5,6 @@
 
 const hw = @import("snes");
 comptime {
-    _ = @import("crt0");
     _ = @import("snes_header");
 }
 

@@ -31,14 +31,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Cache zig-mos toolchain
+        id: cache-zig
+        uses: actions/cache@v4
+        with:
+          path: ${{ matrix.zig_dir }}
+          key: zig-mos-${{ matrix.zig_archive }}-v1
+
       - name: Download zig-mos toolchain
+        if: steps.cache-zig.outputs.cache-hit != 'true'
         env:
           ZIG_ARCHIVE: ${{ matrix.zig_archive }}
           ZIG_DIR: ${{ matrix.zig_dir }}
         run: |
           curl -fsSL -O "https://github.com/kassane/zig-mos-bootstrap/releases/download/0.17.0-dev/${ZIG_ARCHIVE}"
           if [[ "${ZIG_ARCHIVE}" == *.zip ]]; then unzip -q "${ZIG_ARCHIVE}"; else tar -xf "${ZIG_ARCHIVE}"; fi
-          echo "$PWD/${ZIG_DIR}" >> "$GITHUB_PATH"
+
+      - name: Add zig-mos to PATH
+        env:
+          ZIG_DIR: ${{ matrix.zig_dir }}
+        run: echo "$PWD/${ZIG_DIR}" >> "$GITHUB_PATH"
 
       - name: Build SDK platform libs from source
         run: zig build sdk-build --summary all
@@ -70,6 +82,9 @@ jobs:
       - name: Build Neo6502 example
         run: zig build neo6502-graphics --summary all
 
+      - name: Build SNES example
+        run: zig build snes-hello --summary all
+
       - name: Build mos-sim from source and run sim-hello benchmark
         run: zig build run-sim-hello --summary all
 
@@ -90,6 +105,7 @@ jobs:
             pce-color-cycle.pce pce-color-cycle-banked.pce \
             mega65-hello.prg viciv.prg \
             graphics.neo \
+            snes-hello.sfc \
             sim-hello mos-sim; do
             test -f "zig-out/bin/$f" && echo "OK: $f" || echo "MISSING: $f"
           done

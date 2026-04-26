@@ -35,6 +35,8 @@ pub fn build(b: *std.Build) void {
 
     const apple2_sdk = b.option([]const u8, "apple2-sdk", "Path to apple-ii-port-work checkout (required for apple2 examples)");
 
+    const optimize = b.option(std.builtin.OptimizeMode, "optimize", "Optimize mode for target platform executables (default: ReleaseFast)") orelse .ReleaseFast;
+
     // ---- SDK build from source (llvm-mos-sdk git) ----
     const sdk_step = b.step("sdk-build", "Build llvm-mos-sdk platform libraries from source");
 
@@ -45,8 +47,8 @@ pub fn build(b: *std.Build) void {
         .{ .name = "mega65", .query = .{ .cpu_arch = .mos, .os_tag = .mega65 } },
         .{ .name = "c64", .query = .{ .cpu_arch = .mos, .os_tag = .c64 } },
         .{ .name = "nes", .query = .{ .cpu_arch = .mos, .os_tag = .nes } },
-        .{ .name = "neo6502", .query = .{ .cpu_arch = .mos, .os_tag = .freestanding, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mosw65c02 } } },
-        .{ .name = "atari2600-4k", .query = .{ .cpu_arch = .mos, .os_tag = .freestanding, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos6502x } } },
+        .{ .name = "neo6502", .query = .{ .cpu_arch = .mos, .os_tag = .rp6502 } },
+        .{ .name = "atari2600-4k", .query = .{ .cpu_arch = .mos, .os_tag = .atari2600 } },
         .{ .name = "atari8-dos", .query = .{ .cpu_arch = .mos, .os_tag = .atari8 } },
         .{ .name = "cx16", .query = .{ .cpu_arch = .mos, .os_tag = .cx16 } },
         .{ .name = "lynx-bll", .query = .{ .cpu_arch = .mos, .os_tag = .lynx } },
@@ -54,7 +56,7 @@ pub fn build(b: *std.Build) void {
         .{ .name = "nes-cnrom", .query = .{ .cpu_arch = .mos, .os_tag = .nes } },
         .{ .name = "nes-unrom", .query = .{ .cpu_arch = .mos, .os_tag = .nes } },
         .{ .name = "nes-mmc1", .query = .{ .cpu_arch = .mos, .os_tag = .nes } },
-        .{ .name = "atari2600-3e", .query = .{ .cpu_arch = .mos, .os_tag = .freestanding, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos6502x } } },
+        .{ .name = "atari2600-3e", .query = .{ .cpu_arch = .mos, .os_tag = .atari2600 } },
         .{ .name = "atari8-cart-std", .query = .{ .cpu_arch = .mos, .os_tag = .atari8 } },
         .{ .name = "snes", .query = .{ .cpu_arch = .mos, .os_tag = .snes } },
     }) |pd| {
@@ -126,7 +128,7 @@ pub fn build(b: *std.Build) void {
         .root_module = b.createModule(.{
             .root_source_file = b.path("tools/elf2mlb.zig"),
             .target = b.graph.host,
-            .optimize = .ReleaseFast,
+            .optimize = .ReleaseSafe,
         }),
     });
     b.installArtifact(elf2mlb);
@@ -137,7 +139,7 @@ pub fn build(b: *std.Build) void {
         .root_module = b.createModule(.{
             .root_source_file = b.path("tools/bininfo.zig"),
             .target = b.graph.host,
-            .optimize = .ReleaseFast,
+            .optimize = .ReleaseSafe,
         }),
     });
     b.installArtifact(bininfo);
@@ -151,7 +153,7 @@ pub fn build(b: *std.Build) void {
         .root_module = b.createModule(.{
             .root_source_file = b.path("tools/chr2svg.zig"),
             .target = b.graph.host,
-            .optimize = .ReleaseFast,
+            .optimize = .ReleaseSafe,
         }),
     });
     b.installArtifact(chr2svg);
@@ -162,7 +164,7 @@ pub fn build(b: *std.Build) void {
         .root_module = b.createModule(.{
             .root_source_file = b.path("tools/svgcheck.zig"),
             .target = b.graph.host,
-            .optimize = .ReleaseFast,
+            .optimize = .ReleaseSafe,
         }),
     });
     b.installArtifact(svgcheck);
@@ -173,7 +175,7 @@ pub fn build(b: *std.Build) void {
         .root_module = b.createModule(.{
             .root_source_file = b.path("tools/svg2chr.zig"),
             .target = b.graph.host,
-            .optimize = .ReleaseFast,
+            .optimize = .ReleaseSafe,
         }),
     });
     b.installArtifact(svg2chr);
@@ -183,7 +185,7 @@ pub fn build(b: *std.Build) void {
         .name = "mos-sim",
         .root_module = b.createModule(.{
             .target = b.graph.host,
-            .optimize = .ReleaseFast,
+            .optimize = .ReleaseSafe,
             .link_libc = true,
         }),
     });
@@ -225,7 +227,7 @@ pub fn build(b: *std.Build) void {
     // ---- NES hello1 ----
     {
         const step = b.step("nes-hello1", "Build NES hello1 example");
-        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs.nes orelse @panic("nes libs not built"), "hello1", "nesdoug/hello1/hello1.zig", "nesdoug/hello1/Alpha.chr", false);
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs.nes orelse @panic("nes libs not built"), optimize, "hello1", "nesdoug/hello1/hello1.zig", "nesdoug/hello1/Alpha.chr", false);
         exe.root_module.addImport("neslib", neslib_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "hello1.nes" });
         step.dependOn(&install.step);
@@ -237,7 +239,7 @@ pub fn build(b: *std.Build) void {
     // ---- NES hello2 ----
     {
         const step = b.step("nes-hello2", "Build NES hello2 example");
-        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs.nes orelse @panic("nes libs not built"), "hello2", "nesdoug/hello2/hello2.zig", "nesdoug/hello2/Alpha.chr", false);
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs.nes orelse @panic("nes libs not built"), optimize, "hello2", "nesdoug/hello2/hello2.zig", "nesdoug/hello2/Alpha.chr", false);
         exe.root_module.addImport("neslib", neslib_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "hello2.nes" });
         step.dependOn(&install.step);
@@ -249,7 +251,7 @@ pub fn build(b: *std.Build) void {
     // ---- NES hello3 ----
     {
         const step = b.step("nes-hello3", "Build NES hello3 example");
-        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs.nes orelse @panic("nes libs not built"), "hello3", "nesdoug/hello3/hello3.zig", "nesdoug/hello3/Alpha.chr", true);
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs.nes orelse @panic("nes libs not built"), optimize, "hello3", "nesdoug/hello3/hello3.zig", "nesdoug/hello3/Alpha.chr", true);
         exe.root_module.addImport("neslib", neslib_mod);
         exe.root_module.addImport("nesdoug", nesdoug_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "hello3.nes" });
@@ -262,7 +264,7 @@ pub fn build(b: *std.Build) void {
     // ---- NES zig-logo ----
     {
         const step = b.step("nes-zig-logo", "Build NES Zig logo display example");
-        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs.nes orelse @panic("nes libs not built"), "zig-logo", "nesdoug/zig-logo/zig-logo.zig", "nesdoug/zig-logo/zig-mark.chr", false);
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs.nes orelse @panic("nes libs not built"), optimize, "zig-logo", "nesdoug/zig-logo/zig-logo.zig", "nesdoug/zig-logo/zig-mark.chr", false);
         exe.root_module.addImport("neslib", neslib_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "zig-logo.nes" });
         step.dependOn(&install.step);
@@ -274,7 +276,7 @@ pub fn build(b: *std.Build) void {
     // ---- NES fade ----
     {
         const step = b.step("nes-fade", "Build NES palette fade example");
-        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs.nes orelse @panic("nes libs not built"), "fade", "nesdoug/fade/fade.zig", "nesdoug/fade/Girl5.chr", false);
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs.nes orelse @panic("nes libs not built"), optimize, "fade", "nesdoug/fade/fade.zig", "nesdoug/fade/Girl5.chr", false);
         exe.root_module.addImport("neslib", neslib_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "fade.nes" });
         step.dependOn(&install.step);
@@ -286,7 +288,7 @@ pub fn build(b: *std.Build) void {
     // ---- NES sprites ----
     {
         const step = b.step("nes-sprites", "Build NES sprites example");
-        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs.nes orelse @panic("nes libs not built"), "sprites", "nesdoug/sprites/sprites.zig", "nesdoug/sprites/Alpha2.chr", false);
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs.nes orelse @panic("nes libs not built"), optimize, "sprites", "nesdoug/sprites/sprites.zig", "nesdoug/sprites/Alpha2.chr", false);
         exe.root_module.addImport("neslib", neslib_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "sprites.nes" });
         step.dependOn(&install.step);
@@ -298,7 +300,7 @@ pub fn build(b: *std.Build) void {
     // ---- NES pads ----
     {
         const step = b.step("nes-pads", "Build NES controller input example");
-        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs.nes orelse @panic("nes libs not built"), "pads", "nesdoug/pads/pads.zig", "nesdoug/pads/Alpha3.chr", false);
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs.nes orelse @panic("nes libs not built"), optimize, "pads", "nesdoug/pads/pads.zig", "nesdoug/pads/Alpha3.chr", false);
         exe.root_module.addImport("neslib", neslib_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "pads.nes" });
         step.dependOn(&install.step);
@@ -310,7 +312,7 @@ pub fn build(b: *std.Build) void {
     // ---- NES color-cycle ----
     {
         const step = b.step("nes-color-cycle", "Build NES palette colour-cycle example");
-        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs.nes orelse @panic("nes libs not built"), "color-cycle", "nesdoug/color-cycle/color-cycle.zig", "nesdoug/color-cycle/blocks.chr", false);
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs.nes orelse @panic("nes libs not built"), optimize, "color-cycle", "nesdoug/color-cycle/color-cycle.zig", "nesdoug/color-cycle/blocks.chr", false);
         exe.root_module.addImport("neslib", neslib_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "color-cycle.nes" });
         step.dependOn(&install.step);
@@ -322,7 +324,7 @@ pub fn build(b: *std.Build) void {
     // ---- NES bat-ball ----
     {
         const step = b.step("nes-bat-ball", "Build NES bat-ball game (CH05 port)");
-        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs.nes orelse @panic("nes libs not built"), "bat-ball", "nesdoug/bat-ball/bat-ball.zig", "nesdoug/sprites/Alpha2.chr", true);
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs.nes orelse @panic("nes libs not built"), optimize, "bat-ball", "nesdoug/bat-ball/bat-ball.zig", "nesdoug/sprites/Alpha2.chr", true);
         exe.root_module.addImport("neslib", neslib_mod);
         exe.root_module.addImport("nesdoug", nesdoug_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "bat-ball.nes" });
@@ -335,7 +337,7 @@ pub fn build(b: *std.Build) void {
     // ---- C64 hello ----
     {
         const step = b.step("c64-hello", "Build C64 hello example");
-        const exe = addC64Exe(b, sdk_dep, sdk_src, sdk_libs.c64 orelse @panic("c64 libs not built"), "c64-hello", "c64/hello/hello.zig", false);
+        const exe = addC64Exe(b, sdk_dep, sdk_src, sdk_libs.c64 orelse @panic("c64 libs not built"), optimize, "c64-hello", "c64/hello/hello.zig", false);
         exe.root_module.addImport("c64", c64_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "c64-hello.prg" });
         step.dependOn(&install.step);
@@ -346,7 +348,7 @@ pub fn build(b: *std.Build) void {
     // ---- C64 fibonacci ----
     {
         const step = b.step("c64-fibonacci", "Build C64 fibonacci example");
-        const exe = addC64Exe(b, sdk_dep, sdk_src, sdk_libs.c64 orelse @panic("c64 libs not built"), "fibonacci", "c64/fibonacci/fibonacci.zig", false);
+        const exe = addC64Exe(b, sdk_dep, sdk_src, sdk_libs.c64 orelse @panic("c64 libs not built"), optimize, "fibonacci", "c64/fibonacci/fibonacci.zig", false);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "fibonacci.prg" });
         step.dependOn(&install.step);
         b.getInstallStep().dependOn(&install.step);
@@ -356,7 +358,7 @@ pub fn build(b: *std.Build) void {
     // ---- C64 plasma ----
     {
         const step = b.step("c64-plasma", "Build C64 plasma effect example");
-        const exe = addC64Exe(b, sdk_dep, sdk_src, sdk_libs.c64 orelse @panic("c64 libs not built"), "plasma", "c64/plasma/plasma.zig", false);
+        const exe = addC64Exe(b, sdk_dep, sdk_src, sdk_libs.c64 orelse @panic("c64 libs not built"), optimize, "plasma", "c64/plasma/plasma.zig", false);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "plasma.prg" });
         step.dependOn(&install.step);
         b.getInstallStep().dependOn(&install.step);
@@ -367,7 +369,7 @@ pub fn build(b: *std.Build) void {
     if (b.lazyDependency("mega65-libc", .{})) |m65_dep| {
         {
             const step = b.step("mega65-hello", "Build MEGA65 hello example");
-            const exe = addMega65Exe(b, sdk_dep, sdk_src, sdk_libs.mega65 orelse @panic("mega65 libs not built"), m65_dep, "mega65-hello", "mega65/hello/hello.zig");
+            const exe = addMega65Exe(b, sdk_dep, sdk_src, sdk_libs.mega65 orelse @panic("mega65 libs not built"), m65_dep, optimize, "mega65-hello", "mega65/hello/hello.zig");
             exe.root_module.addImport("mega65", mega65_mod);
             const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "mega65-hello.prg" });
             step.dependOn(&install.step);
@@ -376,7 +378,7 @@ pub fn build(b: *std.Build) void {
         }
         {
             const step = b.step("mega65-plasma", "Build MEGA65 plasma example");
-            const exe = addMega65Exe(b, sdk_dep, sdk_src, sdk_libs.mega65 orelse @panic("mega65 libs not built"), m65_dep, "plasma", "mega65/plasma/plasma.zig");
+            const exe = addMega65Exe(b, sdk_dep, sdk_src, sdk_libs.mega65 orelse @panic("mega65 libs not built"), m65_dep, optimize, "plasma", "mega65/plasma/plasma.zig");
             exe.root_module.addImport("mega65", mega65_mod);
             const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "plasma.prg" });
             step.dependOn(&install.step);
@@ -385,7 +387,7 @@ pub fn build(b: *std.Build) void {
         }
         {
             const step = b.step("mega65-viciv", "Build MEGA65 VICIV colour test");
-            const exe = addMega65Exe(b, sdk_dep, sdk_src, sdk_libs.mega65 orelse @panic("mega65 libs not built"), m65_dep, "viciv", "mega65/viciv/viciv.zig");
+            const exe = addMega65Exe(b, sdk_dep, sdk_src, sdk_libs.mega65 orelse @panic("mega65 libs not built"), m65_dep, optimize, "viciv", "mega65/viciv/viciv.zig");
             const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "viciv.prg" });
             step.dependOn(&install.step);
             b.getInstallStep().dependOn(&install.step);
@@ -399,14 +401,10 @@ pub fn build(b: *std.Build) void {
 
     // ---- Neo6502 graphics ----
     {
-        const neo6502_target = b.resolveTargetQuery(.{
-            .cpu_arch = .mos,
-            .os_tag = .freestanding,
-            .cpu_model = .{ .explicit = &std.Target.mos.cpu.mosw65c02 },
-        });
+        const neo6502_target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .rp6502 });
         const neo6502_mod = neo6502HeaderMod(b, sdk_dep, neo6502_target);
         const step = b.step("neo6502-graphics", "Build Neo6502 graphics example");
-        const exe = addNeo6502Exe(b, sdk_dep, sdk_src, sdk_libs.neo6502 orelse @panic("neo6502 libs not built"));
+        const exe = addNeo6502Exe(b, sdk_dep, sdk_src, sdk_libs.neo6502 orelse @panic("neo6502 libs not built"), optimize);
         exe.root_module.addImport("neo6502", neo6502_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "graphics.neo" });
         step.dependOn(&install.step);
@@ -417,7 +415,7 @@ pub fn build(b: *std.Build) void {
     // ---- sim hello ----
     {
         const step = b.step("sim-hello", "Build mos-sim hello example");
-        const exe = addSimExe(b, sdk_dep, sdk_src, sdk_libs.sim orelse @panic("sim libs not built"), "sim-hello", "sim/hello/hello.zig");
+        const exe = addSimExe(b, sdk_dep, sdk_src, sdk_libs.sim orelse @panic("sim libs not built"), optimize, "sim-hello", "sim/hello/hello.zig");
         exe.root_module.addImport("sim_io", sim_io_mod);
         const install = b.addInstallArtifact(exe, .{});
         step.dependOn(&install.step);
@@ -432,14 +430,10 @@ pub fn build(b: *std.Build) void {
 
     // ---- Atari 2600 colorbar ----
     {
-        const atari2600_target = b.resolveTargetQuery(.{
-            .cpu_arch = .mos,
-            .os_tag = .freestanding,
-            .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos6502x },
-        });
+        const atari2600_target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .atari2600 });
         const vcslib_mod = atari2600HeaderMod(b, sdk_dep, atari2600_target);
         const step = b.step("atari2600-colorbar", "Build Atari 2600 4K color-bar demo");
-        const exe = addAtari2600Exe(b, sdk_dep, sdk_src, sdk_libs.atari2600 orelse @panic("atari2600 libs not built"), "colorbar", "atari2600/colorbar/colorbar.zig");
+        const exe = addAtari2600Exe(b, sdk_dep, sdk_src, sdk_libs.atari2600 orelse @panic("atari2600 libs not built"), optimize, "colorbar", "atari2600/colorbar/colorbar.zig");
         exe.root_module.addImport("vcslib", vcslib_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "colorbar.a26" });
         step.dependOn(&install.step);
@@ -450,7 +444,7 @@ pub fn build(b: *std.Build) void {
     // ---- Atari 8-bit DOS hello ----
     {
         const step = b.step("atari8dos-hello", "Build Atari 8-bit DOS hello example");
-        const exe = addAtari8DosExe(b, sdk_dep, sdk_src, sdk_libs.atari8dos orelse @panic("atari8dos libs not built"), "atari8dos-hello", "atari8dos/hello/hello.zig");
+        const exe = addAtari8DosExe(b, sdk_dep, sdk_src, sdk_libs.atari8dos orelse @panic("atari8dos libs not built"), optimize, "atari8dos-hello", "atari8dos/hello/hello.zig");
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "atari8dos-hello.xex" });
         step.dependOn(&install.step);
         b.getInstallStep().dependOn(&install.step);
@@ -460,7 +454,7 @@ pub fn build(b: *std.Build) void {
     // ---- Apple2 hello ----
     if (apple2_sdk) |a2_sdk| {
         const step = b.step("apple2-hello", "Build Apple2 hello example");
-        const exe = addApple2Exe(b, sdk_dep, sdk_src, a2_sdk);
+        const exe = addApple2Exe(b, sdk_dep, sdk_src, a2_sdk, optimize);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "hello.sys" });
         step.dependOn(&install.step);
         b.getInstallStep().dependOn(&install.step);
@@ -473,7 +467,7 @@ pub fn build(b: *std.Build) void {
     // ---- Commander X16 hello ----
     {
         const step = b.step("cx16-hello", "Build Commander X16 hello example");
-        const exe = addCx16Exe(b, sdk_dep, sdk_src, sdk_libs.cx16 orelse @panic("cx16 libs not built"), "cx16-hello", "cx16/hello/hello.zig");
+        const exe = addCx16Exe(b, sdk_dep, sdk_src, sdk_libs.cx16 orelse @panic("cx16 libs not built"), optimize, "cx16-hello", "cx16/hello/hello.zig");
         exe.root_module.addImport("cbm", cbm_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "cx16-hello.prg" });
         step.dependOn(&install.step);
@@ -484,7 +478,7 @@ pub fn build(b: *std.Build) void {
     // ---- Commander X16 kernal console test ----
     {
         const step = b.step("cx16-k-console-test", "Build Commander X16 kernal console test");
-        const exe = addCx16Exe(b, sdk_dep, sdk_src, sdk_libs.cx16 orelse @panic("cx16 libs not built"), "cx16-k-console-test", "cx16/k-console-test/k-console-test.zig");
+        const exe = addCx16Exe(b, sdk_dep, sdk_src, sdk_libs.cx16 orelse @panic("cx16 libs not built"), optimize, "cx16-k-console-test", "cx16/k-console-test/k-console-test.zig");
         exe.root_module.addImport("cx16", cx16_mod);
         exe.root_module.addImport("cbm", cbm_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "cx16-k-console-test.prg" });
@@ -496,7 +490,7 @@ pub fn build(b: *std.Build) void {
     // ---- Atari Lynx BLL hello ----
     {
         const step = b.step("lynx-hello", "Build Atari Lynx BLL hello example");
-        const exe = addLynxBllExe(b, sdk_dep, sdk_src, sdk_libs.lynxbll orelse @panic("lynx-bll libs not built"), "lynx-hello", "lynx/hello/hello.zig");
+        const exe = addLynxBllExe(b, sdk_dep, sdk_src, sdk_libs.lynxbll orelse @panic("lynx-bll libs not built"), optimize, "lynx-hello", "lynx/hello/hello.zig");
         exe.root_module.addImport("lynx", lynx_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "lynx-hello.bll" });
         step.dependOn(&install.step);
@@ -507,7 +501,7 @@ pub fn build(b: *std.Build) void {
     // ---- PC Engine color-cycle ----
     {
         const step = b.step("pce-color-cycle", "Build PC Engine color-cycle example");
-        const exe = addPceExe(b, sdk_dep, sdk_src, sdk_libs.pce orelse @panic("pce libs not built"), "pce-color-cycle", "pce/color-cycle/color-cycle.zig");
+        const exe = addPceExe(b, sdk_dep, sdk_src, sdk_libs.pce orelse @panic("pce libs not built"), optimize, "pce-color-cycle", "pce/color-cycle/color-cycle.zig");
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "pce-color-cycle.pce" });
         step.dependOn(&install.step);
         b.getInstallStep().dependOn(&install.step);
@@ -517,7 +511,7 @@ pub fn build(b: *std.Build) void {
     // ---- PC Engine color-cycle banked ----
     {
         const step = b.step("pce-color-cycle-banked", "Build PC Engine banked color-cycle example");
-        const exe = addPceExe(b, sdk_dep, sdk_src, sdk_libs.pce orelse @panic("pce libs not built"), "pce-color-cycle-banked", "pce/color-cycle-banked/color-cycle-banked.zig");
+        const exe = addPceExe(b, sdk_dep, sdk_src, sdk_libs.pce orelse @panic("pce libs not built"), optimize, "pce-color-cycle-banked", "pce/color-cycle-banked/color-cycle-banked.zig");
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "pce-color-cycle-banked.pce" });
         step.dependOn(&install.step);
         b.getInstallStep().dependOn(&install.step);
@@ -527,7 +521,7 @@ pub fn build(b: *std.Build) void {
     // ---- NES CNROM hello ----
     {
         const step = b.step("nes-cnrom-hello", "Build NES CNROM mapper hello example");
-        const exe = addNesCnromExe(b, sdk_dep, sdk_src, sdk_libs.nes_cnrom orelse @panic("nes-cnrom libs not built"), "cnrom-hello", "nes/cnrom-hello/cnrom-hello.zig", "nesdoug/hello1/Alpha.chr");
+        const exe = addNesCnromExe(b, sdk_dep, sdk_src, sdk_libs.nes_cnrom orelse @panic("nes-cnrom libs not built"), optimize, "cnrom-hello", "nes/cnrom-hello/cnrom-hello.zig", "nesdoug/hello1/Alpha.chr");
         exe.root_module.addImport("neslib", neslib_mod);
         exe.root_module.addImport("mapper", nes_cnrom_mapper_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "cnrom-hello.nes" });
@@ -539,7 +533,7 @@ pub fn build(b: *std.Build) void {
     // ---- NES UNROM hello ----
     {
         const step = b.step("nes-unrom-hello", "Build NES UNROM mapper hello example");
-        const exe = addNesUnromExe(b, sdk_dep, sdk_src, sdk_libs.nes_unrom orelse @panic("nes-unrom libs not built"), "unrom-hello", "nes/unrom-hello/unrom-hello.zig");
+        const exe = addNesUnromExe(b, sdk_dep, sdk_src, sdk_libs.nes_unrom orelse @panic("nes-unrom libs not built"), optimize, "unrom-hello", "nes/unrom-hello/unrom-hello.zig");
         exe.root_module.addImport("neslib", neslib_mod);
         exe.root_module.addImport("mapper", nes_unrom_mapper_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "unrom-hello.nes" });
@@ -551,7 +545,7 @@ pub fn build(b: *std.Build) void {
     // ---- NES MMC1 hello ----
     {
         const step = b.step("nes-mmc1-hello", "Build NES MMC1 mapper hello example");
-        const exe = addNesMmc1Exe(b, sdk_dep, sdk_src, sdk_libs.nes_mmc1 orelse @panic("nes-mmc1 libs not built"), "mmc1-hello", "nes/mmc1-hello/mmc1-hello.zig");
+        const exe = addNesMmc1Exe(b, sdk_dep, sdk_src, sdk_libs.nes_mmc1 orelse @panic("nes-mmc1 libs not built"), optimize, "mmc1-hello", "nes/mmc1-hello/mmc1-hello.zig");
         exe.root_module.addImport("neslib", neslib_mod);
         exe.root_module.addImport("mapper", nes_mmc1_mapper_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "mmc1-hello.nes" });
@@ -562,14 +556,10 @@ pub fn build(b: *std.Build) void {
 
     // ---- Atari 2600 3E colorbar ----
     {
-        const atari2600_target = b.resolveTargetQuery(.{
-            .cpu_arch = .mos,
-            .os_tag = .freestanding,
-            .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos6502x },
-        });
+        const atari2600_target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .atari2600 });
         const vcslib_mod_3e = atari2600HeaderMod(b, sdk_dep, atari2600_target);
         const step = b.step("atari2600-3e-colorbar", "Build Atari 2600 3E mapper color-bar demo");
-        const exe = addAtari2600_3eExe(b, sdk_dep, sdk_src, sdk_libs.a2600_3e orelse @panic("atari2600-3e libs not built"), "colorbar-3e", "atari2600/colorbar-3e/colorbar-3e.zig");
+        const exe = addAtari2600_3eExe(b, sdk_dep, sdk_src, sdk_libs.a2600_3e orelse @panic("atari2600-3e libs not built"), optimize, "colorbar-3e", "atari2600/colorbar-3e/colorbar-3e.zig");
         exe.root_module.addImport("vcslib", vcslib_mod_3e);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "colorbar-3e.a26" });
         step.dependOn(&install.step);
@@ -580,7 +570,7 @@ pub fn build(b: *std.Build) void {
     // ---- SNES LoROM hello ----
     {
         const step = b.step("snes-hello", "Build SNES LoROM hello example");
-        const exe = addSnesExe(b, sdk_src, sdk_libs.snes orelse @panic("snes libs not built"), "snes-hello", "snes/hello/hello.zig");
+        const exe = addSnesExe(b, sdk_src, sdk_libs.snes orelse @panic("snes libs not built"), optimize, "snes-hello", "snes/hello/hello.zig");
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "snes-hello.sfc" });
         step.dependOn(&install.step);
         b.getInstallStep().dependOn(&install.step);
@@ -590,7 +580,7 @@ pub fn build(b: *std.Build) void {
     // ---- Atari 8-bit cartridge hello ----
     {
         const step = b.step("atari8-cart-hello", "Build Atari 8-bit standard cartridge hello example");
-        const exe = addAtari8CartStdExe(b, sdk_dep, sdk_src, sdk_libs.a8cart orelse @panic("atari8-cart libs not built"), "atari8-cart-hello", "atari8/cart-hello/cart-hello.zig");
+        const exe = addAtari8CartStdExe(b, sdk_dep, sdk_src, sdk_libs.a8cart orelse @panic("atari8-cart libs not built"), optimize, "atari8-cart-hello", "atari8/cart-hello/cart-hello.zig");
         exe.root_module.addImport("gtia", atari8_gtia_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "atari8-cart-hello.rom" });
         step.dependOn(&install.step);
@@ -692,16 +682,13 @@ fn addNesExe(
     sdk_dep: *std.Build.Dependency,
     sdk_src: []const u8,
     libs: sdk_mod.Libs,
+    opt: std.builtin.OptimizeMode,
     name: []const u8,
     root_src: []const u8,
     chr_src: []const u8,
     with_nesdoug: bool,
 ) *std.Build.Step.Compile {
-    const target = b.resolveTargetQuery(.{
-        .cpu_arch = .mos,
-        .os_tag = .freestanding,
-        .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos6502 },
-    });
+    const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .nes });
 
     // Wrapper linker script: add SEARCH_DIRs for all .ld include files, then INCLUDE the main script.
     const wf = b.addWriteFiles();
@@ -730,7 +717,7 @@ fn addNesExe(
         .root_module = b.createModule(.{
             .root_source_file = b.path(root_src),
             .target = target,
-            .optimize = .ReleaseFast,
+            .optimize = opt,
         }),
     });
     exe.bundle_compiler_rt = false;
@@ -762,6 +749,7 @@ fn addC64Exe(
     sdk_dep: *std.Build.Dependency,
     sdk_src: []const u8,
     libs: sdk_mod.Libs,
+    opt: std.builtin.OptimizeMode,
     name: []const u8,
     root_src: []const u8,
     with_printf_flt: bool,
@@ -801,7 +789,7 @@ fn addC64Exe(
         .root_module = b.createModule(.{
             .root_source_file = b.path(root_src),
             .target = target,
-            .optimize = .ReleaseFast,
+            .optimize = opt,
         }),
     });
     exe.bundle_compiler_rt = false;
@@ -826,6 +814,7 @@ fn addMega65Exe(
     sdk_src: []const u8,
     libs: sdk_mod.Libs,
     m65_dep: *std.Build.Dependency,
+    opt: std.builtin.OptimizeMode,
     name: []const u8,
     root_src: []const u8,
 ) *std.Build.Step.Compile {
@@ -865,7 +854,7 @@ fn addMega65Exe(
         .root_module = b.createModule(.{
             .root_source_file = b.path(root_src),
             .target = target,
-            .optimize = .ReleaseFast,
+            .optimize = opt,
         }),
     });
     exe.bundle_compiler_rt = false;
@@ -891,12 +880,9 @@ fn addNeo6502Exe(
     sdk_dep: *std.Build.Dependency,
     sdk_src: []const u8,
     libs: sdk_mod.Libs,
+    opt: std.builtin.OptimizeMode,
 ) *std.Build.Step.Compile {
-    const target = b.resolveTargetQuery(.{
-        .cpu_arch = .mos,
-        .os_tag = .freestanding,
-        .cpu_model = .{ .explicit = &std.Target.mos.cpu.mosw65c02 },
-    });
+    const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .rp6502 });
 
     const wf = b.addWriteFiles();
     const libc_txt = wf.add("libc.txt", b.fmt(
@@ -917,7 +903,7 @@ fn addNeo6502Exe(
         .root_module = b.createModule(.{
             .root_source_file = b.path("neo6502/graphics.zig"),
             .target = target,
-            .optimize = .ReleaseFast,
+            .optimize = opt,
         }),
     });
     exe.bundle_compiler_rt = false;
@@ -938,6 +924,7 @@ fn addSimExe(
     sdk_dep: *std.Build.Dependency,
     sdk_src: []const u8,
     libs: sdk_mod.Libs,
+    opt: std.builtin.OptimizeMode,
     name: []const u8,
     root_src: []const u8,
 ) *std.Build.Step.Compile {
@@ -955,10 +942,17 @@ fn addSimExe(
         .root_module = b.createModule(.{
             .root_source_file = b.path(root_src),
             .target = target,
-            .optimize = .ReleaseFast,
+            .optimize = opt,
         }),
     });
     exe.bundle_compiler_rt = false;
+    exe.lto = .full;
+    // LTO DCE eliminates both mosCallMainSection and mosMain because:
+    // - mosCallMainSection: nothing in bitcode calls it (only linker KEEP, which runs after LTO)
+    // - mosMain: referenced only via inline-asm "jsr main" which LTO doesn't trace
+    // Both exported aliases must be forced-undefined to survive the LTO pass.
+    exe.forceUndefinedSymbol("__zig_call_main_section");
+    exe.forceUndefinedSymbol("main");
     exe.root_module.linkLibrary(libs.crt);
     exe.root_module.linkLibrary(libs.crt0);
     exe.root_module.linkLibrary(libs.c);
@@ -973,14 +967,11 @@ fn addAtari2600Exe(
     sdk_dep: *std.Build.Dependency,
     sdk_src: []const u8,
     libs: sdk_mod.Libs,
+    opt: std.builtin.OptimizeMode,
     name: []const u8,
     root_src: []const u8,
 ) *std.Build.Step.Compile {
-    const target = b.resolveTargetQuery(.{
-        .cpu_arch = .mos,
-        .os_tag = .freestanding,
-        .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos6502x },
-    });
+    const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .atari2600 });
 
     const wf = b.addWriteFiles();
     const wrapper_ld = wf.add("atari2600-4k-wrapper.ld", b.fmt(
@@ -994,7 +985,7 @@ fn addAtari2600Exe(
         .root_module = b.createModule(.{
             .root_source_file = b.path(root_src),
             .target = target,
-            .optimize = .ReleaseFast,
+            .optimize = opt,
         }),
     });
     exe.bundle_compiler_rt = false;
@@ -1016,6 +1007,7 @@ fn addAtari8DosExe(
     sdk_dep: *std.Build.Dependency,
     sdk_src: []const u8,
     libs: sdk_mod.Libs,
+    opt: std.builtin.OptimizeMode,
     name: []const u8,
     root_src: []const u8,
 ) *std.Build.Step.Compile {
@@ -1040,7 +1032,7 @@ fn addAtari8DosExe(
         .root_module = b.createModule(.{
             .root_source_file = b.path(root_src),
             .target = target,
-            .optimize = .ReleaseFast,
+            .optimize = opt,
         }),
     });
     exe.bundle_compiler_rt = false;
@@ -1062,10 +1054,11 @@ fn addCx16Exe(
     sdk_dep: *std.Build.Dependency,
     sdk_src: []const u8,
     libs: sdk_mod.Libs,
+    opt: std.builtin.OptimizeMode,
     name: []const u8,
     root_src: []const u8,
 ) *std.Build.Step.Compile {
-    const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .cx16, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mosw65c02 } });
+    const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .cx16 });
 
     const wf = b.addWriteFiles();
     const libc_txt = wf.add("libc.txt", b.fmt(
@@ -1098,7 +1091,7 @@ fn addCx16Exe(
         .root_module = b.createModule(.{
             .root_source_file = b.path(root_src),
             .target = target,
-            .optimize = .ReleaseFast,
+            .optimize = opt,
         }),
     });
     exe.bundle_compiler_rt = false;
@@ -1122,10 +1115,11 @@ fn addLynxBllExe(
     sdk_dep: *std.Build.Dependency,
     sdk_src: []const u8,
     libs: sdk_mod.Libs,
+    opt: std.builtin.OptimizeMode,
     name: []const u8,
     root_src: []const u8,
 ) *std.Build.Step.Compile {
-    const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .lynx, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mosw65c02 } });
+    const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .lynx });
 
     const wf = b.addWriteFiles();
     const wrapper_ld = wf.add("lynx-bll-wrapper.ld", b.fmt(
@@ -1140,7 +1134,7 @@ fn addLynxBllExe(
         .root_module = b.createModule(.{
             .root_source_file = b.path(root_src),
             .target = target,
-            .optimize = .ReleaseFast,
+            .optimize = opt,
         }),
     });
     exe.bundle_compiler_rt = false;
@@ -1160,10 +1154,11 @@ fn addPceExe(
     sdk_dep: *std.Build.Dependency,
     sdk_src: []const u8,
     libs: sdk_mod.Libs,
+    opt: std.builtin.OptimizeMode,
     name: []const u8,
     root_src: []const u8,
 ) *std.Build.Step.Compile {
-    const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .pce, .cpu_model = .{ .explicit = &std.Target.mos.cpu.moshuc6280 } });
+    const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .pce });
 
     const wf = b.addWriteFiles();
     const wrapper_ld = wf.add("pce-wrapper.ld", b.fmt(
@@ -1178,15 +1173,14 @@ fn addPceExe(
         .root_module = b.createModule(.{
             .root_source_file = b.path(root_src),
             .target = target,
-            .optimize = .ReleaseFast,
+            .optimize = opt,
         }),
     });
     exe.bundle_compiler_rt = false;
     exe.lto = .full;
-    // crt0/crt0.S is a standalone object — needs huc6280 cpu and access to common/asminc/imag.inc.
     exe.root_module.addCSourceFile(.{
         .file = sdk_dep.path("mos-platform/pce/crt0/crt0.S"),
-        .flags = &.{"-mcpu=moshuc6280"},
+        .flags = &.{},
     });
     exe.root_module.addIncludePath(sdk_dep.path("mos-platform/common/asminc"));
     exe.root_module.addIncludePath(sdk_dep.path("mos-platform/pce-common/libpce/include"));
@@ -1205,15 +1199,12 @@ fn addNesCnromExe(
     sdk_dep: *std.Build.Dependency,
     sdk_src: []const u8,
     libs: sdk_mod.Libs,
+    opt: std.builtin.OptimizeMode,
     name: []const u8,
     root_src: []const u8,
     chr_src: []const u8,
 ) *std.Build.Step.Compile {
-    const target = b.resolveTargetQuery(.{
-        .cpu_arch = .mos,
-        .os_tag = .freestanding,
-        .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos6502 },
-    });
+    const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .nes });
 
     const wf = b.addWriteFiles();
     const wrapper_ld = wf.add("nes-cnrom-wrapper.ld", b.fmt(
@@ -1243,7 +1234,7 @@ fn addNesCnromExe(
         .root_module = b.createModule(.{
             .root_source_file = b.path(root_src),
             .target = target,
-            .optimize = .ReleaseFast,
+            .optimize = opt,
         }),
     });
     exe.bundle_compiler_rt = false;
@@ -1270,21 +1261,18 @@ fn addNesUnromExe(
     sdk_dep: *std.Build.Dependency,
     sdk_src: []const u8,
     libs: sdk_mod.Libs,
+    opt: std.builtin.OptimizeMode,
     name: []const u8,
     root_src: []const u8,
 ) *std.Build.Step.Compile {
-    const target = b.resolveTargetQuery(.{
-        .cpu_arch = .mos,
-        .os_tag = .freestanding,
-        .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos6502 },
-    });
+    const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .nes });
 
     // Pre-build reset.s as a separate object so the linker script's INPUT(reset.o)
     // can resolve via SEARCH_DIR. We install the .o to a dedicated subdir inside
     // the install prefix so the linker can find it.
     const reset_obj = b.addObject(.{
         .name = "reset",
-        .root_module = b.createModule(.{ .target = target, .optimize = .ReleaseFast }),
+        .root_module = b.createModule(.{ .target = target, .optimize = opt }),
     });
     reset_obj.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes-unrom/reset.s"));
     const reset_dir = b.fmt("{s}/objs/{s}", .{ b.install_path, name });
@@ -1308,7 +1296,7 @@ fn addNesUnromExe(
         .root_module = b.createModule(.{
             .root_source_file = b.path(root_src),
             .target = target,
-            .optimize = .ReleaseFast,
+            .optimize = opt,
         }),
     });
     exe.bundle_compiler_rt = false;
@@ -1335,18 +1323,15 @@ fn addNesMmc1Exe(
     sdk_dep: *std.Build.Dependency,
     sdk_src: []const u8,
     libs: sdk_mod.Libs,
+    opt: std.builtin.OptimizeMode,
     name: []const u8,
     root_src: []const u8,
 ) *std.Build.Step.Compile {
-    const target = b.resolveTargetQuery(.{
-        .cpu_arch = .mos,
-        .os_tag = .freestanding,
-        .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos6502 },
-    });
+    const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .nes });
 
     const reset_obj = b.addObject(.{
         .name = "reset",
-        .root_module = b.createModule(.{ .target = target, .optimize = .ReleaseFast }),
+        .root_module = b.createModule(.{ .target = target, .optimize = opt }),
     });
     reset_obj.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes-mmc1/reset.s"));
     const reset_dir = b.fmt("{s}/objs/{s}", .{ b.install_path, name });
@@ -1370,7 +1355,7 @@ fn addNesMmc1Exe(
         .root_module = b.createModule(.{
             .root_source_file = b.path(root_src),
             .target = target,
-            .optimize = .ReleaseFast,
+            .optimize = opt,
         }),
     });
     exe.bundle_compiler_rt = false;
@@ -1398,18 +1383,15 @@ fn addAtari2600_3eExe(
     sdk_dep: *std.Build.Dependency,
     sdk_src: []const u8,
     libs: sdk_mod.Libs,
+    opt: std.builtin.OptimizeMode,
     name: []const u8,
     root_src: []const u8,
 ) *std.Build.Step.Compile {
-    const target = b.resolveTargetQuery(.{
-        .cpu_arch = .mos,
-        .os_tag = .freestanding,
-        .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos6502x },
-    });
+    const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .atari2600 });
 
     const init_obj = b.addObject(.{
         .name = "init_mapper_3e",
-        .root_module = b.createModule(.{ .target = target, .optimize = .ReleaseFast }),
+        .root_module = b.createModule(.{ .target = target, .optimize = opt }),
     });
     init_obj.root_module.addAssemblyFile(sdk_dep.path("mos-platform/atari2600-3e/init_mapper_3e.S"));
     init_obj.root_module.addIncludePath(sdk_dep.path("mos-platform/atari2600-3e"));
@@ -1432,7 +1414,7 @@ fn addAtari2600_3eExe(
         .root_module = b.createModule(.{
             .root_source_file = b.path(root_src),
             .target = target,
-            .optimize = .ReleaseFast,
+            .optimize = opt,
         }),
     });
     exe.bundle_compiler_rt = false;
@@ -1455,6 +1437,7 @@ fn addAtari8CartStdExe(
     sdk_dep: *std.Build.Dependency,
     sdk_src: []const u8,
     libs: sdk_mod.Libs,
+    opt: std.builtin.OptimizeMode,
     name: []const u8,
     root_src: []const u8,
 ) *std.Build.Step.Compile {
@@ -1480,7 +1463,7 @@ fn addAtari8CartStdExe(
         .root_module = b.createModule(.{
             .root_source_file = b.path(root_src),
             .target = target,
-            .optimize = .ReleaseFast,
+            .optimize = opt,
         }),
     });
     exe.bundle_compiler_rt = false;
@@ -1501,6 +1484,7 @@ fn addSnesExe(
     b: *std.Build,
     sdk_src: []const u8,
     libs: sdk_mod.Libs,
+    opt: std.builtin.OptimizeMode,
     name: []const u8,
     root_src: []const u8,
 ) *std.Build.Step.Compile {
@@ -1518,18 +1502,16 @@ fn addSnesExe(
         .root_module = b.createModule(.{
             .root_source_file = b.path(root_src),
             .target = target,
-            .optimize = .ReleaseFast,
+            .optimize = opt,
         }),
     });
     exe.bundle_compiler_rt = false;
-    const opt = exe.root_module.optimize.?;
+    exe.lto = .full;
+    exe.forceUndefinedSymbol("__zig_call_main_section");
+    exe.forceUndefinedSymbol("main");
+    exe.root_module.addAssemblyFile(b.path("snes/crt0.s"));
     exe.root_module.addImport("snes", b.createModule(.{
         .root_source_file = b.path("snes/hardware.zig"),
-        .target = target,
-        .optimize = opt,
-    }));
-    exe.root_module.addImport("crt0", b.createModule(.{
-        .root_source_file = b.path("snes/crt0.zig"),
         .target = target,
         .optimize = opt,
     }));
@@ -1673,8 +1655,9 @@ fn addApple2Exe(
     sdk_dep: *std.Build.Dependency,
     sdk_src: []const u8,
     apple2_sdk: []const u8,
+    opt: std.builtin.OptimizeMode,
 ) *std.Build.Step.Compile {
-    const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .freestanding });
+    const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .appleii });
 
     const lib_root = b.fmt("{s}/src/lib", .{apple2_sdk});
 
@@ -1692,7 +1675,7 @@ fn addApple2Exe(
         .root_module = b.createModule(.{
             .root_source_file = b.path("apple2/hello/hello.zig"),
             .target = target,
-            .optimize = .ReleaseFast,
+            .optimize = opt,
         }),
     });
     exe.bundle_compiler_rt = false;
