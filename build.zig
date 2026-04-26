@@ -218,7 +218,8 @@ pub fn build(b: *std.Build) void {
         .{ .name = "sprites", .chr = "nesdoug/sprites/Alpha2.chr" },
         .{ .name = "pads", .chr = "nesdoug/pads/Alpha3.chr" },
         .{ .name = "color-cycle", .chr = "nesdoug/color-cycle/blocks.chr" },
-        .{ .name = "bat-ball", .chr = "nesdoug/sprites/Alpha2.chr" },
+        .{ .name = "bat-ball", .chr = "nesdoug/bat-ball/example.chr" },
+        .{ .name = "fullbg", .chr = "nesdoug/fullbg/Girl5.chr" },
     }) |cf| {
         const run = b.addRunArtifact(chr2svg);
         run.addFileArg(b.path(cf.chr));
@@ -282,13 +283,26 @@ pub fn build(b: *std.Build) void {
     // ---- NES fade ----
     {
         const step = b.step("nes-fade", "Build NES palette fade example");
-        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs.nes orelse @panic("nes libs not built"), optimize, "fade", "nesdoug/fade/fade.zig", "nesdoug/fade/Girl5.chr", false);
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs.nes orelse @panic("nes libs not built"), optimize, "fade", "nesdoug/fade/fade.zig", "nesdoug/fade/Girl5.chr", true);
         exe.root_module.addImport("neslib", neslib_mod);
+        exe.root_module.addImport("nesdoug", nesdoug_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "fade.nes" });
         step.dependOn(&install.step);
         b.getInstallStep().dependOn(&install.step);
         run_bininfo.addFileArg(exe.getEmittedBin());
         addNesLabels(b, elf2mlb, gen_labels, exe, "fade");
+    }
+
+    // ---- NES fullbg ----
+    {
+        const step = b.step("nes-fullbg", "Build NES full-screen background (RLE nametable) example");
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs.nes orelse @panic("nes libs not built"), optimize, "fullbg", "nesdoug/fullbg/fullbg.zig", "nesdoug/fullbg/Girl5.chr", false);
+        exe.root_module.addImport("neslib", neslib_mod);
+        const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "fullbg.nes" });
+        step.dependOn(&install.step);
+        b.getInstallStep().dependOn(&install.step);
+        run_bininfo.addFileArg(exe.getEmittedBin());
+        addNesLabels(b, elf2mlb, gen_labels, exe, "fullbg");
     }
 
     // ---- NES sprites ----
@@ -303,11 +317,25 @@ pub fn build(b: *std.Build) void {
         addNesLabels(b, elf2mlb, gen_labels, exe, "sprites");
     }
 
+    // ---- NES random ----
+    {
+        const step = b.step("nes-random", "Build NES random sprites demo");
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs.nes orelse @panic("nes libs not built"), optimize, "random", "nesdoug/random/random.zig", "nesdoug/random/Alpha2.chr", true);
+        exe.root_module.addImport("neslib", neslib_mod);
+        exe.root_module.addImport("nesdoug", nesdoug_mod);
+        const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "random.nes" });
+        step.dependOn(&install.step);
+        b.getInstallStep().dependOn(&install.step);
+        run_bininfo.addFileArg(exe.getEmittedBin());
+        addNesLabels(b, elf2mlb, gen_labels, exe, "random");
+    }
+
     // ---- NES pads ----
     {
         const step = b.step("nes-pads", "Build NES controller input example");
-        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs.nes orelse @panic("nes libs not built"), optimize, "pads", "nesdoug/pads/pads.zig", "nesdoug/pads/Alpha3.chr", false);
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs.nes orelse @panic("nes libs not built"), optimize, "pads", "nesdoug/pads/pads.zig", "nesdoug/pads/Alpha3.chr", true);
         exe.root_module.addImport("neslib", neslib_mod);
+        exe.root_module.addImport("nesdoug", nesdoug_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "pads.nes" });
         step.dependOn(&install.step);
         b.getInstallStep().dependOn(&install.step);
@@ -330,9 +358,8 @@ pub fn build(b: *std.Build) void {
     // ---- NES bat-ball ----
     {
         const step = b.step("nes-bat-ball", "Build NES bat-ball game (CH05 port)");
-        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs.nes orelse @panic("nes libs not built"), optimize, "bat-ball", "nesdoug/bat-ball/bat-ball.zig", "nesdoug/sprites/Alpha2.chr", true);
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs.nes orelse @panic("nes libs not built"), optimize, "bat-ball", "nesdoug/bat-ball/bat-ball.zig", "nesdoug/bat-ball/example.chr", false);
         exe.root_module.addImport("neslib", neslib_mod);
-        exe.root_module.addImport("nesdoug", nesdoug_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "bat-ball.nes" });
         step.dependOn(&install.step);
         b.getInstallStep().dependOn(&install.step);
@@ -533,6 +560,24 @@ pub fn build(b: *std.Build) void {
         run_bininfo.addFileArg(exe.getEmittedBin());
     }
 
+    // ---- NES CNROM mappers demo (4 CHR banks) ----
+    {
+        const step = b.step("nes-mappers", "Build NES CNROM CHR bank-switching demo (4 banks)");
+        const exe = addNesCnromMultiExe(b, sdk_dep, sdk_src, sdk_libs.nes_cnrom orelse @panic("nes-cnrom libs not built"), optimize, "mappers", "nesdoug/mappers/mappers.zig", &.{
+            "nesdoug/mappers/apples.chr",
+            "nesdoug/mappers/balls.chr",
+            "nesdoug/mappers/snake.chr",
+            "nesdoug/mappers/flower.chr",
+        });
+        exe.root_module.addImport("neslib", neslib_mod);
+        exe.root_module.addImport("nesdoug", nesdoug_mod);
+        exe.root_module.addImport("mapper", nes_cnrom_mapper_mod);
+        const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "mappers.nes" });
+        step.dependOn(&install.step);
+        b.getInstallStep().dependOn(&install.step);
+        run_bininfo.addFileArg(exe.getEmittedBin());
+    }
+
     // ---- NES UNROM hello ----
     {
         const step = b.step("nes-unrom-hello", "Build NES UNROM mapper hello example");
@@ -599,6 +644,26 @@ pub fn build(b: *std.Build) void {
         const step = b.step("snes-hello", "Build SNES LoROM hello example");
         const exe = addSnesExe(b, sdk_src, sdk_libs.snes orelse @panic("snes libs not built"), optimize, "snes-hello", "snes/hello/hello.zig");
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "snes-hello.sfc" });
+        step.dependOn(&install.step);
+        b.getInstallStep().dependOn(&install.step);
+        run_bininfo.addFileArg(exe.getEmittedBin());
+    }
+
+    // ---- SNES LoROM colour-cycle ----
+    {
+        const step = b.step("snes-color-cycle", "Build SNES backdrop colour-cycle demo");
+        const exe = addSnesExe(b, sdk_src, sdk_libs.snes orelse @panic("snes libs not built"), optimize, "snes-color-cycle", "snes/color-cycle/color-cycle.zig");
+        const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "snes-color-cycle.sfc" });
+        step.dependOn(&install.step);
+        b.getInstallStep().dependOn(&install.step);
+        run_bininfo.addFileArg(exe.getEmittedBin());
+    }
+
+    // ---- SNES Zig-mark logo ----
+    {
+        const step = b.step("snes-zig-logo", "Build SNES Zig-mark logo with shimmer animation");
+        const exe = addSnesExe(b, sdk_src, sdk_libs.snes orelse @panic("snes libs not built"), optimize, "snes-zig-logo", "snes/zig-logo/zig-logo.zig");
+        const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "snes-zig-logo.sfc" });
         step.dependOn(&install.step);
         b.getInstallStep().dependOn(&install.step);
         run_bininfo.addFileArg(exe.getEmittedBin());
@@ -1254,6 +1319,78 @@ fn addNesCnromExe(
         \\.section .chr_rom,"a",@progbits
         \\.incbin "{s}/{s}"
     , .{ root_fwd, chr_src }));
+
+    const exe = b.addExecutable(.{
+        .name = name,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path(root_src),
+            .target = target,
+            .optimize = opt,
+        }),
+    });
+    exe.bundle_compiler_rt = false;
+    exe.lto = .full;
+    exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/common/crt0/crt0.S"));
+    exe.root_module.addAssemblyFile(chr_asm);
+    exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes-cnrom/ines.s"));
+    exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes/ines.s"));
+    exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes/rompoke/rompoke.s"));
+    exe.root_module.linkLibrary(libs.crt);
+    exe.root_module.linkLibrary(libs.crt0);
+    exe.root_module.linkLibrary(libs.c);
+    if (libs.neslib) |neslib| exe.root_module.linkLibrary(neslib);
+    if (libs.nesdoug) |nesdoug| exe.root_module.linkLibrary(nesdoug);
+    if (libs.nes_c) |nc| exe.root_module.linkLibrary(nc);
+    if (libs.nes_c_startup) |ncs| exe.root_module.linkLibrary(ncs);
+    exe.setLinkerScript(wrapper_ld);
+
+    return exe;
+}
+
+/// Like addNesCnromExe but for multiple CHR banks (e.g. 4 × 8 KB = 32 KB).
+/// chr_srcs must be a slice of relative paths, one per bank, in bank order.
+fn addNesCnromMultiExe(
+    b: *std.Build,
+    sdk_dep: *std.Build.Dependency,
+    sdk_src: []const u8,
+    libs: sdk_mod.Libs,
+    opt: std.builtin.OptimizeMode,
+    name: []const u8,
+    root_src: []const u8,
+    chr_srcs: []const []const u8,
+) *std.Build.Step.Compile {
+    const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .nes });
+
+    const total_kb = chr_srcs.len * 8;
+    const wf = b.addWriteFiles();
+    const wrapper_ld = wf.add("nes-cnrom-wrapper.ld", b.fmt(
+        \\SEARCH_DIR("{s}/mos-platform/nes-cnrom");
+        \\SEARCH_DIR("{s}/mos-platform/nes");
+        \\SEARCH_DIR("{s}/mos-platform/nes/rompoke");
+        \\SEARCH_DIR("{s}/mos-platform/common/ldscripts");
+        \\__chr_rom_size = {d};
+        \\INCLUDE "{s}/mos-platform/nes-cnrom/link.ld"
+    , .{ sdk_src, sdk_src, sdk_src, sdk_src, total_kb, sdk_src }));
+
+    const root_fwd = blk: {
+        const p = b.build_root.path orelse ".";
+        const buf = b.allocator.dupe(u8, p) catch @panic("OOM");
+        std.mem.replaceScalar(u8, buf, '\\', '/');
+        break :blk buf;
+    };
+
+    // Build multi-bank CHR assembly: one .chr_rom_N section per bank.
+    const chr_parts = b.allocator.alloc([]const u8, chr_srcs.len) catch @panic("OOM");
+    for (chr_srcs, 0..) |chr_src, i| {
+        chr_parts[i] = b.fmt(
+            \\.section .chr_rom_{d},"a",@progbits
+            \\.incbin "{s}/{s}"
+            \\
+        , .{ i, root_fwd, chr_src });
+    }
+    const chr_asm_content = std.mem.concat(b.allocator, u8, chr_parts) catch @panic("OOM");
+    const chr_wf = b.addWriteFiles();
+    const chr_asm = chr_wf.add("chr-rom-abs.s", chr_asm_content);
 
     const exe = b.addExecutable(.{
         .name = name,

@@ -1,72 +1,78 @@
 // Copyright (c) 2024 Matheus C. França
 // SPDX-License-Identifier: Apache-2.0
-//! NES controller demo: two sprites controlled by P1 and P2; background flashes on collision.
+//! NES controller demo: two metasprites (yellow P1, blue P2) with box collision.
+//! Matches nesdoug 08_Pads: bank_spr(1), check_collision for AABB detection.
 const neslib = @import("neslib");
+const nesdoug = @import("nesdoug");
 
-/// NES controller button bit-masks returned by `pad_poll`.
-const Pad = struct {
-    const right: u8 = 0x01;
-    const left: u8 = 0x02;
-    const down: u8 = 0x04;
-    const up: u8 = 0x08;
-    const start: u8 = 0x10;
-    const select: u8 = 0x20;
-    const b_btn: u8 = 0x40;
-    const a_btn: u8 = 0x80;
+// Box used by check_collision: x, y, width-1, height-1 (top-left origin)
+const BoxGuy = extern struct { x: u8, y: u8, width: u8, height: u8 };
+
+const OAM_FLIP_H: u8 = 0x40;
+
+// 16x16 yellow metasprite (palette 0)
+const yellow_spr: []const u8 = &.{
+    0,   0, 0x00, 0,
+    0,   8, 0x10, 0,
+    8,   0, 0x00, OAM_FLIP_H,
+    8,   8, 0x10, OAM_FLIP_H,
+    128,
 };
 
-/// True when two sprite coordinates (same axis) are within one tile of each other.
-fn overlaps(a: u8, b: u8) bool {
-    const d: i16 = @as(i16, a) - @as(i16, b);
-    return d > -8 and d < 8;
-}
+// 16x16 blue metasprite (palette 1)
+const blue_spr: []const u8 = &.{
+    0,   0, 0x00, 1,
+    0,   8, 0x10, 1,
+    8,   0, 0x00, 1 | OAM_FLIP_H,
+    8,   8, 0x10, 1 | OAM_FLIP_H,
+    128,
+};
 
-export fn main() callconv(.c) void {
-    const bg_palette: [16]u8 = .{
-        0x0f, 0x00, 0x10, 0x30,
-        0x0f, 0x00, 0x10, 0x30,
-        0x0f, 0x00, 0x10, 0x30,
-        0x0f, 0x00, 0x10, 0x30,
-    };
-    const spr_palette: [16]u8 = .{
-        0x0f, 0x16, 0x27, 0x30, // P1: orange
-        0x0f, 0x09, 0x19, 0x30, // P2: green
-        0x0f, 0x16, 0x27, 0x30,
-        0x0f, 0x16, 0x27, 0x30,
-    };
+const palette_bg: [16]u8 = .{ 0x00, 0x00, 0x10, 0x30, 0x00, 0x00, 0x10, 0x30, 0x00, 0x00, 0x10, 0x30, 0x00, 0x00, 0x10, 0x30 };
+const palette_sp: [16]u8 = .{
+    0x0f, 0x0f, 0x0f, 0x28, // yellow
+    0x0f, 0x0f, 0x0f, 0x12, // blue
+    0x0f, 0x0f, 0x0f, 0x28,
+    0x0f, 0x0f, 0x0f, 0x28,
+};
 
+pub export fn main() callconv(.c) void {
     neslib.ppu_off();
-    neslib.pal_bg(&bg_palette);
-    neslib.pal_spr(&spr_palette);
-    neslib.bank_spr(0);
+    neslib.pal_bg(&palette_bg);
+    neslib.pal_spr(&palette_sp);
+    neslib.bank_spr(1);
+    neslib.vram_adr(neslib.NTADR_A(7, 14));
+    neslib.vram_write("Sprite Collisions", 17);
     neslib.ppu_on_all();
 
-    var x1: u8 = 80;
-    var y1: u8 = 120;
-    var x2: u8 = 176;
-    var y2: u8 = 120;
+    var box1 = BoxGuy{ .x = 20, .y = 20, .width = 15, .height = 15 };
+    var box2 = BoxGuy{ .x = 70, .y = 20, .width = 15, .height = 15 };
 
     while (true) {
         neslib.ppu_wait_nmi();
 
-        const p1 = neslib.pad_poll(0);
-        const p2 = neslib.pad_poll(1);
+        const pad1 = neslib.pad_poll(0);
+        const pad2 = neslib.pad_poll(1);
 
-        if (p1 & Pad.up != 0 and y1 > 8) y1 -= 2;
-        if (p1 & Pad.down != 0 and y1 < 224) y1 += 2;
-        if (p1 & Pad.left != 0 and x1 > 8) x1 -= 2;
-        if (p1 & Pad.right != 0 and x1 < 248) x1 += 2;
+        if (pad1 & 0x02 != 0) box1.x -%= 1; // PAD_LEFT
+        if (pad1 & 0x01 != 0) box1.x +%= 1; // PAD_RIGHT
+        if (pad1 & 0x08 != 0) box1.y -%= 1; // PAD_UP
+        if (pad1 & 0x04 != 0) box1.y +%= 1; // PAD_DOWN
 
-        if (p2 & Pad.up != 0 and y2 > 8) y2 -= 2;
-        if (p2 & Pad.down != 0 and y2 < 224) y2 += 2;
-        if (p2 & Pad.left != 0 and x2 > 8) x2 -= 2;
-        if (p2 & Pad.right != 0 and x2 < 248) x2 += 2;
+        if (pad2 & 0x02 != 0) box2.x -%= 1;
+        if (pad2 & 0x01 != 0) box2.x +%= 1;
+        if (pad2 & 0x08 != 0) box2.y -%= 1;
+        if (pad2 & 0x04 != 0) box2.y +%= 1;
+
+        const hit = nesdoug.check_collision(@ptrCast(&box1), @ptrCast(&box2));
+        neslib.pal_col(0, if (hit != 0) 0x30 else 0x00);
 
         neslib.oam_clear();
-        neslib.oam_spr(x1, y1, '1', 0x00);
-        neslib.oam_spr(x2, y2, '2', 0x01);
-
-        const bg_color: u8 = if (overlaps(x1, x2) and overlaps(y1, y2)) 0x16 else 0x0f;
-        neslib.pal_col(0, bg_color);
+        neslib.oam_meta_spr(box1.x, box1.y, @ptrCast(yellow_spr.ptr));
+        neslib.oam_meta_spr(box2.x, box2.y, @ptrCast(blue_spr.ptr));
     }
+}
+
+pub fn panic(_: []const u8, _: ?*@import("std").builtin.StackTrace, _: ?usize) noreturn {
+    while (true) {}
 }

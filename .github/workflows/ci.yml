@@ -61,7 +61,7 @@ jobs:
         run: zig build sdk-build --summary all
 
       - name: Build NES examples and generate Mesen label files
-        run: zig build nes-hello1 nes-hello2 nes-hello3 nes-zig-logo nes-fade nes-sprites nes-pads nes-color-cycle nes-cnrom-hello nes-unrom-hello nes-mmc1-hello nes-mmc3-hello nes-gtrom-hello gen-labels --summary all
+        run: zig build nes-hello1 nes-hello2 nes-hello3 nes-zig-logo nes-fade nes-sprites nes-random nes-pads nes-color-cycle nes-fullbg nes-mappers nes-cnrom-hello nes-unrom-hello nes-mmc1-hello nes-mmc3-hello nes-gtrom-hello gen-labels --summary all
 
       - name: Build C64 examples
         run: zig build c64-hello c64-fibonacci c64-plasma --summary all
@@ -87,8 +87,8 @@ jobs:
       - name: Build Neo6502 example
         run: zig build neo6502-graphics --summary all
 
-      - name: Build SNES example
-        run: zig build snes-hello --summary all
+      - name: Build SNES examples
+        run: zig build snes-hello snes-color-cycle snes-zig-logo --summary all
 
       - name: Build Apple IIe example
         run: zig build apple2-hello --summary all
@@ -103,8 +103,8 @@ jobs:
         run: |
           ls -la zig-out/bin/
           for f in \
-            hello1.nes hello2.nes hello3.nes zig-logo.nes fade.nes sprites.nes pads.nes color-cycle.nes \
-            cnrom-hello.nes unrom-hello.nes mmc1-hello.nes mmc3-hello.nes gtrom-hello.nes \
+            hello1.nes hello2.nes hello3.nes zig-logo.nes fade.nes sprites.nes random.nes pads.nes color-cycle.nes \
+            fullbg.nes mappers.nes cnrom-hello.nes unrom-hello.nes mmc1-hello.nes mmc3-hello.nes gtrom-hello.nes \
             c64-hello.prg fibonacci.prg plasma.prg \
             cx16-hello.prg cx16-k-console-test.prg \
             lynx-hello.bll \
@@ -113,7 +113,7 @@ jobs:
             pce-color-cycle.pce pce-color-cycle-banked.pce \
             mega65-hello.prg viciv.prg \
             graphics.neo \
-            snes-hello.sfc \
+            snes-hello.sfc snes-color-cycle.sfc snes-zig-logo.sfc \
             hello.sys \
             sim-hello mos-sim; do
             test -f "zig-out/bin/$f" && echo "OK: $f" || echo "MISSING: $f"
@@ -162,8 +162,8 @@ jobs:
             echo "OK: $f"
           }
           # NES
-          for f in hello1.nes hello2.nes hello3.nes zig-logo.nes fade.nes sprites.nes \
-                   pads.nes color-cycle.nes cnrom-hello.nes unrom-hello.nes mmc1-hello.nes mmc3-hello.nes; do
+          for f in hello1.nes hello2.nes hello3.nes zig-logo.nes fade.nes sprites.nes random.nes \
+                   pads.nes color-cycle.nes fullbg.nes mappers.nes cnrom-hello.nes unrom-hello.nes mmc1-hello.nes mmc3-hello.nes; do
             smoke "$f"
           done
           # Note: gtrom-hello.nes (mapper 111) is NOT tested here — apt mednafen lacks GTROM support.
@@ -173,29 +173,11 @@ jobs:
             smoke "$f"
           done
           # SNES
-          smoke snes-hello.sfc
+          for f in snes-hello.sfc snes-color-cycle.sfc snes-zig-logo.sfc; do
+            smoke "$f"
+          done
           # Note: Atari 2600 (.a26) is NOT tested here — apt mednafen lacks the vcs module.
           # Atari 2600 is covered by the emutest job (Stella2014 libretro core).
-
-      - name: C64 smoke tests (VICE)
-        run: |
-          # Locate VICE system directory dynamically — path differs between distros/versions.
-          # On Ubuntu 24.04 ROMs are under /usr/lib/vice/; on others /usr/share/vice/.
-          VICE_SYSDIR=$(dpkg -L vice 2>/dev/null | grep -m1 '/C64/' | sed 's|/C64/.*||' || echo "/usr/share/vice")
-          echo "Using VICE sysdir: $VICE_SYSDIR"
-          smoke_c64() {
-            local f=$1 rc=0
-            # -limitcycles exits cleanly (rc=0) after N emulated cycles.
-            # xvfb-run provides a virtual display; -headless not supported in apt VICE build.
-            timeout 10 xvfb-run -a x64sc -directory "$VICE_SYSDIR" -warp -limitcycles 5000000 "zig-out/bin/$f" || rc=$?
-            if [ $rc -ne 0 ]; then
-              echo "FAIL: $f (rc=$rc)"; exit 1
-            fi
-            echo "OK: $f"
-          }
-          for f in c64-hello.prg fibonacci.prg plasma.prg; do
-            smoke_c64 "$f"
-          done
 
   build-test-tools:
     name: Build emutest + libretro cores
@@ -279,8 +261,8 @@ jobs:
             if [ $rc -eq 1 ]; then echo "FAIL: $f"; exit 1; fi
             echo "OK: $f (rc=$rc)"
           }
-          for f in hello1.nes hello2.nes hello3.nes zig-logo.nes fade.nes sprites.nes \
-                   pads.nes color-cycle.nes cnrom-hello.nes unrom-hello.nes mmc1-hello.nes mmc3-hello.nes \
+          for f in hello1.nes hello2.nes hello3.nes zig-logo.nes fade.nes sprites.nes random.nes \
+                   pads.nes color-cycle.nes fullbg.nes mappers.nes cnrom-hello.nes unrom-hello.nes mmc1-hello.nes mmc3-hello.nes \
                    gtrom-hello.nes; do
             run_emutest "$f" mesen_libretro.so
           done

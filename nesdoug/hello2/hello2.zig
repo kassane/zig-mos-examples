@@ -7,24 +7,7 @@ const bg_palette: [16]u8 = .{ 0x0f, 0x00, 0x10, 0x30 } ++ .{0x00} ** 12;
 
 pub export fn main() callconv(.c) void {
     // Sequential VRAM packet: writes "HELLO WORLD!" horizontally at tile (10, 14).
-    const text_update: [16]u8 = .{
-        neslib.MSB(neslib.NTADR_A(10, 14)) | neslib.NT_UPD_HORZ,
-        neslib.LSB(neslib.NTADR_A(10, 14)),
-        12,
-        'H',
-        'E',
-        'L',
-        'L',
-        'O',
-        ' ',
-        'W',
-        'O',
-        'R',
-        'L',
-        'D',
-        '!',
-        neslib.NT_UPD_EOF,
-    };
+    const text_update: [16]u8 = .{ neslib.MSB(neslib.NTADR_A(10, 14)) | neslib.NT_UPD_HORZ, neslib.LSB(neslib.NTADR_A(10, 14)), 12, 'H', 'E', 'L', 'L', 'O', ' ', 'W', 'O', 'R', 'L', 'D', '!', neslib.NT_UPD_EOF };
 
     // Non-sequential packet: places 'A' and 'B' at two separate nametable positions.
     const two_letters: [7]u8 = .{

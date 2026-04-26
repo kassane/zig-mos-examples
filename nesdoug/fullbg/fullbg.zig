@@ -1,10 +1,10 @@
 // Copyright (c) 2024 Matheus C. França
 // SPDX-License-Identifier: Apache-2.0
-//! NES palette-fade demo: loads a full-screen RLE background (Girl5),
-//! then uses pal_fade_to to cycle between black (0) and normal (4).
+//! NES full-screen background demo: unpacks an RLE-compressed nametable
+//! (Girl5, exported from NES Screen Tool) into NAMETABLE_A with rendering off.
 const neslib = @import("neslib");
-const nesdoug = @import("nesdoug");
 
+/// Background palette: 4 sub-palettes x 4 colours.
 const bg_palette: [16]u8 = .{
     0x08, 0x16, 0x26, 0x38,
     0x08, 0x0f, 0x0f, 0x0f,
@@ -12,7 +12,7 @@ const bg_palette: [16]u8 = .{
     0x08, 0x0f, 0x0f, 0x0f,
 };
 
-/// RLE-compressed nametable exported from NES Screen Tool (Girl5).
+/// RLE-compressed nametable data exported from NES Screen Tool.
 const girl5_rle: [339]u8 = .{
     0xfe, 0x00, 0xfe, 0xcd, 0x01, 0x00, 0x3d, 0x3e, 0x3f, 0x40, 0x00, 0xfe, 0x16, 0x02, 0x03, 0x04,
     0x05, 0x06, 0x41, 0x42, 0x42, 0x43, 0x44, 0x45, 0x00, 0xfe, 0x13, 0x07, 0x08, 0x09, 0x0a, 0x0b,
@@ -41,18 +41,11 @@ const girl5_rle: [339]u8 = .{
 pub export fn main() callconv(.c) void {
     neslib.ppu_off();
     neslib.pal_bg(&bg_palette);
+    // vram_adr() and vram_unrle() require rendering off.
     neslib.vram_adr(neslib.NAMETABLE_A);
     neslib.vram_unrle(&girl5_rle);
-    neslib.pal_bright(0);
     neslib.ppu_on_all();
-    neslib.delay(10);
-
-    while (true) {
-        nesdoug.pal_fade_to(0, 4);
-        neslib.delay(100);
-        nesdoug.pal_fade_to(4, 0);
-        neslib.delay(100);
-    }
+    while (true) {}
 }
 
 pub fn panic(_: []const u8, _: ?*@import("std").builtin.StackTrace, _: ?usize) noreturn {
