@@ -118,3 +118,66 @@ jobs:
             sim-hello mos-sim; do
             test -f "zig-out/bin/$f" && echo "OK: $f" || echo "MISSING: $f"
           done
+
+      - name: Upload built binaries
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@main
+        with:
+          name: zig-out-linux-x86_64
+          path: zig-out/bin/
+          retention-days: 1
+
+  emulate:
+    name: Emulator smoke tests
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Download built binaries
+        uses: actions/download-artifact@main
+        with:
+          name: zig-out-linux-x86_64
+          path: zig-out/bin/
+
+      - name: Install emulators
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mednafen vice
+
+      - name: NES / Atari 2600 / PC Engine / SNES smoke tests (mednafen)
+        env:
+          SDL_VIDEODRIVER: offscreen
+          SDL_AUDIODRIVER: dummy
+          HOME: /tmp/mednafen-home
+        run: |
+          mkdir -p /tmp/mednafen-home
+          smoke() {
+            local f=$1
+            timeout 3 mednafen "zig-out/bin/$f"; rc=$?
+            [ $rc -eq 0 ] || [ $rc -eq 124 ] && echo "OK: $f" || { echo "FAIL: $f (rc=$rc)"; exit 1; }
+          }
+          # NES
+          for f in hello1.nes hello2.nes hello3.nes zig-logo.nes fade.nes sprites.nes \
+                   pads.nes color-cycle.nes cnrom-hello.nes unrom-hello.nes mmc1-hello.nes; do
+            smoke "$f"
+          done
+          # Atari 2600
+          for f in colorbar.a26 colorbar-3e.a26; do
+            smoke "$f"
+          done
+          # PC Engine
+          for f in pce-color-cycle.pce pce-color-cycle-banked.pce; do
+            smoke "$f"
+          done
+          # SNES
+          smoke snes-hello.sfc
+
+      - name: C64 smoke tests (VICE)
+        run: |
+          smoke_c64() {
+            local f=$1
+            timeout 10 x64sc -headless -warp -limitcycles 5000000 "zig-out/bin/$f"; rc=$?
+            [ $rc -eq 0 ] && echo "OK: $f" || { echo "FAIL: $f (rc=$rc)"; exit 1; }
+          }
+          for f in c64-hello.prg fibonacci.prg plasma.prg; do
+            smoke_c64 "$f"
+          done
