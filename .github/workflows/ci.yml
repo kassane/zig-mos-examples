@@ -141,7 +141,7 @@ jobs:
       - name: Install emulators
         run: |
           sudo apt-get update
-          sudo apt-get install -y mednafen vice
+          sudo apt-get install -y mednafen vice xvfb
 
       - name: NES / PC Engine / SNES smoke tests (mednafen)
         env:
@@ -180,7 +180,8 @@ jobs:
           smoke_c64() {
             local f=$1 rc=0
             # -limitcycles exits cleanly (rc=0) after N emulated cycles.
-            timeout 10 x64sc -headless -warp -limitcycles 5000000 "zig-out/bin/$f" || rc=$?
+            # xvfb-run needed: VICE GTK3 build requires a display even in headless mode.
+            timeout 10 xvfb-run -a x64sc -headless -warp -limitcycles 5000000 "zig-out/bin/$f" || rc=$?
             if [ $rc -ne 0 ]; then
               echo "FAIL: $f (rc=$rc)"; exit 1
             fi
