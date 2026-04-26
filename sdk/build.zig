@@ -20,7 +20,6 @@ pub const Libs = struct {
     c: *std.Build.Step.Compile,
     neslib: ?*std.Build.Step.Compile = null,
     nesdoug: ?*std.Build.Step.Compile = null,
-    // NES only: C files compiled against the nes target (mos6502 default since Apr 2026).
     nes_c: ?*std.Build.Step.Compile = null,
     // NES only: startup C files (copy-data, zero-bss, exit-loop) with lto = .none.
     nes_c_startup: ?*std.Build.Step.Compile = null,
