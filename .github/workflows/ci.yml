@@ -143,7 +143,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y mednafen vice
 
-      - name: NES / Atari 2600 / PC Engine / SNES smoke tests (mednafen)
+      - name: NES / PC Engine / SNES smoke tests (mednafen)
         env:
           SDL_VIDEODRIVER: offscreen
           SDL_AUDIODRIVER: dummy
@@ -166,16 +166,14 @@ jobs:
                    pads.nes color-cycle.nes cnrom-hello.nes unrom-hello.nes mmc1-hello.nes; do
             smoke "$f"
           done
-          # Atari 2600
-          for f in colorbar.a26 colorbar-3e.a26; do
-            smoke "$f"
-          done
           # PC Engine
           for f in pce-color-cycle.pce pce-color-cycle-banked.pce; do
             smoke "$f"
           done
           # SNES
           smoke snes-hello.sfc
+          # Note: Atari 2600 (.a26) is NOT tested here — apt mednafen lacks the vcs module.
+          # Atari 2600 is covered by the emutest job (Stella2014 libretro core).
 
       - name: C64 smoke tests (VICE)
         run: |
