@@ -85,6 +85,9 @@ jobs:
       - name: Build SNES example
         run: zig build snes-hello --summary all
 
+      - name: Build Apple IIe example
+        run: zig build apple2-hello --summary all
+
       - name: Build mos-sim from source and run sim-hello benchmark
         run: zig build run-sim-hello --summary all
 
@@ -106,6 +109,7 @@ jobs:
             mega65-hello.prg viciv.prg \
             graphics.neo \
             snes-hello.sfc \
+            hello.sys \
             sim-hello mos-sim; do
             test -f "zig-out/bin/$f" && echo "OK: $f" || echo "MISSING: $f"
           done

@@ -26,14 +26,13 @@ pub fn build(b: *std.Build) void {
     // llvm-mos-sdk git source — always required for headers, linker scripts, and platform libs.
     const sdk_dep = b.dependency("llvm-mos-sdk", .{});
     const sdk_src_raw = sdk_dep.path(".").getPath(b);
+    const apple2_dep = b.dependency("apple2", .{});
     // Normalize separators for embedding in linker scripts and assembly (.incbin).
     const sdk_src = blk: {
         const buf = b.allocator.dupe(u8, sdk_src_raw) catch @panic("OOM");
         std.mem.replaceScalar(u8, buf, '\\', '/');
         break :blk buf;
     };
-
-    const apple2_sdk = b.option([]const u8, "apple2-sdk", "Path to apple-ii-port-work checkout (required for apple2 examples)");
 
     const optimize = b.option(std.builtin.OptimizeMode, "optimize", "Optimize mode for target platform executables (default: ReleaseFast)") orelse .ReleaseFast;
 
@@ -452,16 +451,13 @@ pub fn build(b: *std.Build) void {
     }
 
     // ---- Apple2 hello ----
-    if (apple2_sdk) |a2_sdk| {
-        const step = b.step("apple2-hello", "Build Apple2 hello example");
-        const exe = addApple2Exe(b, sdk_dep, sdk_src, a2_sdk, optimize);
+    {
+        const step = b.step("apple2-hello", "Build Apple IIe hello example");
+        const exe = addApple2Exe(b, sdk_src, apple2_dep, optimize);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "hello.sys" });
         step.dependOn(&install.step);
         b.getInstallStep().dependOn(&install.step);
-    } else {
-        const step = b.step("apple2-hello", "Build Apple2 hello example (requires -Dapple2-sdk=<path>)");
-        _ = step;
-        std.log.info("apple2-hello: skipping (pass -Dapple2-sdk=<path> to enable)", .{});
+        run_bininfo.addFileArg(exe.getEmittedBin());
     }
 
     // ---- Commander X16 hello ----
@@ -1652,23 +1648,18 @@ fn simIoHeaderMod(
 
 fn addApple2Exe(
     b: *std.Build,
-    sdk_dep: *std.Build.Dependency,
     sdk_src: []const u8,
-    apple2_sdk: []const u8,
+    apple2_dep: *std.Build.Dependency,
     opt: std.builtin.OptimizeMode,
 ) *std.Build.Step.Compile {
     const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .appleii });
-
-    const lib_root = b.fmt("{s}/src/lib", .{apple2_sdk});
+    const apple2_root = apple2_dep.path(".").getPath(b);
 
     const wf = b.addWriteFiles();
-    const libc_txt = wf.add("libc.txt", b.fmt(
-        "include_dir={s}/mos-platform/common/include\n" ++
-            "sys_include_dir={s}/mos-platform/common/include\n" ++
-            "crt_dir={s}/mos-platform/common\n" ++
-            "msvc_lib_dir=\nkernel32_lib_dir=\ngcc_dir=\n",
-        .{ sdk_src, sdk_src, sdk_src },
-    ));
+    const wrapper_ld = wf.add("apple2-hello-wrapper.ld", b.fmt(
+        \\SEARCH_DIR("{s}/mos-platform/common/ldscripts");
+        \\INCLUDE "{s}/src/lib/apple-ii-bare/link.ld"
+    , .{ sdk_src, apple2_root }));
 
     const exe = b.addExecutable(.{
         .name = "apple2-hello",
@@ -1680,29 +1671,34 @@ fn addApple2Exe(
     });
     exe.bundle_compiler_rt = false;
     exe.lto = .full;
-    exe.root_module.addIncludePath(.{ .cwd_relative = b.fmt("{s}/apple-iie-prodos", .{lib_root}) });
-    exe.root_module.addIncludePath(.{ .cwd_relative = b.fmt("{s}/apple-iie-prodos-cli", .{lib_root}) });
-    exe.root_module.addIncludePath(.{ .cwd_relative = b.fmt("{s}/apple-iie-prodos-hires", .{lib_root}) });
-    exe.root_module.addIncludePath(.{ .cwd_relative = b.fmt("{s}/apple-ii", .{lib_root}) });
-    exe.root_module.addIncludePath(.{ .cwd_relative = b.fmt("{s}/apple-iie", .{lib_root}) });
-    exe.root_module.addIncludePath(.{ .cwd_relative = b.fmt("{s}/apple-ii-bare", .{lib_root}) });
-    exe.root_module.addIncludePath(.{ .cwd_relative = b.fmt("{s}/apple-iie-bare", .{lib_root}) });
-    exe.root_module.addIncludePath(.{ .cwd_relative = b.fmt("{s}/apple-ii-autostart-rom", .{lib_root}) });
-    exe.root_module.addIncludePath(.{ .cwd_relative = b.fmt("{s}/apple-iie-autostart-rom", .{lib_root}) });
-    exe.root_module.addIncludePath(.{ .cwd_relative = b.fmt("{s}/apple-iie-prodos-stdlib", .{lib_root}) });
+    exe.root_module.addImport("apple2", b.createModule(.{
+        .root_source_file = b.path("apple2/hardware.zig"),
+        .target = target,
+        .optimize = opt,
+    }));
+    // Common crt0: stack init + call_main + zp register declarations.
     exe.root_module.addCSourceFiles(.{
-        .files = &.{
-            b.fmt("{s}/apple-iie-prodos/prodos-syscall.c", .{lib_root}),
-            b.fmt("{s}/apple-iie-prodos-stdlib/prodos-char-io.c", .{lib_root}),
-            b.fmt("{s}/apple-iie-prodos-stdlib/prodos-exit.c", .{lib_root}),
-        },
-        .flags = &.{},
+        .root = .{ .cwd_relative = b.fmt("{s}/mos-platform/common/crt0", .{sdk_src}) },
+        .files = &.{ "crt0.S", "init-stack.S" },
+        .flags = &.{ "-I", b.fmt("{s}/mos-platform/common/asminc", .{sdk_src}) },
     });
-    exe.root_module.addIncludePath(sdk_dep.path("mos-platform/common/include"));
-    exe.root_module.linkSystemLibrary("c", .{ .use_pkg_config = .no });
-    exe.setLibCFile(libc_txt);
-    exe.root_module.link_libc = true;
-    exe.setLinkerScript(.{ .cwd_relative = b.fmt("{s}/src/lib/apple-ii-bare/link.ld", .{apple2_sdk}) });
+    // libcrt: compiler runtime builtins (__udivhi3, __mulsi3, __ashlqi3, __set_v, etc.).
+    exe.root_module.addCSourceFiles(.{
+        .root = .{ .cwd_relative = b.fmt("{s}/mos-platform/common/crt", .{sdk_src}) },
+        .files = &.{ "const.S", "call-indir.S", "divmod.cc", "divmod-large.cc", "mul.cc", "shift.cc", "rotate.cc" },
+        .flags = &.{
+            "-I", b.fmt("{s}/mos-platform/common/crt", .{sdk_src}),
+            "-I", b.fmt("{s}/mos-platform/common/include", .{sdk_src}),
+            "-I", b.fmt("{s}/mos-platform/common/asminc", .{sdk_src}),
+        },
+    });
+    // mem.c: provides __memset / __memcpy needed by LLVM for bulk-zeroing.
+    exe.root_module.addCSourceFiles(.{
+        .root = .{ .cwd_relative = b.fmt("{s}/mos-platform/common/c", .{sdk_src}) },
+        .files = &.{"mem.c"},
+        .flags = &.{ "-I", b.fmt("{s}/mos-platform/common/include", .{sdk_src}) },
+    });
+    exe.setLinkerScript(wrapper_ld);
 
     return exe;
 }

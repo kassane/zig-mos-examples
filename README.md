@@ -73,8 +73,8 @@ zig build mega65-hello
 zig build mega65-plasma
 zig build mega65-viciv
 
-# Apple II — needs apple-ii-port-work checkout
-zig build apple2-hello -Dapple2-sdk=/path/to/apple-ii-port-work
+# Apple II — dependency fetched automatically via build.zig.zon
+zig build apple2-hello
 ```
 
 Output files land in `zig-out/bin/`.
