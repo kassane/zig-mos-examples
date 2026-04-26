@@ -53,14 +53,14 @@ pub fn buildPlatform(b: *std.Build, sdk_root: []const u8, pd: Platform) Libs {
     libcrt.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = crt_dir },
         .files = crt_files,
-        .flags = &.{},
     });
 
     if (std.mem.eql(u8, pd.name, "nes"))
-        return buildNes(b, target, opt, libcrt, plat_dir, null, false, crt0_dir, com_inc, com_asm);
+        return buildNes(b, target, opt, libcrt, plat_dir, null, false, false, crt0_dir, com_inc, com_asm);
     if (std.mem.startsWith(u8, pd.name, "nes-")) {
-        const has_mapper_s = std.mem.eql(u8, pd.name, "nes-unrom") or std.mem.eql(u8, pd.name, "nes-mmc1");
-        return buildNes(b, target, opt, libcrt, b.fmt("{s}/mos-platform/nes", .{sdk_root}), b.fmt("{s}/mos-platform/{s}", .{ sdk_root, pd.name }), has_mapper_s, crt0_dir, com_inc, com_asm);
+        const has_mapper_s = std.mem.eql(u8, pd.name, "nes-unrom") or std.mem.eql(u8, pd.name, "nes-mmc1") or std.mem.eql(u8, pd.name, "nes-mmc3") or std.mem.eql(u8, pd.name, "nes-gtrom");
+        const has_irq = std.mem.eql(u8, pd.name, "nes-mmc3");
+        return buildNes(b, target, opt, libcrt, b.fmt("{s}/mos-platform/nes", .{sdk_root}), b.fmt("{s}/mos-platform/{s}", .{ sdk_root, pd.name }), has_mapper_s, has_irq, crt0_dir, com_inc, com_asm);
     }
     if (std.mem.eql(u8, pd.name, "neo6502"))
         return buildNeo6502(b, target, opt, libcrt, plat_dir, crt0_dir, com_inc, com_asm);
@@ -136,18 +136,15 @@ pub fn buildPlatform(b: *std.Build, sdk_root: []const u8, pd: Platform) Libs {
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = crt0_dir },
         .files = &.{ "crt0.S", "init-stack.S" },
-        .flags = &.{},
     });
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = crt0_dir },
         .files = &.{"copy-zp-data.c"},
-        .flags = &.{},
     });
     const exit_file: []const u8 = if (std.mem.eql(u8, pd.name, "sim")) "exit-custom.S" else "exit-loop.c";
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = b.fmt("{s}/exit", .{crt0_dir}) },
         .files = &.{exit_file},
-        .flags = &.{},
     });
 
     // libc — platform I/O and kernal wrappers.
@@ -158,7 +155,6 @@ pub fn buildPlatform(b: *std.Build, sdk_root: []const u8, pd: Platform) Libs {
         libc.root_module.addCSourceFiles(.{
             .root = .{ .cwd_relative = plat_dir },
             .files = &.{ "putchar.c", "stdlib.c", "sim-io.c" },
-            .flags = &.{},
         });
     } else {
         const asm_files: []const []const u8 = if (std.mem.eql(u8, pd.name, "mega65"))
@@ -172,12 +168,10 @@ pub fn buildPlatform(b: *std.Build, sdk_root: []const u8, pd: Platform) Libs {
         libc.root_module.addCSourceFiles(.{
             .root = .{ .cwd_relative = plat_dir },
             .files = asm_files,
-            .flags = &.{},
         });
         libc.root_module.addCSourceFiles(.{
             .root = .{ .cwd_relative = comm_dir },
             .files = &.{ "abort.c", "cbm_k_bsout.c", "cbm_k_chrout.c", "chrout.c", "char-conv.c" },
-            .flags = &.{},
         });
     }
 
@@ -192,6 +186,7 @@ fn buildNes(
     nes_dir: []const u8,
     variant_dir: ?[]const u8,
     has_mapper_s: bool,
+    has_irq: bool,
     crt0_dir: []const u8,
     com_inc: []const u8,
     com_asm: []const u8,
@@ -206,7 +201,6 @@ fn buildNes(
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = crt0_dir },
         .files = &.{ "crt0.S", "init-stack.S" },
-        .flags = &.{},
     });
 
     // libc (nes-c) — putchar + rompoke.
@@ -217,12 +211,10 @@ fn buildNes(
     libc.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = nes_dir },
         .files = &.{"putchar.c"},
-        .flags = &.{},
     });
     libc.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = b.fmt("{s}/rompoke", .{nes_dir}) },
         .files = &.{"rompoke.c"},
-        .flags = &.{},
     });
 
     // libneslib — .s files only (NES target).
@@ -234,7 +226,6 @@ fn buildNes(
     libneslib.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = neslib_dir },
         .files = &.{ "neslib.s", "ntsc.s", "oam_update.s", "pal_bright.s", "pal_update.s", "rand.s", "vram_update.s" },
-        .flags = &.{},
     });
 
     // libnesdoug — .s files only (NES target).
@@ -247,7 +238,6 @@ fn buildNes(
     libnesdoug.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = nesdoug_dir },
         .files = &.{ "metatile.s", "nesdoug.s", "padlib.s", "vram_buffer.s", "vram_buffer_ops.s", "zaplib.s" },
-        .flags = &.{},
     });
 
     // libnes_c_startup — startup C files with lto = .none (must remain plain machine code).
@@ -260,17 +250,14 @@ fn buildNes(
     libnes_c_startup.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = b.fmt("{s}/../c", .{crt0_dir}) },
         .files = &.{"mem.c"},
-        .flags = &.{},
     });
     libnes_c_startup.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = crt0_dir },
         .files = &.{ "copy-data.c", "copy-zp-data.c", "zero-bss.c", "zero-zp-bss.c" },
-        .flags = &.{},
     });
     libnes_c_startup.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = b.fmt("{s}/exit", .{crt0_dir}) },
         .files = &.{"exit-loop.c"},
-        .flags = &.{},
     });
 
     // libnes_c — NES C files that require LTO (ZP reservation via named sections).
@@ -283,7 +270,6 @@ fn buildNes(
     libnes_c.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = nes_dir },
         .files = &.{"crt0.c"},
-        .flags = &.{},
     });
     // neslib C files — LTO required (via lib.lto = .full in addLib): neslib.c reserves
     // ZP variables via named sections; without LTO the compiler may reuse those ZP
@@ -291,13 +277,11 @@ fn buildNes(
     libnes_c.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = neslib_dir },
         .files = &.{ "neslib.c", "ntsc.c", "oam_update.c", "pal_bright.c", "pal_update.c", "rand.c", "vram_update.c" },
-        .flags = &.{},
     });
     // nesdoug C files
     libnes_c.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = nesdoug_dir },
         .files = &.{ "metatile.c", "nesdoug.c", "vram_buffer.c" },
-        .flags = &.{},
     });
 
     // Banked-mapper platforms (nes-cnrom, nes-unrom, nes-mmc1) have a mapper.c and
@@ -308,13 +292,18 @@ fn buildNes(
         libnes_c.root_module.addCSourceFiles(.{
             .root = .{ .cwd_relative = vd },
             .files = &.{"mapper.c"},
-            .flags = &.{},
         });
         if (has_mapper_s) {
             libneslib.root_module.addCSourceFiles(.{
                 .root = .{ .cwd_relative = vd },
                 .files = &.{"mapper.s"},
-                .flags = &.{},
+            });
+        }
+        if (has_irq) {
+            libnes_c.root_module.addIncludePath(.{ .cwd_relative = nes_dir });
+            libnes_c.root_module.addCSourceFiles(.{
+                .root = .{ .cwd_relative = vd },
+                .files = &.{ "irq.c", "irq.s" },
             });
         }
     }
@@ -340,17 +329,14 @@ fn buildNeo6502(
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = crt0_dir },
         .files = &.{ "crt0.S", "init-stack.S" },
-        .flags = &.{},
     });
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = crt0_dir },
         .files = &.{"copy-zp-data.c"},
-        .flags = &.{},
     });
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = b.fmt("{s}/exit", .{crt0_dir}) },
         .files = &.{"exit-loop.c"},
-        .flags = &.{},
     });
 
     // libc (neo6502-c) — API + platform I/O.
@@ -365,12 +351,10 @@ fn buildNeo6502(
             "graphics.c",     "sound.c",   "sprites.c",    "system.c",
             "turtle.c",       "uext.c",    "mouse.c",
         },
-        .flags = &.{},
     });
     libc.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = neo_dir },
         .files = &.{ "char-conv.c", "clock.c", "getchar.c", "putchar.c" },
-        .flags = &.{},
     });
 
     return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc };
@@ -394,12 +378,10 @@ fn buildSnes(
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = crt0_dir },
         .files = &.{ "init-stack.S", "copy-zp-data.c", "copy-data.c", "zero-bss.c", "zero-zp-bss.c" },
-        .flags = &.{},
     });
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = b.fmt("{s}/exit", .{crt0_dir}) },
         .files = &.{"exit-loop.c"},
-        .flags = &.{},
     });
 
     // libc: mem.c provides memcpy/__memset used by copy-data.c and zero-bss.c.
@@ -408,7 +390,6 @@ fn buildSnes(
     libc.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = b.fmt("{s}/../c", .{crt0_dir}) },
         .files = &.{"mem.c"},
-        .flags = &.{},
     });
 
     return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc };
@@ -432,12 +413,10 @@ fn buildAtari2600_4k(
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = crt0_dir },
         .files = &.{ "copy-zp-data.c", "copy-data.c" },
-        .flags = &.{},
     });
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = b.fmt("{s}/exit", .{crt0_dir}) },
         .files = &.{"exit-loop.c"},
-        .flags = &.{},
     });
 
     // libc: frameloop + vcslib.
@@ -448,7 +427,6 @@ fn buildAtari2600_4k(
     libc.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = a26_dir },
         .files = &.{ "frameloop.c", "vcslib.S" },
-        .flags = &.{},
     });
 
     return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc };
@@ -473,17 +451,14 @@ fn buildAtari5200Supercart(
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = a8_common_dir },
         .files = &.{"init-stack.S"},
-        .flags = &.{},
     });
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = crt0_dir },
         .files = &.{ "copy-data.c", "zero-bss.c" },
-        .flags = &.{},
     });
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = b.fmt("{s}/exit", .{crt0_dir}) },
         .files = &.{"exit-loop.c"},
-        .flags = &.{},
     });
 
     // libc: mem.c supplies memcpy/__memset used by copy-data.c / zero-bss.c.
@@ -493,7 +468,6 @@ fn buildAtari5200Supercart(
     libc.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = b.fmt("{s}/../c", .{crt0_dir}) },
         .files = &.{"mem.c"},
-        .flags = &.{},
     });
 
     return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc };
@@ -518,22 +492,18 @@ fn buildAtari8Dos(
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = a8_common_dir },
         .files = &.{"init-stack.S"},
-        .flags = &.{},
     });
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = a8_dos_dir },
         .files = &.{"_Exit.c"},
-        .flags = &.{},
     });
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = crt0_dir },
         .files = &.{ "copy-zp-data.c", "zero-bss.c" },
-        .flags = &.{},
     });
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = b.fmt("{s}/exit", .{crt0_dir}) },
         .files = &.{"exit-custom.S"},
-        .flags = &.{},
     });
 
     // libc: atari8 I/O.
@@ -544,7 +514,6 @@ fn buildAtari8Dos(
     libc.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = a8_common_dir },
         .files = &.{ "putchar.c", "getchar.c" },
-        .flags = &.{},
     });
     libc.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = a8_common_dir },
@@ -553,7 +522,6 @@ fn buildAtari8Dos(
             "findfreeiocb.s", "getfd.s",     "open.s",    "oserror.s",
             "rwcommon.s",     "sysremove.s", "write.s",
         },
-        .flags = &.{},
     });
 
     return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc };
@@ -699,12 +667,10 @@ fn buildLynxBll(
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = crt0_dir },
         .files = &.{ "init-stack.S", "copy-zp-data.c", "zero-bss.c" },
-        .flags = &.{},
     });
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = b.fmt("{s}/exit", .{crt0_dir}) },
         .files = &.{"exit-loop.c"},
-        .flags = &.{},
     });
 
     // lynx-c has no source files — emit a tiny stub so the static archive isn't empty.
@@ -741,7 +707,6 @@ fn buildPce(
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = crt0_dir },
         .files = &.{"init-stack.S"},
-        .flags = &.{},
     });
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = b.fmt("{s}/crt0", .{pce_dir}) },
@@ -750,12 +715,10 @@ fn buildPce(
             "irq.S",         "zero-bss.S",
             "zero-zp-bss.S",
         },
-        .flags = &.{},
     });
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = b.fmt("{s}/exit", .{crt0_dir}) },
         .files = &.{"exit-loop.c"},
-        .flags = &.{},
     });
 
     // libc: pce-common libpce hardware library.
@@ -772,7 +735,6 @@ fn buildPce(
             "psg.c",    "system.c",
             "vce.c",    "vdc.c",
         },
-        .flags = &.{},
     });
 
     return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc };
@@ -796,22 +758,18 @@ fn buildAtari8CartStd(
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = a8_common_dir },
         .files = &.{"init-stack.S"},
-        .flags = &.{},
     });
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = a8_cart_dir },
         .files = &.{"syms.s"},
-        .flags = &.{},
     });
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = crt0_dir },
         .files = &.{ "copy-data.c", "zero-bss.c" },
-        .flags = &.{},
     });
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = b.fmt("{s}/exit", .{crt0_dir}) },
         .files = &.{"exit-loop.c"},
-        .flags = &.{},
     });
 
     const libc = addLib(b, "c", target, opt);
@@ -821,7 +779,6 @@ fn buildAtari8CartStd(
     libc.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = a8_common_dir },
         .files = &.{ "putchar.c", "getchar.c" },
-        .flags = &.{},
     });
     libc.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = a8_common_dir },
@@ -830,7 +787,6 @@ fn buildAtari8CartStd(
             "findfreeiocb.s", "getfd.s",     "open.s",    "oserror.s",
             "rwcommon.s",     "sysremove.s", "write.s",
         },
-        .flags = &.{},
     });
 
     return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc };
@@ -853,17 +809,14 @@ fn buildEater(
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = b.fmt("{s}/crt0", .{plat_dir}) },
         .files = &.{ "reset.S", "serial.S", "systick.S" },
-        .flags = &.{},
     });
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = crt0_dir },
         .files = &.{ "crt0.S", "init-stack.S", "copy-data.c", "zero-bss.c" },
-        .flags = &.{},
     });
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = b.fmt("{s}/exit", .{crt0_dir}) },
         .files = &.{"exit-loop.c"},
-        .flags = &.{},
     });
 
     const libc = addLib(b, "c", target, opt);
@@ -872,7 +825,6 @@ fn buildEater(
     libc.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = plat_dir },
         .files = &.{ "delay.c", "getchar.c", "lcd.c", "putchar.c" },
-        .flags = &.{},
     });
 
     return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc };
@@ -896,12 +848,10 @@ fn buildGeosCbm(
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = plat_dir },
         .files = &.{ "crt0.c", "geos_crt.c" },
-        .flags = &.{},
     });
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = crt0_dir },
         .files = &.{ "crt0.S", "init-stack.S", "copy-zp-data.c", "zero-bss.c" },
-        .flags = &.{},
     });
 
     const libc = addLib(b, "c", target, opt);
@@ -909,7 +859,6 @@ fn buildGeosCbm(
     libc.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = b.fmt("{s}/../c", .{crt0_dir}) },
         .files = &.{"mem.c"},
-        .flags = &.{},
     });
 
     return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc };
@@ -935,17 +884,14 @@ fn buildC128(
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = plat_dir },
         .files = &.{ "basic-header.S", "init-mmu.S" },
-        .flags = &.{},
     });
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = crt0_dir },
         .files = &.{"init-stack.S"},
-        .flags = &.{},
     });
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = b.fmt("{s}/exit", .{crt0_dir}) },
         .files = &.{"exit-loop.c"},
-        .flags = &.{},
     });
 
     const libc = addLib(b, "c", target, opt);
@@ -957,12 +903,10 @@ fn buildC128(
     libc.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = plat_dir },
         .files = &.{ "c128.c", "devnum.s", "kernal.S" },
-        .flags = &.{},
     });
     libc.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = comm_dir },
         .files = &.{ "abort.c", "cbm_k_bsout.c", "cbm_k_chrout.c", "chrout.c", "char-conv.c", "getchar.c", "putchar.c" },
-        .flags = &.{},
     });
 
     return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc };
@@ -986,17 +930,14 @@ fn buildPet(
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = plat_dir },
         .files = &.{"basic-header.S"},
-        .flags = &.{},
     });
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = crt0_dir },
         .files = &.{"init-stack.S"},
-        .flags = &.{},
     });
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = b.fmt("{s}/exit", .{crt0_dir}) },
         .files = &.{"exit-loop.c"},
-        .flags = &.{},
     });
 
     const libc = addLib(b, "c", target, opt);
@@ -1007,12 +948,10 @@ fn buildPet(
     libc.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = plat_dir },
         .files = &.{ "devnum.s", "kernal.S" },
-        .flags = &.{},
     });
     libc.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = comm_dir },
         .files = &.{ "abort.c", "cbm_k_bsout.c", "cbm_k_chrout.c", "chrout.c", "char-conv.c", "getchar.c", "putchar.c" },
-        .flags = &.{},
     });
 
     return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc };
@@ -1036,12 +975,10 @@ fn buildVic20(
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = plat_dir },
         .files = &.{ "basic-header.S", "init-stack-memtop.S" },
-        .flags = &.{},
     });
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = b.fmt("{s}/exit", .{crt0_dir}) },
         .files = &.{"exit-loop.c"},
-        .flags = &.{},
     });
 
     const libc = addLib(b, "c", target, opt);
@@ -1052,12 +989,10 @@ fn buildVic20(
     libc.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = plat_dir },
         .files = &.{ "devnum.s", "kernal.S" },
-        .flags = &.{},
     });
     libc.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = comm_dir },
         .files = &.{ "abort.c", "cbm_k_bsout.c", "cbm_k_chrout.c", "chrout.c", "char-conv.c", "getchar.c", "putchar.c" },
-        .flags = &.{},
     });
 
     return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc };
@@ -1080,17 +1015,14 @@ fn buildRp6502(
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = plat_dir },
         .files = &.{ "init-cpu.s", "exit.c" },
-        .flags = &.{},
     });
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = crt0_dir },
         .files = &.{ "init-stack.S", "copy-zp-data.c", "zero-bss.c" },
-        .flags = &.{},
     });
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = b.fmt("{s}/exit", .{crt0_dir}) },
         .files = &.{"exit-custom.S"},
-        .flags = &.{},
     });
 
     const libc = addLib(b, "c", target, opt);
@@ -1115,7 +1047,6 @@ fn buildRp6502(
             "write_xram.c",    "write_xstack.c",  "write.c",
             "xregn.c",
         },
-        .flags = &.{},
     });
 
     return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc };
@@ -1138,17 +1069,14 @@ fn buildRpc8e(
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = plat_dir },
         .files = &.{ "crt0.S", "init-stack.S" },
-        .flags = &.{},
     });
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = crt0_dir },
         .files = &.{ "copy-zp-data.c", "zero-bss.c" },
-        .flags = &.{},
     });
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = b.fmt("{s}/exit", .{crt0_dir}) },
         .files = &.{"exit-loop.c"},
-        .flags = &.{},
     });
 
     const libc = addLib(b, "c", target, opt);
@@ -1157,7 +1085,6 @@ fn buildRpc8e(
     libc.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = b.fmt("{s}/librpc8e/src", .{plat_dir}) },
         .files = &.{ "display.c", "drive.c", "mmu.c", "sortron.c" },
-        .flags = &.{},
     });
 
     return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc };
@@ -1181,17 +1108,14 @@ fn buildSupervision(
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = plat_dir },
         .files = &.{"crt0.c"},
-        .flags = &.{},
     });
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = crt0_dir },
         .files = &.{ "copy-data.c", "init-stack.S", "zero-bss.c" },
-        .flags = &.{},
     });
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = b.fmt("{s}/exit", .{crt0_dir}) },
         .files = &.{"exit-loop.c"},
-        .flags = &.{},
     });
 
     const libc = addLib(b, "c", target, opt);
@@ -1201,7 +1125,6 @@ fn buildSupervision(
     libc.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = plat_dir },
         .files = &.{ "supervision.c", "supervision.s" },
-        .flags = &.{},
     });
 
     return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc };
@@ -1224,17 +1147,14 @@ fn buildDodo(
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = plat_dir },
         .files = &.{"crt0.s"},
-        .flags = &.{},
     });
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = crt0_dir },
         .files = &.{ "copy-zp-data.c", "zero-bss.c", "init-stack.S" },
-        .flags = &.{},
     });
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = b.fmt("{s}/exit", .{crt0_dir}) },
         .files = &.{"exit-loop.c"},
-        .flags = &.{},
     });
 
     const libc = addLib(b, "c", target, opt);
@@ -1244,7 +1164,6 @@ fn buildDodo(
     libc.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = plat_dir },
         .files = &.{"api.s"},
-        .flags = &.{},
     });
 
     return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc };
@@ -1267,17 +1186,14 @@ fn buildOsiC1p(
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = plat_dir },
         .files = &.{"crt0.s"},
-        .flags = &.{},
     });
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = crt0_dir },
         .files = &.{ "copy-data.c", "init-stack.S", "zero-bss.c" },
-        .flags = &.{},
     });
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = b.fmt("{s}/exit", .{crt0_dir}) },
         .files = &.{"exit-loop.c"},
-        .flags = &.{},
     });
 
     const libc = addLib(b, "c", target, opt);
@@ -1286,7 +1202,6 @@ fn buildOsiC1p(
     libc.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = plat_dir },
         .files = &.{ "abort.c", "putchar.cc", "getchar.c", "kbhit.s" },
-        .flags = &.{},
     });
 
     return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc };
@@ -1310,7 +1225,6 @@ fn buildCpm65(
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = crt0_dir },
         .files = &.{ "init-stack.S", "copy-zp-data.c", "zero-bss.c" },
-        .flags = &.{},
     });
 
     const libc = addLib(b, "c", target, opt);
@@ -1319,7 +1233,6 @@ fn buildCpm65(
     libc.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = plat_dir },
         .files = &.{ "cpm.S", "cpm-wrappers.c", "bios.S", "pblock.S", "putchar.c", "stack.S", "registers.S" },
-        .flags = &.{},
     });
 
     return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc };
@@ -1344,12 +1257,10 @@ fn buildFds(
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = crt0_dir },
         .files = &.{ "crt0.S", "init-stack.S" },
-        .flags = &.{},
     });
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = plat_dir },
         .files = &.{"reset.s"},
-        .flags = &.{},
     });
 
     const libc = addLib(b, "c", target, opt);
@@ -1401,7 +1312,6 @@ fn buildFds(
             "irq.s",
             "mapper.c",
         },
-        .flags = &.{},
     });
 
     return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc };
@@ -1425,17 +1335,14 @@ fn buildPceCd(
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = b.fmt("{s}/crt0", .{plat_dir}) },
         .files = &.{ "copy-zp-data.S", "zero-bss.S", "zero-zp-bss.S" },
-        .flags = &.{},
     });
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = crt0_dir },
         .files = &.{"init-stack.S"},
-        .flags = &.{},
     });
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = b.fmt("{s}/exit", .{crt0_dir}) },
         .files = &.{"exit-loop.c"},
-        .flags = &.{},
     });
 
     const libc = addLib(b, "c", target, opt);
@@ -1445,7 +1352,6 @@ fn buildPceCd(
     libc.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = b.fmt("{s}/libpce/src/cd", .{plat_dir}) },
         .files = &.{"bios.c"},
-        .flags = &.{},
     });
 
     return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc };

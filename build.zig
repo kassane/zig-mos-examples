@@ -17,6 +17,8 @@ const SdkLibs = struct {
     nes_cnrom: ?sdk_mod.Libs = null,
     nes_unrom: ?sdk_mod.Libs = null,
     nes_mmc1: ?sdk_mod.Libs = null,
+    nes_mmc3: ?sdk_mod.Libs = null,
+    nes_gtrom: ?sdk_mod.Libs = null,
     a2600_3e: ?sdk_mod.Libs = null,
     a8cart: ?sdk_mod.Libs = null,
     snes: ?sdk_mod.Libs = null,
@@ -55,6 +57,8 @@ pub fn build(b: *std.Build) void {
         .{ .name = "nes-cnrom", .query = .{ .cpu_arch = .mos, .os_tag = .nes } },
         .{ .name = "nes-unrom", .query = .{ .cpu_arch = .mos, .os_tag = .nes } },
         .{ .name = "nes-mmc1", .query = .{ .cpu_arch = .mos, .os_tag = .nes } },
+        .{ .name = "nes-mmc3", .query = .{ .cpu_arch = .mos, .os_tag = .nes } },
+        .{ .name = "nes-gtrom", .query = .{ .cpu_arch = .mos, .os_tag = .nes } },
         .{ .name = "atari2600-3e", .query = .{ .cpu_arch = .mos, .os_tag = .atari2600 } },
         .{ .name = "atari8-cart-std", .query = .{ .cpu_arch = .mos, .os_tag = .atari8 } },
         .{ .name = "snes", .query = .{ .cpu_arch = .mos, .os_tag = .snes } },
@@ -81,6 +85,8 @@ pub fn build(b: *std.Build) void {
         if (std.mem.eql(u8, pd.name, "nes-cnrom")) sdk_libs.nes_cnrom = libs;
         if (std.mem.eql(u8, pd.name, "nes-unrom")) sdk_libs.nes_unrom = libs;
         if (std.mem.eql(u8, pd.name, "nes-mmc1")) sdk_libs.nes_mmc1 = libs;
+        if (std.mem.eql(u8, pd.name, "nes-mmc3")) sdk_libs.nes_mmc3 = libs;
+        if (std.mem.eql(u8, pd.name, "nes-gtrom")) sdk_libs.nes_gtrom = libs;
         if (std.mem.eql(u8, pd.name, "atari2600-3e")) sdk_libs.a2600_3e = libs;
         if (std.mem.eql(u8, pd.name, "atari8-cart-std")) sdk_libs.a8cart = libs;
         if (std.mem.eql(u8, pd.name, "snes")) sdk_libs.snes = libs;
@@ -95,6 +101,8 @@ pub fn build(b: *std.Build) void {
     const nes_cnrom_mapper_mod = nesMapperHeaderMod(b, sdk_dep, nes_target, "nes-cnrom");
     const nes_unrom_mapper_mod = nesMapperHeaderMod(b, sdk_dep, nes_target, "nes-unrom");
     const nes_mmc1_mapper_mod = nesMapperHeaderMod(b, sdk_dep, nes_target, "nes-mmc1");
+    const nes_mmc3_mapper_mod = nesMapperHeaderMod(b, sdk_dep, nes_target, "nes-mmc3");
+    const nes_gtrom_mapper_mod = nesMapperHeaderMod(b, sdk_dep, nes_target, "nes-gtrom");
 
     // Translate mega65.h into a Zig module.
     const mega65_target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .mega65 });
@@ -191,7 +199,6 @@ pub fn build(b: *std.Build) void {
     mos_sim.root_module.addCSourceFiles(.{
         .root = sdk_dep.path("utils/sim"),
         .files = &.{ "mos-sim.c", "fake6502.c" },
-        .flags = &.{},
     });
     b.installArtifact(mos_sim);
     const build_mos_sim_step = b.step("build-mos-sim", "Build mos-sim 6502 simulator from source");
@@ -545,6 +552,30 @@ pub fn build(b: *std.Build) void {
         exe.root_module.addImport("neslib", neslib_mod);
         exe.root_module.addImport("mapper", nes_mmc1_mapper_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "mmc1-hello.nes" });
+        step.dependOn(&install.step);
+        b.getInstallStep().dependOn(&install.step);
+        run_bininfo.addFileArg(exe.getEmittedBin());
+    }
+
+    // ---- NES GTROM hello ----
+    {
+        const step = b.step("nes-gtrom-hello", "Build NES GTROM mapper hello example");
+        const exe = addNesGtromExe(b, sdk_dep, sdk_src, sdk_libs.nes_gtrom orelse @panic("nes-gtrom libs not built"), optimize, "gtrom-hello", "nes/gtrom-hello/gtrom-hello.zig");
+        exe.root_module.addImport("neslib", neslib_mod);
+        exe.root_module.addImport("mapper", nes_gtrom_mapper_mod);
+        const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "gtrom-hello.nes" });
+        step.dependOn(&install.step);
+        b.getInstallStep().dependOn(&install.step);
+        run_bininfo.addFileArg(exe.getEmittedBin());
+    }
+
+    // ---- NES MMC3 hello ----
+    {
+        const step = b.step("nes-mmc3-hello", "Build NES MMC3 mapper hello example");
+        const exe = addNesMmc3Exe(b, sdk_dep, sdk_src, sdk_libs.nes_mmc3 orelse @panic("nes-mmc3 libs not built"), optimize, "mmc3-hello", "nes/mmc3-hello/mmc3-hello.zig");
+        exe.root_module.addImport("neslib", neslib_mod);
+        exe.root_module.addImport("mapper", nes_mmc3_mapper_mod);
+        const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "mmc3-hello.nes" });
         step.dependOn(&install.step);
         b.getInstallStep().dependOn(&install.step);
         run_bininfo.addFileArg(exe.getEmittedBin());
@@ -1176,7 +1207,6 @@ fn addPceExe(
     exe.lto = .full;
     exe.root_module.addCSourceFile(.{
         .file = sdk_dep.path("mos-platform/pce/crt0/crt0.S"),
-        .flags = &.{},
     });
     exe.root_module.addIncludePath(sdk_dep.path("mos-platform/common/asminc"));
     exe.root_module.addIncludePath(sdk_dep.path("mos-platform/pce-common/libpce/include"));
@@ -1359,6 +1389,122 @@ fn addNesMmc1Exe(
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/common/crt0/crt0.S"));
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes-mmc1/ines.s"));
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes-mmc1/init-prg-ram-0.s"));
+    exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes/ines.s"));
+    exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes/rompoke/rompoke.s"));
+    exe.root_module.linkLibrary(libs.crt);
+    exe.root_module.linkLibrary(libs.crt0);
+    exe.root_module.linkLibrary(libs.c);
+    if (libs.neslib) |neslib| exe.root_module.linkLibrary(neslib);
+    if (libs.nesdoug) |nesdoug| exe.root_module.linkLibrary(nesdoug);
+    if (libs.nes_c) |nc| exe.root_module.linkLibrary(nc);
+    if (libs.nes_c_startup) |ncs| exe.root_module.linkLibrary(ncs);
+    exe.setLinkerScript(wrapper_ld);
+    exe.step.dependOn(&install_reset.step);
+
+    return exe;
+}
+
+fn addNesGtromExe(
+    b: *std.Build,
+    sdk_dep: *std.Build.Dependency,
+    sdk_src: []const u8,
+    libs: sdk_mod.Libs,
+    opt: std.builtin.OptimizeMode,
+    name: []const u8,
+    root_src: []const u8,
+) *std.Build.Step.Compile {
+    const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .nes });
+
+    const reset_obj = b.addObject(.{
+        .name = "reset",
+        .root_module = b.createModule(.{ .target = target, .optimize = opt }),
+    });
+    reset_obj.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes-gtrom/reset.s"));
+    const reset_dir = b.fmt("{s}/objs/{s}", .{ b.install_path, name });
+    const install_reset = b.addInstallFileWithDir(reset_obj.getEmittedBin(), .{ .custom = b.fmt("objs/{s}", .{name}) }, "reset.o");
+
+    const wf = b.addWriteFiles();
+    const wrapper_ld = wf.add("nes-gtrom-wrapper.ld", b.fmt(
+        \\SEARCH_DIR("{s}");
+        \\SEARCH_DIR("{s}/mos-platform/nes-gtrom");
+        \\SEARCH_DIR("{s}/mos-platform/nes");
+        \\SEARCH_DIR("{s}/mos-platform/nes/rompoke");
+        \\SEARCH_DIR("{s}/mos-platform/common/ldscripts");
+        \\INCLUDE "{s}/mos-platform/nes-gtrom/link.ld"
+    , .{ reset_dir, sdk_src, sdk_src, sdk_src, sdk_src, sdk_src }));
+
+    const exe = b.addExecutable(.{
+        .name = name,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path(root_src),
+            .target = target,
+            .optimize = opt,
+        }),
+    });
+    exe.bundle_compiler_rt = false;
+    exe.lto = .full;
+    exe.step.dependOn(&install_reset.step);
+    exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/common/crt0/crt0.S"));
+    exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes-gtrom/ines.s"));
+    exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes/ines.s"));
+    exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes/rompoke/rompoke.s"));
+    exe.root_module.linkLibrary(libs.crt);
+    exe.root_module.linkLibrary(libs.crt0);
+    exe.root_module.linkLibrary(libs.c);
+    if (libs.neslib) |neslib| exe.root_module.linkLibrary(neslib);
+    if (libs.nesdoug) |nesdoug| exe.root_module.linkLibrary(nesdoug);
+    if (libs.nes_c) |nc| exe.root_module.linkLibrary(nc);
+    if (libs.nes_c_startup) |ncs| exe.root_module.linkLibrary(ncs);
+    exe.setLinkerScript(wrapper_ld);
+
+    return exe;
+}
+
+fn addNesMmc3Exe(
+    b: *std.Build,
+    sdk_dep: *std.Build.Dependency,
+    sdk_src: []const u8,
+    libs: sdk_mod.Libs,
+    opt: std.builtin.OptimizeMode,
+    name: []const u8,
+    root_src: []const u8,
+) *std.Build.Step.Compile {
+    const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .nes });
+
+    const reset_obj = b.addObject(.{
+        .name = "reset",
+        .root_module = b.createModule(.{ .target = target, .optimize = opt }),
+    });
+    reset_obj.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes-mmc3/reset-banked-8.s"));
+    const reset_dir = b.fmt("{s}/objs/{s}", .{ b.install_path, name });
+    const install_reset = b.addInstallFileWithDir(reset_obj.getEmittedBin(), .{ .custom = b.fmt("objs/{s}", .{name}) }, "reset-banked-8.o");
+
+    const wf = b.addWriteFiles();
+    const wrapper_ld = wf.add("nes-mmc3-wrapper.ld", b.fmt(
+        \\SEARCH_DIR("{s}");
+        \\SEARCH_DIR("{s}/mos-platform/nes-mmc3");
+        \\SEARCH_DIR("{s}/mos-platform/nes");
+        \\SEARCH_DIR("{s}/mos-platform/nes/rompoke");
+        \\SEARCH_DIR("{s}/mos-platform/common/ldscripts");
+        \\/* MMC3 hello uses CHR RAM; override the 256 KiB CHR ROM weak default. */
+        \\__chr_rom_size = 0;
+        \\__chr_ram_size = 8;
+        \\INCLUDE "{s}/mos-platform/nes-mmc3/link.ld"
+    , .{ reset_dir, sdk_src, sdk_src, sdk_src, sdk_src, sdk_src }));
+
+    const exe = b.addExecutable(.{
+        .name = name,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path(root_src),
+            .target = target,
+            .optimize = opt,
+        }),
+    });
+    exe.bundle_compiler_rt = false;
+    exe.lto = .full;
+    exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/common/crt0/crt0.S"));
+    exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes-mmc3/ines.s"));
+    exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes-mmc3/init-c-in-prg-ram.s"));
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes/ines.s"));
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes/rompoke/rompoke.s"));
     exe.root_module.linkLibrary(libs.crt);
@@ -1676,27 +1822,23 @@ fn addApple2Exe(
         .target = target,
         .optimize = opt,
     }));
+    exe.root_module.addIncludePath(.{ .cwd_relative = b.fmt("{s}/mos-platform/common/asminc", .{sdk_src}) });
+    exe.root_module.addIncludePath(.{ .cwd_relative = b.fmt("{s}/mos-platform/common/crt", .{sdk_src}) });
+    exe.root_module.addIncludePath(.{ .cwd_relative = b.fmt("{s}/mos-platform/common/include", .{sdk_src}) });
     // Common crt0: stack init + call_main + zp register declarations.
     exe.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = b.fmt("{s}/mos-platform/common/crt0", .{sdk_src}) },
         .files = &.{ "crt0.S", "init-stack.S" },
-        .flags = &.{ "-I", b.fmt("{s}/mos-platform/common/asminc", .{sdk_src}) },
     });
     // libcrt: compiler runtime builtins (__udivhi3, __mulsi3, __ashlqi3, __set_v, etc.).
     exe.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = b.fmt("{s}/mos-platform/common/crt", .{sdk_src}) },
         .files = &.{ "const.S", "call-indir.S", "divmod.cc", "divmod-large.cc", "mul.cc", "shift.cc", "rotate.cc" },
-        .flags = &.{
-            "-I", b.fmt("{s}/mos-platform/common/crt", .{sdk_src}),
-            "-I", b.fmt("{s}/mos-platform/common/include", .{sdk_src}),
-            "-I", b.fmt("{s}/mos-platform/common/asminc", .{sdk_src}),
-        },
     });
     // mem.c: provides __memset / __memcpy needed by LLVM for bulk-zeroing.
     exe.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = b.fmt("{s}/mos-platform/common/c", .{sdk_src}) },
         .files = &.{"mem.c"},
-        .flags = &.{ "-I", b.fmt("{s}/mos-platform/common/include", .{sdk_src}) },
     });
     exe.setLinkerScript(wrapper_ld);
 

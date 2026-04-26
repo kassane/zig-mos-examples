@@ -61,7 +61,7 @@ jobs:
         run: zig build sdk-build --summary all
 
       - name: Build NES examples and generate Mesen label files
-        run: zig build nes-hello1 nes-hello2 nes-hello3 nes-zig-logo nes-fade nes-sprites nes-pads nes-color-cycle nes-cnrom-hello nes-unrom-hello nes-mmc1-hello gen-labels --summary all
+        run: zig build nes-hello1 nes-hello2 nes-hello3 nes-zig-logo nes-fade nes-sprites nes-pads nes-color-cycle nes-cnrom-hello nes-unrom-hello nes-mmc1-hello nes-mmc3-hello nes-gtrom-hello gen-labels --summary all
 
       - name: Build C64 examples
         run: zig build c64-hello c64-fibonacci c64-plasma --summary all
@@ -104,7 +104,7 @@ jobs:
           ls -la zig-out/bin/
           for f in \
             hello1.nes hello2.nes hello3.nes zig-logo.nes fade.nes sprites.nes pads.nes color-cycle.nes \
-            cnrom-hello.nes unrom-hello.nes mmc1-hello.nes \
+            cnrom-hello.nes unrom-hello.nes mmc1-hello.nes mmc3-hello.nes gtrom-hello.nes \
             c64-hello.prg fibonacci.prg plasma.prg \
             cx16-hello.prg cx16-k-console-test.prg \
             lynx-hello.bll \
@@ -163,7 +163,8 @@ jobs:
           }
           # NES
           for f in hello1.nes hello2.nes hello3.nes zig-logo.nes fade.nes sprites.nes \
-                   pads.nes color-cycle.nes cnrom-hello.nes unrom-hello.nes mmc1-hello.nes; do
+                   pads.nes color-cycle.nes cnrom-hello.nes unrom-hello.nes mmc1-hello.nes mmc3-hello.nes \
+                   gtrom-hello.nes; do
             smoke "$f"
           done
           # PC Engine
@@ -181,7 +182,7 @@ jobs:
             local f=$1 rc=0
             # -limitcycles exits cleanly (rc=0) after N emulated cycles.
             # xvfb-run provides a virtual display; -headless not supported in apt VICE build.
-            timeout 10 xvfb-run -a x64sc -warp -limitcycles 5000000 "zig-out/bin/$f" || rc=$?
+            timeout 10 xvfb-run -a x64sc -directory /usr/share/vice -warp -limitcycles 5000000 "zig-out/bin/$f" || rc=$?
             if [ $rc -ne 0 ]; then
               echo "FAIL: $f (rc=$rc)"; exit 1
             fi
@@ -274,7 +275,8 @@ jobs:
             echo "OK: $f (rc=$rc)"
           }
           for f in hello1.nes hello2.nes hello3.nes zig-logo.nes fade.nes sprites.nes \
-                   pads.nes color-cycle.nes cnrom-hello.nes unrom-hello.nes mmc1-hello.nes; do
+                   pads.nes color-cycle.nes cnrom-hello.nes unrom-hello.nes mmc1-hello.nes mmc3-hello.nes \
+                   gtrom-hello.nes; do
             run_emutest "$f" mesen_libretro.so
           done
 
