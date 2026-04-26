@@ -149,11 +149,17 @@ jobs:
           SDL_AUDIODRIVER: dummy
           HOME: /tmp/mednafen-home
         run: |
-          mkdir -p /tmp/mednafen-home
+          mkdir -p /tmp/mednafen-home/.mednafen
+          # Disable ALSA sound (no audio device in CI) to suppress init errors.
+          echo "sound.device none" > /tmp/mednafen-home/.mednafen/mednafen.cfg
           smoke() {
-            local f=$1
-            timeout 3 mednafen "zig-out/bin/$f"; rc=$?
-            [ $rc -eq 0 ] || [ $rc -eq 124 ] && echo "OK: $f" || { echo "FAIL: $f (rc=$rc)"; exit 1; }
+            local f=$1 rc=0
+            # Use || to prevent set -e from triggering on timeout's 124 exit code.
+            timeout 3 mednafen "zig-out/bin/$f" || rc=$?
+            if [ $rc -ne 0 ] && [ $rc -ne 124 ]; then
+              echo "FAIL: $f (rc=$rc)"; exit 1
+            fi
+            echo "OK: $f"
           }
           # NES
           for f in hello1.nes hello2.nes hello3.nes zig-logo.nes fade.nes sprites.nes \
@@ -174,9 +180,13 @@ jobs:
       - name: C64 smoke tests (VICE)
         run: |
           smoke_c64() {
-            local f=$1
-            timeout 10 x64sc -headless -warp -limitcycles 5000000 "zig-out/bin/$f"; rc=$?
-            [ $rc -eq 0 ] && echo "OK: $f" || { echo "FAIL: $f (rc=$rc)"; exit 1; }
+            local f=$1 rc=0
+            # -limitcycles exits cleanly (rc=0) after N emulated cycles.
+            timeout 10 x64sc -headless -warp -limitcycles 5000000 "zig-out/bin/$f" || rc=$?
+            if [ $rc -ne 0 ]; then
+              echo "FAIL: $f (rc=$rc)"; exit 1
+            fi
+            echo "OK: $f"
           }
           for f in c64-hello.prg fibonacci.prg plasma.prg; do
             smoke_c64 "$f"
