@@ -14,6 +14,7 @@
 //!   .bll  — Atari Lynx Binary Load Library
 //!   .rom  — Atari 8-bit standard cartridge ROM
 //!   .sys  — Apple IIe ProDOS SYS file (raw binary, load=$0800)
+//!   sim   — mos-sim binary (load=$0200 header + data + vectors trailer)
 //!
 //! Exit code: 0 if all files are valid, 1 if any file is missing or malformed.
 
@@ -249,6 +250,30 @@ fn checkSys(path: []const u8, data: []const u8) bool {
     return true;
 }
 
+fn checkSim(path: []const u8, data: []const u8) bool {
+    // sim OUTPUT_FORMAT: SHORT($0200) SHORT(data_len) TRIM(ram)
+    //   followed by: SHORT($FFFA) SHORT(6) SHORT(nmi) SHORT(reset) SHORT(irq)
+    if (data.len < 14) {
+        std.debug.print("{s}: [mos-sim] ERROR: file too small ({d} B)\n", .{ path, data.len });
+        return false;
+    }
+    const data_len = readU16Le(data, 2);
+    if (@as(usize, data_len) + 14 != data.len) {
+        std.debug.print("{s}: [mos-sim] ERROR: size mismatch (header says {d}B data, file={d}B)\n", .{
+            path, data_len, data.len,
+        });
+        return false;
+    }
+    const vbase = data.len - 10;
+    const nmi = readU16Le(data, vbase + 4);
+    const reset = readU16Le(data, vbase + 6);
+    const irq = readU16Le(data, vbase + 8);
+    std.debug.print("{s}: [mos-sim]  load=$0200  code={d}B  NMI=${x:0>4}  RESET=${x:0>4}  IRQ=${x:0>4}\n", .{
+        path, data_len, nmi, reset, irq,
+    });
+    return true;
+}
+
 fn checkAtari8Cart(path: []const u8, data: []const u8) bool {
     const len = data.len;
     if (len != 8192 and len != 16384 and len != 32768 and len != 65536) {
@@ -282,6 +307,11 @@ fn checkFile(path: []const u8, data: []const u8) bool {
         data[0] == 0xA9 and data[2] == 0x85 and data[3] == 0x00 and
         data[4] == 0xA9 and data[6] == 0x85 and data[7] == 0x01)
         return checkSys(path, data);
+    // mos-sim: load=$0200 header + data + 10-byte vectors trailer (FA FF 06 00 ...).
+    if (data.len >= 14 and data[0] == 0x00 and data[1] == 0x02 and
+        @as(usize, readU16Le(data, 2)) + 14 == data.len and
+        readU16Le(data, data.len - 10) == 0xFFFA and readU16Le(data, data.len - 8) == 6)
+        return checkSim(path, data);
 
     // Detect by file extension.
     const ext = std.fs.path.extension(path);

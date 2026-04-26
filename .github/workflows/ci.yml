@@ -163,10 +163,11 @@ jobs:
           }
           # NES
           for f in hello1.nes hello2.nes hello3.nes zig-logo.nes fade.nes sprites.nes \
-                   pads.nes color-cycle.nes cnrom-hello.nes unrom-hello.nes mmc1-hello.nes mmc3-hello.nes \
-                   gtrom-hello.nes; do
+                   pads.nes color-cycle.nes cnrom-hello.nes unrom-hello.nes mmc1-hello.nes mmc3-hello.nes; do
             smoke "$f"
           done
+          # Note: gtrom-hello.nes (mapper 111) is NOT tested here — apt mednafen lacks GTROM support.
+          # GTROM is covered by the emutest job (Mesen-X libretro core).
           # PC Engine
           for f in pce-color-cycle.pce pce-color-cycle-banked.pce; do
             smoke "$f"
