@@ -11,6 +11,10 @@
             .url = "git+https://github.com/llvm-mos/llvm-mos-sdk#95bf367e953f6da89371e18c72791f8a8738fdac",
             .hash = "N-V-__8AACVBLAD3oo37t4dW7jIRfh9tPEARwcQC3UM5BJ8E",
         },
+        .apple2 = .{
+            .url = "git+https://github.com/TheHans255/apple-ii-port-work#31fde9997cfb4a5e98a9d0fc0efaf869fbedeb1f",
+            .hash = "N-V-__8AAIzPAQDlio9aQBDM199SjX-qme9i0IIUuqp2IX0v",
+        },
     },
     .minimum_zig_version = "0.16.0",
     .paths = .{"."},

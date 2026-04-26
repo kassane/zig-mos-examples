@@ -38,10 +38,10 @@ fn writeSvg(
     cols: u32,
 ) !struct { non_empty: u32 } {
     const num_tiles: u32 = @intCast(chr.len / 16);
-    const num_rows   = (num_tiles + cols - 1) / cols;
-    const px         = scale;
-    const width      = cols * 8 * px;
-    const height     = num_rows * 8 * px;
+    const num_rows = (num_tiles + cols - 1) / cols;
+    const px = scale;
+    const width = cols * 8 * px;
+    const height = num_rows * 8 * px;
 
     // Header
     var tmp: [256]u8 = undefined;
@@ -72,7 +72,8 @@ fn writeSvg(
                 empty = false;
                 const x = tx * 8 * px + col * px;
                 const y = ty * 8 * px + row * px;
-                try buf.appendSlice(alloc, try std.fmt.bufPrint(&tmp,
+                try buf.appendSlice(alloc, try std.fmt.bufPrint(
+                    &tmp,
                     "<rect x=\"{d}\" y=\"{d}\" width=\"{d}\" height=\"{d}\" fill=\"{s}\"/>\n",
                     .{ x, y, px, px, PALETTE[c] },
                 ));
@@ -86,7 +87,8 @@ fn writeSvg(
     var i: u32 = 0;
     while (i <= cols) : (i += 1) {
         const x = i * 8 * px;
-        try buf.appendSlice(alloc, try std.fmt.bufPrint(&tmp,
+        try buf.appendSlice(alloc, try std.fmt.bufPrint(
+            &tmp,
             "<line x1=\"{d}\" y1=\"0\" x2=\"{d}\" y2=\"{d}\" stroke=\"#00000022\" stroke-width=\"1\"/>\n",
             .{ x, x, height },
         ));
@@ -95,7 +97,8 @@ fn writeSvg(
     var j: u32 = 0;
     while (j <= num_rows) : (j += 1) {
         const y = j * 8 * px;
-        try buf.appendSlice(alloc, try std.fmt.bufPrint(&tmp,
+        try buf.appendSlice(alloc, try std.fmt.bufPrint(
+            &tmp,
             "<line x1=\"0\" y1=\"{d}\" x2=\"{d}\" y2=\"{d}\" stroke=\"#00000022\" stroke-width=\"1\"/>\n",
             .{ y, width, y },
         ));
@@ -114,17 +117,17 @@ fn usageExit() noreturn {
 
 pub fn main(init: std.process.Init) !void {
     const alloc = init.gpa;
-    const io    = init.io;
-    const cwd   = std.Io.Dir.cwd();
+    const io = init.io;
+    const cwd = std.Io.Dir.cwd();
 
     var args = try init.minimal.args.iterateAllocator(alloc);
     defer args.deinit();
     _ = args.next();
 
-    var in_path:  ?[]const u8 = null;
+    var in_path: ?[]const u8 = null;
     var out_path: ?[]const u8 = null;
     var scale: u32 = 3;
-    var cols:  u32 = 16;
+    var cols: u32 = 16;
 
     while (args.next()) |arg| {
         if (std.mem.eql(u8, arg, "--scale")) {
@@ -140,7 +143,7 @@ pub fn main(init: std.process.Init) !void {
         } else usageExit();
     }
 
-    const inp = in_path  orelse usageExit();
+    const inp = in_path orelse usageExit();
     const outp = out_path orelse usageExit();
 
     if (scale == 0 or cols == 0) {

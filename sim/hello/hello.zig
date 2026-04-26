@@ -29,10 +29,15 @@ fn writeU16Padded(v: u16, width: u8) void {
     const powers = [_]u16{ 10000, 1000, 100, 10, 1 };
     // Count digits
     var digits: u8 = 1;
-    if (v >= 10000) { digits = 5; }
-    else if (v >= 1000) { digits = 4; }
-    else if (v >= 100) { digits = 3; }
-    else if (v >= 10) { digits = 2; }
+    if (v >= 10000) {
+        digits = 5;
+    } else if (v >= 1000) {
+        digits = 4;
+    } else if (v >= 100) {
+        digits = 3;
+    } else if (v >= 10) {
+        digits = 2;
+    }
     // Leading spaces
     if (digits < width) {
         var sp: u8 = 0;
@@ -110,7 +115,7 @@ fn countPrimes() u8 {
     return count;
 }
 
-export fn main() void {
+pub fn main() void {
     writeStr("mos-sim benchmarks\n");
     writeStr("==================\n");
 

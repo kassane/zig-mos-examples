@@ -8,20 +8,25 @@ on:
 
 jobs:
   build:
+    name: ${{ matrix.name }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
+            name: Linux x86_64
             zig_archive: zig-mos-x86_64-linux-musl-baseline.tar.xz
             zig_dir: zig-mos-x86_64-linux-musl-baseline
           - os: macos-latest
+            name: macOS aarch64
             zig_archive: zig-mos-aarch64-macos-baseline.tar.xz
             zig_dir: zig-mos-aarch64-macos-baseline
           - os: ubuntu-24.04-arm
+            name: Linux aarch64
             zig_archive: zig-mos-aarch64-linux-musl-baseline.tar.xz
             zig_dir: zig-mos-aarch64-linux-musl-baseline
           - os: windows-latest
+            name: Windows x86_64
             zig_archive: zig-mos-x86_64-windows-baseline.zip
             zig_dir: zig-mos-x86_64-windows-baseline
     runs-on: ${{ matrix.os }}
@@ -29,16 +34,28 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@main
+
+      - name: Cache zig-mos toolchain
+        id: cache-zig
+        uses: actions/cache@main
+        with:
+          path: ${{ matrix.zig_dir }}
+          key: zig-mos-${{ matrix.zig_archive }}-v1
 
       - name: Download zig-mos toolchain
+        if: steps.cache-zig.outputs.cache-hit != 'true'
         env:
           ZIG_ARCHIVE: ${{ matrix.zig_archive }}
           ZIG_DIR: ${{ matrix.zig_dir }}
         run: |
           curl -fsSL -O "https://github.com/kassane/zig-mos-bootstrap/releases/download/0.17.0-dev/${ZIG_ARCHIVE}"
           if [[ "${ZIG_ARCHIVE}" == *.zip ]]; then unzip -q "${ZIG_ARCHIVE}"; else tar -xf "${ZIG_ARCHIVE}"; fi
-          echo "$PWD/${ZIG_DIR}" >> "$GITHUB_PATH"
+
+      - name: Add zig-mos to PATH
+        env:
+          ZIG_DIR: ${{ matrix.zig_dir }}
+        run: echo "$PWD/${ZIG_DIR}" >> "$GITHUB_PATH"
 
       - name: Build SDK platform libs from source
         run: zig build sdk-build --summary all
@@ -70,6 +87,12 @@ jobs:
       - name: Build Neo6502 example
         run: zig build neo6502-graphics --summary all
 
+      - name: Build SNES example
+        run: zig build snes-hello --summary all
+
+      - name: Build Apple IIe example
+        run: zig build apple2-hello --summary all
+
       - name: Build mos-sim from source and run sim-hello benchmark
         run: zig build run-sim-hello --summary all
 
@@ -90,6 +113,174 @@ jobs:
             pce-color-cycle.pce pce-color-cycle-banked.pce \
             mega65-hello.prg viciv.prg \
             graphics.neo \
+            snes-hello.sfc \
+            hello.sys \
             sim-hello mos-sim; do
             test -f "zig-out/bin/$f" && echo "OK: $f" || echo "MISSING: $f"
           done
+
+      - name: Upload built binaries
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@main
+        with:
+          name: zig-out-linux-x86_64
+          path: zig-out/bin/
+          retention-days: 1
+
+  emulate:
+    name: Emulator smoke tests
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Download built binaries
+        uses: actions/download-artifact@main
+        with:
+          name: zig-out-linux-x86_64
+          path: zig-out/bin/
+
+      - name: Install emulators
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mednafen vice xvfb
+
+      - name: NES / PC Engine / SNES smoke tests (mednafen)
+        env:
+          SDL_VIDEODRIVER: offscreen
+          SDL_AUDIODRIVER: dummy
+          HOME: /tmp/mednafen-home
+        run: |
+          mkdir -p /tmp/mednafen-home/.mednafen
+          # Disable ALSA sound (no audio device in CI) to suppress init errors.
+          echo "sound.device none" > /tmp/mednafen-home/.mednafen/mednafen.cfg
+          smoke() {
+            local f=$1 rc=0
+            # Use || to prevent set -e from triggering on timeout's 124 exit code.
+            timeout 3 mednafen "zig-out/bin/$f" || rc=$?
+            if [ $rc -ne 0 ] && [ $rc -ne 124 ]; then
+              echo "FAIL: $f (rc=$rc)"; exit 1
+            fi
+            echo "OK: $f"
+          }
+          # NES
+          for f in hello1.nes hello2.nes hello3.nes zig-logo.nes fade.nes sprites.nes \
+                   pads.nes color-cycle.nes cnrom-hello.nes unrom-hello.nes mmc1-hello.nes; do
+            smoke "$f"
+          done
+          # PC Engine
+          for f in pce-color-cycle.pce pce-color-cycle-banked.pce; do
+            smoke "$f"
+          done
+          # SNES
+          smoke snes-hello.sfc
+          # Note: Atari 2600 (.a26) is NOT tested here — apt mednafen lacks the vcs module.
+          # Atari 2600 is covered by the emutest job (Stella2014 libretro core).
+
+  build-test-tools:
+    name: Build emutest + libretro cores
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cache test tools
+        id: cache-tt
+        uses: actions/cache@main
+        with:
+          path: tt/
+          key: test-tools-v1
+
+      - name: Set up Go
+        if: steps.cache-tt.outputs.cache-hit != 'true'
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
+      - name: Build emutest
+        if: steps.cache-tt.outputs.cache-hit != 'true'
+        run: |
+          git clone https://github.com/sehugg/emutest
+          cd emutest && go install
+          mkdir -p ${{ github.workspace }}/tt/emutest
+          cp "$(go env GOPATH)/bin/emutest" ${{ github.workspace }}/tt/emutest/
+
+      - name: Build Stella2014 libretro core
+        if: steps.cache-tt.outputs.cache-hit != 'true'
+        run: |
+          git clone https://github.com/libretro/stella2014-libretro
+          cd stella2014-libretro && make --silent -j4
+          mkdir -p ${{ github.workspace }}/tt/libretro
+          mv stella2014_libretro.so ${{ github.workspace }}/tt/libretro/
+
+      - name: Build Mesen-X libretro core
+        if: steps.cache-tt.outputs.cache-hit != 'true'
+        run: |
+          git clone https://github.com/NovaSquirrel/Mesen-X
+          cd Mesen-X/Libretro && make --silent -j4
+          mkdir -p ${{ github.workspace }}/tt/libretro
+          mv mesen_libretro.so ${{ github.workspace }}/tt/libretro/
+
+      - name: Upload test tools
+        uses: actions/upload-artifact@main
+        with:
+          name: test-tools
+          path: tt/
+          retention-days: 1
+
+  emutest:
+    name: Emutest screenshot tests
+    runs-on: ubuntu-latest
+    needs: [build, build-test-tools]
+    steps:
+      - uses: actions/checkout@main
+
+      - name: Download built binaries
+        uses: actions/download-artifact@main
+        with:
+          name: zig-out-linux-x86_64
+          path: zig-out/bin/
+
+      - name: Download test tools
+        uses: actions/download-artifact@main
+        with:
+          name: test-tools
+          path: tt/
+
+      - name: Make emutest executable
+        run: chmod +x tt/emutest/emutest
+
+      - name: NES screenshot tests (Mesen-X)
+        run: |
+          run_emutest() {
+            local f=$1 core=$2 rc=0
+            tt/emutest/emutest -T \
+              -L "tt/libretro/${core}" \
+              -r "zig-out/bin/$f" \
+              -t tools/emutest.lua || rc=$?
+            # rc=0: TestPass, rc=1: TestFail, rc=2: indeterminate (demos have no test harness)
+            if [ $rc -eq 1 ]; then echo "FAIL: $f"; exit 1; fi
+            echo "OK: $f (rc=$rc)"
+          }
+          for f in hello1.nes hello2.nes hello3.nes zig-logo.nes fade.nes sprites.nes \
+                   pads.nes color-cycle.nes cnrom-hello.nes unrom-hello.nes mmc1-hello.nes; do
+            run_emutest "$f" mesen_libretro.so
+          done
+
+      - name: Atari 2600 screenshot tests (Stella2014)
+        run: |
+          run_emutest() {
+            local f=$1 core=$2 rc=0
+            tt/emutest/emutest -T \
+              -L "tt/libretro/${core}" \
+              -r "zig-out/bin/$f" \
+              -t tools/emutest.lua || rc=$?
+            if [ $rc -eq 1 ]; then echo "FAIL: $f"; exit 1; fi
+            echo "OK: $f (rc=$rc)"
+          }
+          for f in colorbar.a26 colorbar-3e.a26; do
+            run_emutest "$f" stella2014_libretro.so
+          done
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@main
+        with:
+          name: emutest-screenshots
+          path: "*.png"
+          if-no-files-found: ignore

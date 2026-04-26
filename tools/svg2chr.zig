@@ -34,11 +34,17 @@ fn extractAttr(tag: []const u8, name: []const u8) ?[]const u8 {
     var pos: usize = 0;
     while (std.mem.indexOfPos(u8, tag, pos, name)) |idx| {
         const after = idx + name.len;
-        if (after >= tag.len or tag[after] != '=') { pos = after; continue; }
+        if (after >= tag.len or tag[after] != '=') {
+            pos = after;
+            continue;
+        }
         const vs = after + 1;
         if (vs >= tag.len) return null;
         const q = tag[vs];
-        if (q != '"' and q != '\'') { pos = vs; continue; }
+        if (q != '"' and q != '\'') {
+            pos = vs;
+            continue;
+        }
         const cs = vs + 1;
         const end = std.mem.indexOfScalarPos(u8, tag, cs, q) orelse return null;
         return tag[cs..end];
@@ -53,17 +59,17 @@ fn usageExit() noreturn {
 
 pub fn main(init: std.process.Init) !void {
     const alloc = init.gpa;
-    const io    = init.io;
-    const cwd   = std.Io.Dir.cwd();
+    const io = init.io;
+    const cwd = std.Io.Dir.cwd();
 
     var args = try init.minimal.args.iterateAllocator(alloc);
     defer args.deinit();
     _ = args.next();
 
-    var in_path:   ?[]const u8 = null;
-    var out_path:  ?[]const u8 = null;
+    var in_path: ?[]const u8 = null;
+    var out_path: ?[]const u8 = null;
     var scale_opt: ?u32 = null;
-    var cols_opt:  ?u32 = null;
+    var cols_opt: ?u32 = null;
 
     while (args.next()) |arg| {
         if (std.mem.eql(u8, arg, "--scale")) {
@@ -79,7 +85,7 @@ pub fn main(init: std.process.Init) !void {
         } else usageExit();
     }
 
-    const inp  = in_path  orelse usageExit();
+    const inp = in_path orelse usageExit();
     const outp = out_path orelse usageExit();
 
     const svg = cwd.readFileAlloc(io, inp, alloc, .unlimited) catch |err| {
@@ -99,10 +105,22 @@ pub fn main(init: std.process.Init) !void {
     };
     const svg_tag = svg[svg_pos .. tag_end + 1];
 
-    const w_str = extractAttr(svg_tag, "width")  orelse { std.debug.print("svg2chr: missing width\n",  .{}); std.process.exit(1); };
-    const h_str = extractAttr(svg_tag, "height") orelse { std.debug.print("svg2chr: missing height\n", .{}); std.process.exit(1); };
-    const svg_w = parseU32(w_str) orelse { std.debug.print("svg2chr: bad width\n",  .{}); std.process.exit(1); };
-    const svg_h = parseU32(h_str) orelse { std.debug.print("svg2chr: bad height\n", .{}); std.process.exit(1); };
+    const w_str = extractAttr(svg_tag, "width") orelse {
+        std.debug.print("svg2chr: missing width\n", .{});
+        std.process.exit(1);
+    };
+    const h_str = extractAttr(svg_tag, "height") orelse {
+        std.debug.print("svg2chr: missing height\n", .{});
+        std.process.exit(1);
+    };
+    const svg_w = parseU32(w_str) orelse {
+        std.debug.print("svg2chr: bad width\n", .{});
+        std.process.exit(1);
+    };
+    const svg_h = parseU32(h_str) orelse {
+        std.debug.print("svg2chr: bad height\n", .{});
+        std.process.exit(1);
+    };
 
     // Auto-detect scale: find the smallest non-background rect width.
     const scale: u32 = scale_opt orelse blk: {
@@ -155,26 +173,26 @@ pub fn main(init: std.process.Init) !void {
             pos = re + 1;
 
             const fill = extractAttr(rt, "fill") orelse continue;
-            const ci   = paletteIndex(fill) orelse continue;
+            const ci = paletteIndex(fill) orelse continue;
             if (ci == 0) continue; // background — skip
 
             const rx = parseU32(extractAttr(rt, "x") orelse continue) orelse continue;
             const ry = parseU32(extractAttr(rt, "y") orelse continue) orelse continue;
 
             // Convert SVG coordinates to NES tile/row/col.
-            const nx     = @divTrunc(rx, scale);
-            const ny     = @divTrunc(ry, scale);
+            const nx = @divTrunc(rx, scale);
+            const ny = @divTrunc(ry, scale);
             const tile_x = @divTrunc(nx, 8);
             const tile_y = @divTrunc(ny, 8);
-            const tile   = tile_y * cols + tile_x;
-            const row    = ny % 8;
-            const col    = nx % 8;
+            const tile = tile_y * cols + tile_x;
+            const row = ny % 8;
+            const col = nx % 8;
 
             if (tile >= num_tiles) continue;
 
             const base: usize = tile * 16;
             const bit: u8 = @as(u8, 1) << @intCast(7 - col);
-            if (ci & 1 != 0) chr[base + row]     |= bit; // plane 0
+            if (ci & 1 != 0) chr[base + row] |= bit; // plane 0
             if (ci & 2 != 0) chr[base + 8 + row] |= bit; // plane 1
             pixel_count += 1;
         }

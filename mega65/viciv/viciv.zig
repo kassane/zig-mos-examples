@@ -5,7 +5,7 @@
 //! VICIV base: 0xD000; bordercol at +0x20, screencol at +0x21.
 
 const VICIV_BORDERCOL: *volatile u8 = @ptrFromInt(0xD020);
-const VICIV_SCREENCOL:  *volatile u8 = @ptrFromInt(0xD021);
+const VICIV_SCREENCOL: *volatile u8 = @ptrFromInt(0xD021);
 
 export fn main() void {
     VICIV_SCREENCOL.* = 0x1E; // COLOR_BUBBLEGUM
