@@ -538,8 +538,6 @@ fn buildCx16(
     com_asm: []const u8,
     comm_dir: []const u8,
 ) Libs {
-    const cx16_def = "-D__CX16__";
-
     const libcrt0 = addLib(b, "crt0", target, opt);
     libcrt0.lto = .none;
     libcrt0.root_module.addIncludePath(.{ .cwd_relative = com_asm });
@@ -547,12 +545,12 @@ fn buildCx16(
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = crt0_dir },
         .files = &.{ "init-stack.S", "copy-zp-data.c", "zero-bss.c" },
-        .flags = &.{cx16_def},
+        .flags = &.{"-D__CX16__"},
     });
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = b.fmt("{s}/exit", .{crt0_dir}) },
         .files = &.{"exit-return.c"},
-        .flags = &.{cx16_def},
+        .flags = &.{"-D__CX16__"},
     });
 
     const libc = addLib(b, "c", target, opt);
@@ -635,7 +633,7 @@ fn buildCx16(
             "waitvsync.s",
             "char-conv.c",
         },
-        .flags = &.{cx16_def},
+        .flags = &.{"-D__CX16__"},
     });
     libc.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = comm_dir },
@@ -644,7 +642,7 @@ fn buildCx16(
             "cbm_k_bsout.c", "cbm_k_chrout.c", "chrout.c",
             "cbm_k_getin.c",
         },
-        .flags = &.{cx16_def},
+        .flags = &.{"-D__CX16__"},
     });
 
     return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc };

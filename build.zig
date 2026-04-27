@@ -1789,11 +1789,19 @@ fn addSnesExe(
     exe.forceUndefinedSymbol("__zig_call_main_section");
     exe.forceUndefinedSymbol("main");
     exe.root_module.addAssemblyFile(b.path("snes/crt0.s"));
-    exe.root_module.addImport("snes", b.createModule(.{
+    const snes_mod = b.createModule(.{
         .root_source_file = b.path("snes/hardware.zig"),
         .target = target,
         .optimize = opt,
-    }));
+    });
+    const sneslib_mod = b.createModule(.{
+        .root_source_file = b.path("snes/sneslib.zig"),
+        .target = target,
+        .optimize = opt,
+    });
+    sneslib_mod.addImport("snes", snes_mod);
+    exe.root_module.addImport("snes", snes_mod);
+    exe.root_module.addImport("sneslib", sneslib_mod);
     exe.root_module.addImport("snes_header", b.createModule(.{
         .root_source_file = b.path("snes/header.zig"),
         .target = target,
@@ -1818,7 +1826,6 @@ fn cx16HeaderMod(
         .optimize = .ReleaseFast,
         .link_libc = false,
     });
-    tc.defineCMacro("__CX16__", null);
     tc.addIncludePath(sdk_dep.path("mos-platform/cx16"));
     tc.addIncludePath(sdk_dep.path("mos-platform/commodore"));
     tc.addIncludePath(sdk_dep.path("mos-platform/common/include"));
@@ -1837,7 +1844,6 @@ fn cbmHeaderMod(
         .link_libc = false,
     });
     tc.defineCMacro("__CBM__", null);
-    tc.defineCMacro("__CX16__", null);
     tc.addIncludePath(sdk_dep.path("mos-platform/cx16"));
     tc.addIncludePath(sdk_dep.path("mos-platform/commodore"));
     tc.addIncludePath(sdk_dep.path("mos-platform/common/include"));
@@ -1855,7 +1861,6 @@ fn c64HeaderMod(
         .optimize = .ReleaseFast,
         .link_libc = false,
     });
-    tc.defineCMacro("__C64__", null);
     tc.addIncludePath(sdk_dep.path("mos-platform/c64"));
     tc.addIncludePath(sdk_dep.path("mos-platform/commodore"));
     tc.addIncludePath(sdk_dep.path("mos-platform/common/include"));
@@ -1873,7 +1878,6 @@ fn lynxHeaderMod(
         .optimize = .ReleaseFast,
         .link_libc = false,
     });
-    tc.defineCMacro("__LYNX__", null);
     tc.addIncludePath(sdk_dep.path("mos-platform/lynx"));
     tc.addIncludePath(sdk_dep.path("mos-platform/common/include"));
     return tc.createModule();

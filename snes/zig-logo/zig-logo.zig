@@ -6,6 +6,7 @@
 // Tilemap at VRAM word 0x0000 (BG1SC=0x00), CHR at word 0x1000 (BG12NBA=0x01, unit=0x1000 words).
 
 const hw = @import("snes");
+const sneslib = @import("sneslib");
 comptime {
     _ = @import("snes_header");
 }
@@ -51,54 +52,30 @@ const logo: [16][16]u8 = .{
 
 /// Shimmer sequence: SNES 15-bit BGR values, orange/yellow cycle matching NES shimmer.
 const shimmer: [8]u16 = .{
-    hw.color(28, 12, 0),
-    hw.color(28, 12, 0),
-    hw.color(31, 22, 0),
-    hw.color(28, 12, 0),
-    hw.color(28, 12, 0),
-    hw.color(31, 28, 0),
-    hw.color(28, 12, 0),
-    hw.color(28, 12, 0),
+    sneslib.color(28, 12, 0),
+    sneslib.color(28, 12, 0),
+    sneslib.color(31, 22, 0),
+    sneslib.color(28, 12, 0),
+    sneslib.color(28, 12, 0),
+    sneslib.color(31, 28, 0),
+    sneslib.color(28, 12, 0),
+    sneslib.color(28, 12, 0),
 };
 
-fn setVramAddr(addr: u16) void {
-    hw.VMADDL.* = @truncate(addr);
-    hw.VMADDH.* = @truncate(addr >> 8);
-}
-
-fn writeCgram(index: u8, c: u16) void {
-    hw.CGADD.* = index;
-    hw.CGDATA.* = @truncate(c);
-    hw.CGDATA.* = @truncate(c >> 8);
-}
-
-fn waitVblank() void {
-    while (hw.HVBJOY.* & 0x80 != 0) {}
-    while (hw.HVBJOY.* & 0x80 == 0) {}
-}
-
 pub fn main() void {
-    hw.INIDISP.* = 0x80; // force blank during VRAM/CGRAM init
-    hw.NMITIMEN.* = 0x00;
+    sneslib.ppu_off();
     hw.VMAIN.* = 0x80; // increment VRAM address after VMDATAH write
-
-    // BG1 scroll: write-twice registers (low then high). Must be set explicitly;
-    // crt0 does not initialize PPU registers.
-    hw.BG1HOFS.* = 0x00;
-    hw.BG1HOFS.* = 0x00;
-    hw.BG1VOFS.* = 0x00;
-    hw.BG1VOFS.* = 0x00;
+    sneslib.bg_scroll_zero();
 
     // Write CHR data starting at VRAM word 0x1000. BG12NBA unit = 0x1000 words; value 1 = word 0x1000.
-    setVramAddr(0x1000);
+    sneslib.vram_set_addr(0x1000);
     var i: usize = 0;
     while (i < snes_chr.len) : (i += 2) {
-        hw.VMDATAL.* = snes_chr[i];
-        hw.VMDATAH.* = snes_chr[i + 1];
+        sneslib.vram_write(snes_chr[i], snes_chr[i + 1]);
     }
 
     // Write tilemap to VRAM words 0x0000–0x03FF (32×32 = 1024 entries × 2 bytes).
-    setVramAddr(0x0000);
+    sneslib.vram_set_addr(0x0000);
     for (0..32) |ty| {
         for (0..32) |tx| {
             const in_logo = ty >= logo_row and ty < logo_row + 16 and
@@ -107,28 +84,27 @@ pub fn main() void {
                 logo[ty - logo_row][tx - logo_col]
             else
                 0;
-            hw.VMDATAL.* = @truncate(tile);
-            hw.VMDATAH.* = @truncate(tile >> 8);
+            sneslib.vram_write(@truncate(tile), @truncate(tile >> 8));
         }
     }
 
     // CGRAM palette 0 (Mode 0 BG1 uses entries 0–3).
-    writeCgram(0, hw.color(0, 0, 0)); // transparent (backdrop = black)
-    writeCgram(1, hw.color(28, 12, 0)); // orange shimmer slot
-    writeCgram(2, hw.color(31, 24, 0)); // yellow
-    writeCgram(3, hw.color(31, 31, 31)); // white
+    sneslib.cgram_set(0, sneslib.color(0, 0, 0)); // transparent (backdrop = black)
+    sneslib.cgram_set(1, sneslib.color(28, 12, 0)); // orange shimmer slot
+    sneslib.cgram_set(2, sneslib.color(31, 24, 0)); // yellow
+    sneslib.cgram_set(3, sneslib.color(31, 31, 31)); // white
 
     hw.BGMODE.* = 0x00; // Mode 0, all layers 8×8 tiles
     hw.BG1SC.* = 0x00; // tilemap at word 0x0000, 32×32
     hw.BG12NBA.* = 0x01; // BG1 CHR at word 0x1000 (unit = 0x1000 words; value 1 = word 0x1000)
     hw.TM.* = 0x01; // enable BG1 on main screen
 
-    hw.INIDISP.* = 0x0f; // full brightness, force-blank off
+    sneslib.ppu_on();
 
     var frame: u8 = 0;
     while (true) {
-        waitVblank();
+        sneslib.wait_vblank();
         frame +%= 1;
-        writeCgram(1, shimmer[(frame >> 4) & 7]);
+        sneslib.cgram_set(1, shimmer[(frame >> 4) & 7]);
     }
 }

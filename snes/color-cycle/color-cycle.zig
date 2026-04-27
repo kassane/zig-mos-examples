@@ -5,7 +5,7 @@
 // wheel (192 steps of ~1.875° each) by updating CGRAM palette entry 0 every
 // vblank. Uses HVBJOY polling — no NMI handler required.
 
-const hw = @import("snes");
+const sneslib = @import("sneslib");
 comptime {
     _ = @import("snes_header");
 }
@@ -19,19 +19,19 @@ fn colorWheel(phase: u8) u16 {
     const inv: u5 = @truncate(31 - @as(u8, frac));
 
     const r: u5 = switch (third) {
-        0 => 31, // red full
-        1 => inv, // red fading
+        0 => 31,
+        1 => inv,
         2 => 0,
         3 => 0,
-        4 => frac, // red rising
+        4 => frac,
         5 => 31,
         else => 31,
     };
     const g: u5 = switch (third) {
-        0 => frac, // green rising
+        0 => frac,
         1 => 31,
         2 => 31,
-        3 => inv, // green fading
+        3 => inv,
         4 => 0,
         5 => 0,
         else => 0,
@@ -39,42 +39,24 @@ fn colorWheel(phase: u8) u16 {
     const b: u5 = switch (third) {
         0 => 0,
         1 => 0,
-        2 => frac, // blue rising
+        2 => frac,
         3 => 31,
         4 => 31,
-        5 => inv, // blue fading
+        5 => inv,
         else => 0,
     };
-    return hw.color(r, g, b);
-}
-
-/// Wait for vblank start by polling HVBJOY bit 7.
-fn waitVblank() void {
-    while (hw.HVBJOY.* & 0x80 != 0) {} // drain any current vblank
-    while (hw.HVBJOY.* & 0x80 == 0) {} // wait for next vblank
+    return sneslib.color(r, g, b);
 }
 
 pub fn main() void {
-    hw.INIDISP.* = 0x80; // force blank while initialising
-    hw.NMITIMEN.* = 0x00; // NMI/IRQ off; only HVBJOY polling used
-
-    // Initialise CGRAM entry 0 to black.
-    hw.CGADD.* = 0x00;
-    hw.CGDATA.* = 0x00;
-    hw.CGDATA.* = 0x00;
-
-    hw.INIDISP.* = 0x0f; // full brightness, force-blank off
+    sneslib.ppu_off();
+    sneslib.cgram_set(0, 0); // black
+    sneslib.ppu_on();
 
     var phase: u8 = 0;
     while (true) {
-        waitVblank();
-
-        // CGRAM writes are safe during vblank.
-        const c = colorWheel(phase);
-        hw.CGADD.* = 0x00;
-        hw.CGDATA.* = @truncate(c);
-        hw.CGDATA.* = @truncate(c >> 8);
-
+        sneslib.wait_vblank();
+        sneslib.cgram_set(0, colorWheel(phase));
         phase +%= 1;
         if (phase >= 192) phase = 0;
     }
