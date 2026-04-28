@@ -1,3 +1,6 @@
+[![CI](https://github.com/kassane/zig-mos-examples/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/kassane/zig-mos-examples/actions/workflows/ci.yml)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/kassane/zig-mos-examples)
+
 # zig-mos-examples
 
 Zig examples targeting MOS 6502 platforms via [zig-mos-bootstrap](https://github.com/kassane/zig-mos-bootstrap) and [llvm-mos-sdk](https://github.com/llvm-mos/llvm-mos-sdk).
@@ -29,6 +32,8 @@ zig build nes-color-cycle
 zig build nes-fullbg
 zig build nes-random
 zig build nes-bat-ball
+zig build nes-megablast
+zig build nes-gg-demo
 zig build nes-mappers
 zig build nes-cnrom-hello
 zig build nes-unrom-hello
@@ -99,6 +104,8 @@ Output files land in `zig-out/bin/`.
 | `nes-sprites` — OAM sprite rendering | ![](.github/sprites.gif) |
 | `nes-random` — 64 sprites at random positions, three fall speeds | |
 | `nes-bat-ball` — bat-and-ball game loop (CH05 port) | ![](.github/bat-ball.gif) |
+| `nes-megablast` — title screen + game screen (CH06 port) | |
+| `nes-gg-demo` — Game Genie demo: metatile font, scrolling, player physics | |
 | `nes-color-cycle` — background colour cycling | ![](.github/color-cycle.gif) |
 | `nes-pads` — controller input with two 16×16 metasprites | ![](.github/pads.gif) |
 | `nes-mappers` — CNROM 4-bank CHR demo, press Start to cycle banks | |
@@ -136,6 +143,8 @@ Output files land in `zig-out/bin/`.
 | `nes-pads` | NES NROM | mos6502 | `.nes` |
 | `nes-color-cycle` | NES NROM | mos6502 | `.nes` |
 | `nes-bat-ball` | NES NROM | mos6502 | `.nes` |
+| `nes-megablast` | NES NROM | mos6502 | `.nes` |
+| `nes-gg-demo` | NES NROM | mos6502 | `.nes` |
 | `nes-mappers` | NES CNROM (4-bank) | mos6502 | `.nes` |
 | `nes-cnrom-hello` | NES CNROM | mos6502 | `.nes` |
 | `nes-unrom-hello` | NES UNROM | mos6502 | `.nes` |

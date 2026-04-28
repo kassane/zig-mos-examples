@@ -367,6 +367,32 @@ pub fn build(b: *std.Build) void {
         addNesLabels(b, elf2mlb, gen_labels, exe, "bat-ball");
     }
 
+    // ---- NES megablast ----
+    {
+        const step = b.step("nes-megablast", "Build NES megablast title+game screen (CH06 port)");
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs.nes orelse @panic("nes libs not built"), optimize, "megablast", "nesdoug/megablast/megablast.zig", "nesdoug/megablast/megablast.chr", false);
+        exe.root_module.addImport("neslib", neslib_mod);
+        const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "megablast.nes" });
+        step.dependOn(&install.step);
+        b.getInstallStep().dependOn(&install.step);
+        run_bininfo.addFileArg(exe.getEmittedBin());
+        addNesLabels(b, elf2mlb, gen_labels, exe, "megablast");
+    }
+
+    // ---- NES gg-demo ----
+    {
+        const step = b.step("nes-gg-demo", "Build NES Game Genie demo (metatile font + scrolling + player)");
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs.nes orelse @panic("nes libs not built"), optimize, "gg-demo", "nesdoug/gg-demo/gg-demo.zig", "nesdoug/gg-demo/GG-8K.chr", true);
+        exe.root_module.addImport("neslib", neslib_mod);
+        exe.root_module.addImport("nesdoug", nesdoug_mod);
+        exe.root_module.addAssemblyFile(b.path("nesdoug/gg-demo/nesheader.s"));
+        const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "gg-demo.nes" });
+        step.dependOn(&install.step);
+        b.getInstallStep().dependOn(&install.step);
+        run_bininfo.addFileArg(exe.getEmittedBin());
+        addNesLabels(b, elf2mlb, gen_labels, exe, "gg-demo");
+    }
+
     // ---- C64 hello ----
     {
         const step = b.step("c64-hello", "Build C64 hello example");
@@ -621,6 +647,68 @@ pub fn build(b: *std.Build) void {
         exe.root_module.addImport("neslib", neslib_mod);
         exe.root_module.addImport("mapper", nes_mmc3_mapper_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "mmc3-hello.nes" });
+        step.dependOn(&install.step);
+        b.getInstallStep().dependOn(&install.step);
+        run_bininfo.addFileArg(exe.getEmittedBin());
+    }
+
+    // ---- NES CNROM sprites ----
+    {
+        const step = b.step("nes-cnrom-sprites", "Build NES CNROM mapper sprites example");
+        const exe = addNesCnromExe(b, sdk_dep, sdk_src, sdk_libs.nes_cnrom orelse @panic("nes-cnrom libs not built"), optimize, "cnrom-sprites", "nes/cnrom-sprites/cnrom-sprites.zig", "nesdoug/sprites/Alpha2.chr");
+        exe.root_module.addImport("neslib", neslib_mod);
+        exe.root_module.addImport("mapper", nes_cnrom_mapper_mod);
+        const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "cnrom-sprites.nes" });
+        step.dependOn(&install.step);
+        b.getInstallStep().dependOn(&install.step);
+        run_bininfo.addFileArg(exe.getEmittedBin());
+    }
+
+    // ---- NES UNROM colour-cycle ----
+    {
+        const step = b.step("nes-unrom-color-cycle", "Build NES UNROM mapper colour-cycle example");
+        const exe = addNesUnromExe(b, sdk_dep, sdk_src, sdk_libs.nes_unrom orelse @panic("nes-unrom libs not built"), optimize, "unrom-color-cycle", "nes/unrom-color-cycle/unrom-color-cycle.zig");
+        exe.root_module.addImport("neslib", neslib_mod);
+        exe.root_module.addImport("mapper", nes_unrom_mapper_mod);
+        const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "unrom-color-cycle.nes" });
+        step.dependOn(&install.step);
+        b.getInstallStep().dependOn(&install.step);
+        run_bininfo.addFileArg(exe.getEmittedBin());
+    }
+
+    // ---- NES MMC1 sprites ----
+    {
+        const step = b.step("nes-mmc1-sprites", "Build NES MMC1 mapper sprites example (CHR RAM upload)");
+        const exe = addNesMmc1Exe(b, sdk_dep, sdk_src, sdk_libs.nes_mmc1 orelse @panic("nes-mmc1 libs not built"), optimize, "mmc1-sprites", "nes/mmc1-sprites/mmc1-sprites.zig");
+        exe.root_module.addImport("neslib", neslib_mod);
+        exe.root_module.addImport("mapper", nes_mmc1_mapper_mod);
+        const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "mmc1-sprites.nes" });
+        step.dependOn(&install.step);
+        b.getInstallStep().dependOn(&install.step);
+        run_bininfo.addFileArg(exe.getEmittedBin());
+    }
+
+    // ---- NES MMC3 pads (controller + collision) ----
+    {
+        const step = b.step("nes-mmc3-pads", "Build NES MMC3 mapper controller+collision example (CHR RAM upload)");
+        const exe = addNesMmc3Exe(b, sdk_dep, sdk_src, sdk_libs.nes_mmc3 orelse @panic("nes-mmc3 libs not built"), optimize, "mmc3-pads", "nes/mmc3-pads/mmc3-pads.zig");
+        exe.root_module.addImport("neslib", neslib_mod);
+        exe.root_module.addImport("nesdoug", nesdoug_mod);
+        exe.root_module.addImport("mapper", nes_mmc3_mapper_mod);
+        const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "mmc3-pads.nes" });
+        step.dependOn(&install.step);
+        b.getInstallStep().dependOn(&install.step);
+        run_bininfo.addFileArg(exe.getEmittedBin());
+    }
+
+    // ---- NES GTROM colour-cycle with LED ----
+    {
+        const step = b.step("nes-gtrom-color-cycle", "Build NES GTROM mapper colour-cycle with LED example");
+        const exe = addNesGtromExe(b, sdk_dep, sdk_src, sdk_libs.nes_gtrom orelse @panic("nes-gtrom libs not built"), optimize, "gtrom-color-cycle", "nes/gtrom-color-cycle/gtrom-color-cycle.zig");
+        exe.root_module.addImport("neslib", neslib_mod);
+        exe.root_module.addImport("nesdoug", nesdoug_mod);
+        exe.root_module.addImport("mapper", nes_gtrom_mapper_mod);
+        const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "gtrom-color-cycle.nes" });
         step.dependOn(&install.step);
         b.getInstallStep().dependOn(&install.step);
         run_bininfo.addFileArg(exe.getEmittedBin());
@@ -1525,7 +1613,6 @@ fn addNesMmc1Exe(
     exe.lto = .full;
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/common/crt0/crt0.S"));
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes-mmc1/ines.s"));
-    exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes-mmc1/init-prg-ram-0.s"));
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes/ines.s"));
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes/rompoke/rompoke.s"));
     exe.root_module.linkLibrary(libs.crt);
@@ -1641,7 +1728,6 @@ fn addNesMmc3Exe(
     exe.lto = .full;
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/common/crt0/crt0.S"));
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes-mmc3/ines.s"));
-    exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes-mmc3/init-c-in-prg-ram.s"));
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes/ines.s"));
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes/rompoke/rompoke.s"));
     exe.root_module.linkLibrary(libs.crt);

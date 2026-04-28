@@ -26,6 +26,290 @@ fn readU16Le(data: []const u8, off: usize) u16 {
     return @as(u16, data[off]) | (@as(u16, data[off + 1]) << 8);
 }
 
+fn readU32Le(data: []const u8, off: usize) u32 {
+    return @as(u32, data[off]) |
+        (@as(u32, data[off + 1]) << 8) |
+        (@as(u32, data[off + 2]) << 16) |
+        (@as(u32, data[off + 3]) << 24);
+}
+
+// ── ELF constants ─────────────────────────────────────────────────────────────
+
+const SHT_NULL: u32 = 0;
+const SHT_SYMTAB: u32 = 2;
+const SHT_STRTAB: u32 = 3;
+const SHT_NOBITS: u32 = 8;
+const SHT_DYNSYM: u32 = 11;
+
+const SHF_WRITE: u32 = 0x1;
+const SHF_ALLOC: u32 = 0x2;
+const SHF_EXECINSTR: u32 = 0x4;
+const SHF_MERGE: u32 = 0x10;
+const SHF_STRINGS: u32 = 0x20;
+const SHF_LINK_ORDER: u32 = 0x80;
+const SHF_GROUP: u32 = 0x200;
+const SHF_TLS: u32 = 0x400;
+
+const SHN_UNDEF: u16 = 0;
+const SHN_ABS: u16 = 0xFFF1;
+const SHN_COMMON: u16 = 0xFFF2;
+
+const STB_LOCAL: u8 = 0;
+const STB_GLOBAL: u8 = 1;
+const STB_WEAK: u8 = 2;
+
+fn elfMachName(m: u16) []const u8 {
+    return switch (m) {
+        0x1966 => "MOS6502", // EM_MOS (llvm-mos)
+        3 => "x86",
+        0x3E => "x86-64",
+        0xB7 => "AArch64",
+        0x28 => "ARM",
+        else => "?",
+    };
+}
+
+fn elfTypeName(t: u16) []const u8 {
+    return switch (t) {
+        0 => "NONE",
+        1 => "REL",
+        2 => "EXEC",
+        3 => "DYN",
+        4 => "CORE",
+        else => "?",
+    };
+}
+
+// nm-style type character derived from section attributes and symbol binding.
+fn nmTypeChar(sh_type: u32, sh_flags: u32, shndx: u16, binding: u8) u8 {
+    const is_local = binding == STB_LOCAL;
+    const is_weak = binding == STB_WEAK;
+    if (shndx == SHN_UNDEF) return if (is_weak) 'w' else 'U';
+    if (shndx == SHN_ABS) return if (is_local) 'a' else 'A';
+    if (shndx == SHN_COMMON) return 'C';
+    const c: u8 = if (sh_type == SHT_NOBITS and (sh_flags & SHF_ALLOC) != 0)
+        'b' // BSS
+    else if ((sh_flags & SHF_EXECINSTR) != 0)
+        't' // text
+    else if ((sh_flags & SHF_WRITE) != 0)
+        'd' // data
+    else
+        'r'; // read-only
+    if (is_weak) return if (c == 't') 'W' else 'V';
+    return if (!is_local) std.ascii.toUpper(c) else c;
+}
+
+// ── ELF inspector ─────────────────────────────────────────────────────────────
+
+fn checkElf(path: []const u8, data: []const u8) bool {
+    if (data.len < 52) {
+        std.debug.print("{s}: [ELF] ERROR: header truncated ({d} B)\n", .{ path, data.len });
+        return false;
+    }
+    const ei_class = data[4]; // 1=32-bit, 2=64-bit
+    const ei_data = data[5]; // 1=LE, 2=BE
+    if (ei_data != 1) {
+        std.debug.print("{s}: [ELF] big-endian ELF not supported by bininfo\n", .{path});
+        return true;
+    }
+    if (ei_class != 1) {
+        std.debug.print("{s}: [ELF64]  (64-bit ELF; summary only)\n", .{path});
+        return true;
+    }
+
+    const e_type = readU16Le(data, 16);
+    const e_machine = readU16Le(data, 18);
+    const e_entry = readU32Le(data, 24);
+    const e_shoff = readU32Le(data, 32);
+    const e_shentsize = readU16Le(data, 46);
+    const e_shnum = readU16Le(data, 48);
+    const e_shstrndx = readU16Le(data, 50);
+
+    if (e_shoff == 0 or e_shentsize < 40 or
+        @as(usize, e_shoff) + @as(usize, e_shnum) * e_shentsize > data.len)
+    {
+        std.debug.print("{s}: [ELF32 {s}]  type={s}  entry=${x:0>4}  (no section table)\n", .{
+            path, elfMachName(e_machine), elfTypeName(e_type), e_entry,
+        });
+        return true;
+    }
+
+    // Build a helper: return a slice of a section header's bytes.
+    const shdr = struct {
+        fn get(d: []const u8, shoff: u32, shentsz: u16, idx: u16) []const u8 {
+            const off: usize = shoff + @as(usize, idx) * shentsz;
+            return d[off .. off + shentsz];
+        }
+    };
+
+    // Locate shstrtab for section name lookup.
+    const shstr_hdr = shdr.get(data, e_shoff, e_shentsize, e_shstrndx);
+    const shstr_off = readU32Le(shstr_hdr, 16);
+    const shstr_size = readU32Le(shstr_hdr, 20);
+    const shstr: []const u8 = if (shstr_off + shstr_size <= data.len)
+        data[shstr_off .. shstr_off + shstr_size]
+    else
+        &[_]u8{};
+
+    // Count allocatable sections (for the summary).
+    var alloc_count: u16 = 0;
+    for (0..e_shnum) |i| {
+        const sh = shdr.get(data, e_shoff, e_shentsize, @truncate(i));
+        if ((readU32Le(sh, 8) & SHF_ALLOC) != 0) alloc_count += 1;
+    }
+
+    // Find .symtab; fall back to .dynsym for stripped binaries.
+    var symtab_off: usize = 0;
+    var symtab_size: usize = 0;
+    var symtab_stridx: u32 = 0;
+    var sym_local_end: u32 = 0;
+    var found_symtab = false;
+    for (0..e_shnum) |i| {
+        const sh = shdr.get(data, e_shoff, e_shentsize, @truncate(i));
+        const sht = readU32Le(sh, 4);
+        if (sht == SHT_SYMTAB or (sht == SHT_DYNSYM and !found_symtab)) {
+            symtab_off = readU32Le(sh, 16);
+            symtab_size = readU32Le(sh, 20);
+            symtab_stridx = readU32Le(sh, 24);
+            sym_local_end = readU32Le(sh, 28); // sh_info = one past last LOCAL
+            if (sht == SHT_SYMTAB) {
+                found_symtab = true;
+                break;
+            }
+        }
+    }
+
+    // Locate symbol string table.
+    var strtab_data: []const u8 = &[_]u8{};
+    if (symtab_stridx < e_shnum) {
+        const sh = shdr.get(data, e_shoff, e_shentsize, @truncate(symtab_stridx));
+        const st_off = readU32Le(sh, 16);
+        const st_sz = readU32Le(sh, 20);
+        if (st_off + st_sz <= data.len)
+            strtab_data = data[st_off .. st_off + st_sz];
+    }
+
+    const sym_count = if (symtab_size >= 16) symtab_size / 16 else 0;
+
+    std.debug.print("{s}: [ELF32 {s}]  type={s}  entry=${x:0>4}  alloc-sections={d}  symbols={d}\n", .{
+        path, elfMachName(e_machine), elfTypeName(e_type), e_entry, alloc_count, sym_count,
+    });
+
+    // ── Section table (ALLOC sections only, like objdump -h) ─────────────────
+    std.debug.print("  -- Sections " ++ "-" ** 42 ++ "\n", .{});
+    std.debug.print("  {s:<20} {s:>8}  {s:>8}  {s}\n", .{ "Name", "Size", "VMA", "Flags" });
+    for (0..e_shnum) |i| {
+        const sh = shdr.get(data, e_shoff, e_shentsize, @truncate(i));
+        const sh_flags = readU32Le(sh, 8);
+        if ((sh_flags & SHF_ALLOC) == 0) continue;
+        const sh_name_off = readU32Le(sh, 0);
+        const sh_addr = readU32Le(sh, 12);
+        const sh_size = readU32Le(sh, 20);
+        const sh_type = readU32Le(sh, 4);
+
+        // Read section name from shstrtab.
+        const name: []const u8 = if (sh_name_off < shstr.len) blk: {
+            const start = sh_name_off;
+            var end = start;
+            while (end < shstr.len and shstr[end] != 0) end += 1;
+            break :blk shstr[start..end];
+        } else "?";
+
+        // Build compact readelf-style flag string: AX, AW, AWl, etc.
+        var fbuf: [12]u8 = undefined;
+        var flen: usize = 0;
+        fbuf[flen] = 'A';
+        flen += 1; // always ALLOC (we skip non-ALLOC above)
+        if ((sh_flags & SHF_EXECINSTR) != 0) {
+            fbuf[flen] = 'X';
+            flen += 1;
+        }
+        if ((sh_flags & SHF_WRITE) != 0) {
+            fbuf[flen] = 'W';
+            flen += 1;
+        }
+        if (sh_type == SHT_NOBITS) {
+            fbuf[flen] = 'B';
+            flen += 1;
+        }
+        if ((sh_flags & SHF_MERGE) != 0) {
+            fbuf[flen] = 'M';
+            flen += 1;
+        }
+        if ((sh_flags & SHF_STRINGS) != 0) {
+            fbuf[flen] = 'S';
+            flen += 1;
+        }
+        if ((sh_flags & SHF_TLS) != 0) {
+            fbuf[flen] = 'T';
+            flen += 1;
+        }
+        if ((sh_flags & SHF_GROUP) != 0) {
+            fbuf[flen] = 'G';
+            flen += 1;
+        }
+        if ((sh_flags & SHF_LINK_ORDER) != 0) {
+            fbuf[flen] = 'l';
+            flen += 1;
+        }
+
+        std.debug.print("  {s:<20} {d:>8}B  ${x:0>4}  {s}\n", .{
+            name, sh_size, sh_addr, fbuf[0..flen],
+        });
+    }
+
+    // ── Symbol table (like nm, global + weak only unless very few symbols) ───
+    if (sym_count == 0 or symtab_off + symtab_size > data.len) return true;
+
+    // Build a per-symbol section cache for type resolution.
+    // For each symbol we need its section's sh_type and sh_flags.
+    std.debug.print("  -- Symbols (nm) " ++ "-" ** 38 ++ "\n", .{});
+
+    const sym_base = symtab_off;
+    const show_locals = sym_count < 64; // show locals only for small objects
+    var printed: usize = 0;
+
+    for (0..sym_count) |si| {
+        const sym = data[sym_base + si * 16 .. sym_base + si * 16 + 16];
+        const st_name = readU32Le(sym, 0);
+        const st_value = readU32Le(sym, 4);
+        const st_info = sym[12];
+        const st_shndx: u16 = readU16Le(sym, 14);
+        const binding: u8 = st_info >> 4;
+        const stype: u8 = st_info & 0xF;
+
+        // Skip FILE/SECTION symbols and empty names.
+        if (stype == 3 or stype == 4) continue;
+        if (!show_locals and binding == STB_LOCAL) continue;
+
+        const name: []const u8 = if (st_name < strtab_data.len) blk: {
+            var end = st_name;
+            while (end < strtab_data.len and strtab_data[end] != 0) end += 1;
+            if (end == st_name) continue; // empty name
+            break :blk strtab_data[st_name..end];
+        } else continue;
+
+        // Look up the section's type and flags for this symbol.
+        var sh_type_for_sym: u32 = 0;
+        var sh_flags_for_sym: u32 = 0;
+        if (st_shndx != SHN_UNDEF and st_shndx != SHN_ABS and st_shndx != SHN_COMMON and
+            st_shndx < e_shnum)
+        {
+            const sym_sh = shdr.get(data, e_shoff, e_shentsize, st_shndx);
+            sh_type_for_sym = readU32Le(sym_sh, 4);
+            sh_flags_for_sym = readU32Le(sym_sh, 8);
+        }
+
+        const tc = nmTypeChar(sh_type_for_sym, sh_flags_for_sym, st_shndx, binding);
+        std.debug.print("  ${x:0>4} {c}  {s}\n", .{ st_value, tc, name });
+        printed += 1;
+    }
+    if (printed == 0)
+        std.debug.print("  (no symbols — binary may be stripped)\n", .{});
+
+    return true;
+}
+
 fn usageExit() noreturn {
     std.debug.print("Usage: bininfo <file> [file...]\n", .{});
     std.process.exit(1);
@@ -292,6 +576,8 @@ fn checkAtari8Cart(path: []const u8, data: []const u8) bool {
 
 fn checkFile(path: []const u8, data: []const u8) bool {
     // Detect by magic first.
+    if (data.len >= 4 and std.mem.eql(u8, data[0..4], "\x7FELF"))
+        return checkElf(path, data);
     if (data.len >= 4 and std.mem.eql(u8, data[0..4], "NES\x1a"))
         return checkNes(path, data);
     if (data.len >= 4 and data[0] == 0x03 and std.mem.eql(u8, data[1..4], "NEO"))

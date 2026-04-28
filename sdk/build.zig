@@ -56,11 +56,12 @@ pub fn buildPlatform(b: *std.Build, sdk_root: []const u8, pd: Platform) Libs {
     });
 
     if (std.mem.eql(u8, pd.name, "nes"))
-        return buildNes(b, target, opt, libcrt, plat_dir, null, false, false, crt0_dir, com_inc, com_asm);
+        return buildNes(b, target, opt, libcrt, plat_dir, null, null, false, false, crt0_dir, com_inc, com_asm);
     if (std.mem.startsWith(u8, pd.name, "nes-")) {
         const has_mapper_s = std.mem.eql(u8, pd.name, "nes-unrom") or std.mem.eql(u8, pd.name, "nes-mmc1") or std.mem.eql(u8, pd.name, "nes-mmc3") or std.mem.eql(u8, pd.name, "nes-gtrom");
         const has_irq = std.mem.eql(u8, pd.name, "nes-mmc3");
-        return buildNes(b, target, opt, libcrt, b.fmt("{s}/mos-platform/nes", .{sdk_root}), b.fmt("{s}/mos-platform/{s}", .{ sdk_root, pd.name }), has_mapper_s, has_irq, crt0_dir, com_inc, com_asm);
+        const variant_define: ?[]const u8 = if (std.mem.eql(u8, pd.name, "nes-cnrom")) "__NES_CNROM__" else if (std.mem.eql(u8, pd.name, "nes-unrom")) "__NES_UNROM__" else if (std.mem.eql(u8, pd.name, "nes-mmc1")) "__NES_MMC1__" else if (std.mem.eql(u8, pd.name, "nes-mmc3")) "__NES_MMC3__" else if (std.mem.eql(u8, pd.name, "nes-gtrom")) "__NES_GTROM__" else null;
+        return buildNes(b, target, opt, libcrt, b.fmt("{s}/mos-platform/nes", .{sdk_root}), b.fmt("{s}/mos-platform/{s}", .{ sdk_root, pd.name }), variant_define, has_mapper_s, has_irq, crt0_dir, com_inc, com_asm);
     }
     if (std.mem.eql(u8, pd.name, "neo6502"))
         return buildNeo6502(b, target, opt, libcrt, plat_dir, crt0_dir, com_inc, com_asm);
@@ -185,12 +186,14 @@ fn buildNes(
     libcrt: *std.Build.Step.Compile,
     nes_dir: []const u8,
     variant_dir: ?[]const u8,
+    variant_define: ?[]const u8,
     has_mapper_s: bool,
     has_irq: bool,
     crt0_dir: []const u8,
     com_inc: []const u8,
     com_asm: []const u8,
 ) Libs {
+    const nes_cflags: []const []const u8 = &.{"-mlto-zp=224"};
     const neslib_dir = b.fmt("{s}/neslib", .{nes_dir});
     const nesdoug_dir = b.fmt("{s}/nesdoug", .{nes_dir});
 
@@ -208,13 +211,16 @@ fn buildNes(
     libc.root_module.addIncludePath(.{ .cwd_relative = nes_dir });
     libc.root_module.addIncludePath(.{ .cwd_relative = com_inc });
     libc.root_module.addIncludePath(.{ .cwd_relative = com_asm });
+    libc.root_module.addCMacro("__NES__", "1");
     libc.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = nes_dir },
         .files = &.{"putchar.c"},
+        .flags = nes_cflags,
     });
     libc.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = b.fmt("{s}/rompoke", .{nes_dir}) },
         .files = &.{"rompoke.c"},
+        .flags = nes_cflags,
     });
 
     // libneslib — .s files only (NES target).
@@ -246,18 +252,26 @@ fn buildNes(
     libnes_c_startup.root_module.addIncludePath(.{ .cwd_relative = com_asm });
     libnes_c_startup.root_module.addIncludePath(.{ .cwd_relative = com_inc });
     libnes_c_startup.root_module.addIncludePath(.{ .cwd_relative = nes_dir });
-    // mem.c — provides __memset / memcpy used by copy-data.c / zero-bss.c
+    // mem.c — provides memcpy/memmove/memcmp/memchr; mem.s overrides __memset.
+    // zig cc (clang 21) produces a broken recursive stub for __memset on MOS 6502
+    // instead of the actual write loop.  sdk/mem.s provides a strong (non-weak)
+    // correct implementation that wins over the __attribute__((weak)) one in mem.c.
+    libnes_c_startup.root_module.addCMacro("__NES__", "1");
+    libnes_c_startup.root_module.addAssemblyFile(b.path("sdk/mem.s"));
     libnes_c_startup.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = b.fmt("{s}/../c", .{crt0_dir}) },
         .files = &.{"mem.c"},
+        .flags = nes_cflags,
     });
     libnes_c_startup.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = crt0_dir },
         .files = &.{ "copy-data.c", "copy-zp-data.c", "zero-bss.c", "zero-zp-bss.c" },
+        .flags = nes_cflags,
     });
     libnes_c_startup.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = b.fmt("{s}/exit", .{crt0_dir}) },
         .files = &.{"exit-loop.c"},
+        .flags = nes_cflags,
     });
 
     // libnes_c — NES C files that require LTO (ZP reservation via named sections).
@@ -267,9 +281,11 @@ fn buildNes(
     libnes_c.root_module.addIncludePath(.{ .cwd_relative = nes_dir });
     libnes_c.root_module.addIncludePath(.{ .cwd_relative = neslib_dir });
     libnes_c.root_module.addIncludePath(.{ .cwd_relative = nesdoug_dir });
+    libnes_c.root_module.addCMacro("__NES__", "1");
     libnes_c.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = nes_dir },
         .files = &.{"crt0.c"},
+        .flags = nes_cflags,
     });
     // neslib C files — LTO required (via lib.lto = .full in addLib): neslib.c reserves
     // ZP variables via named sections; without LTO the compiler may reuse those ZP
@@ -277,11 +293,13 @@ fn buildNes(
     libnes_c.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = neslib_dir },
         .files = &.{ "neslib.c", "ntsc.c", "oam_update.c", "pal_bright.c", "pal_update.c", "rand.c", "vram_update.c" },
+        .flags = nes_cflags,
     });
     // nesdoug C files
     libnes_c.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = nesdoug_dir },
         .files = &.{ "metatile.c", "nesdoug.c", "vram_buffer.c" },
+        .flags = nes_cflags,
     });
 
     // Banked-mapper platforms (nes-cnrom, nes-unrom, nes-mmc1) have a mapper.c and
@@ -289,9 +307,11 @@ fn buildNes(
     if (variant_dir) |vd| {
         libnes_c.root_module.addIncludePath(.{ .cwd_relative = vd });
         libnes_c.root_module.addIncludePath(.{ .cwd_relative = b.fmt("{s}/rompoke", .{nes_dir}) });
+        if (variant_define) |vdef| libnes_c.root_module.addCMacro(vdef, "1");
         libnes_c.root_module.addCSourceFiles(.{
             .root = .{ .cwd_relative = vd },
             .files = &.{"mapper.c"},
+            .flags = nes_cflags,
         });
         if (has_mapper_s) {
             libneslib.root_module.addCSourceFiles(.{
@@ -303,7 +323,12 @@ fn buildNes(
             libnes_c.root_module.addIncludePath(.{ .cwd_relative = nes_dir });
             libnes_c.root_module.addCSourceFiles(.{
                 .root = .{ .cwd_relative = vd },
-                .files = &.{ "irq.c", "irq.s" },
+                .files = &.{"irq.c"},
+                .flags = nes_cflags,
+            });
+            libnes_c.root_module.addCSourceFiles(.{
+                .root = .{ .cwd_relative = vd },
+                .files = &.{"irq.s"},
             });
         }
     }
