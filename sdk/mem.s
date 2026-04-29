@@ -7,18 +7,19 @@
 ; MOS 6502 target, producing a recursive stub instead of actual memory writes.
 ; This strong definition overrides the __attribute__((weak)) __memset in mem.c.
 ;
-; Calling convention (MOS 6502):
+; Calling convention (MOS 6502) — matches what clang21 generates for
+; __memset(char *ptr, char value, size_t num):
 ;   A        = fill byte (value)
 ;   $2/$3    = destination pointer lo/hi (rc2/rc3)
-;   X        = count_hi  (high byte of size_t count)
-;   $4       = count_lo  (low byte  of size_t count, rc4)
+;   X        = count_lo  (low byte of size_t count)
+;   $4       = count_hi  (high byte of size_t count, rc4)
 
     .global __memset
     .section .text,"ax",@progbits
 
 __memset:
     ; Handle count_hi full pages (256 bytes each)
-    cpx     #0
+    ldy     $4
     beq     .Lpartial
 
 .Lpages:
@@ -28,18 +29,18 @@ __memset:
     iny
     bne     .Lpage_loop     ; loop Y: 0..255 (256 writes per page)
     inc     $3              ; advance destination high byte to next page
-    dex
+    dec     $4
     bne     .Lpages         ; repeat for every full page
 
 .Lpartial:
-    ; Handle count_lo remaining bytes (0..count_lo-1)
-    ldy     $4              ; Y = count_lo
+    ; Handle count_lo remaining bytes (0..X-1)
+    cpx     #0
     beq     .Ldone
     ldy     #0
 .Lpartial_loop:
     sta     ($2),y
     iny
-    cpy     $4              ; stop when Y == count_lo
+    dex
     bne     .Lpartial_loop
 
 .Ldone:

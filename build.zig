@@ -905,6 +905,10 @@ fn addNesExe(
     // crt0.S provides .call_main (jsr main) — must be a direct object, not an
     // archive member, because it defines no symbols so the linker won't extract it.
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/common/crt0/crt0.S"));
+    // sdk/mem.s provides a strong __memset that overrides the weak recursive stub
+    // compiled by zig cc (clang 21) from mem.c. Must be a TRUE object (not in an
+    // archive) so the linker sees the strong definition before mem.c's weak one.
+    exe.root_module.addAssemblyFile(b.path("sdk/mem.s"));
     exe.root_module.addAssemblyFile(chr_asm);
     // iNES header symbols (nes-nrom mapper, chr/prg rom size defaults).
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes-nrom/ines.s"));
@@ -1419,6 +1423,7 @@ fn addNesCnromExe(
     exe.bundle_compiler_rt = false;
     exe.lto = .full;
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/common/crt0/crt0.S"));
+    exe.root_module.addAssemblyFile(b.path("sdk/mem.s"));
     exe.root_module.addAssemblyFile(chr_asm);
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes-cnrom/ines.s"));
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes/ines.s"));
@@ -1491,6 +1496,7 @@ fn addNesCnromMultiExe(
     exe.bundle_compiler_rt = false;
     exe.lto = .full;
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/common/crt0/crt0.S"));
+    exe.root_module.addAssemblyFile(b.path("sdk/mem.s"));
     exe.root_module.addAssemblyFile(chr_asm);
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes-cnrom/ines.s"));
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes/ines.s"));
@@ -1553,6 +1559,7 @@ fn addNesUnromExe(
     exe.bundle_compiler_rt = false;
     exe.lto = .full;
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/common/crt0/crt0.S"));
+    exe.root_module.addAssemblyFile(b.path("sdk/mem.s"));
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes-unrom/ines.s"));
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes/ines.s"));
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes/rompoke/rompoke.s"));
@@ -1612,6 +1619,7 @@ fn addNesMmc1Exe(
     exe.bundle_compiler_rt = false;
     exe.lto = .full;
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/common/crt0/crt0.S"));
+    exe.root_module.addAssemblyFile(b.path("sdk/mem.s"));
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes-mmc1/ines.s"));
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes/ines.s"));
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes/rompoke/rompoke.s"));
@@ -1669,6 +1677,7 @@ fn addNesGtromExe(
     exe.lto = .full;
     exe.step.dependOn(&install_reset.step);
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/common/crt0/crt0.S"));
+    exe.root_module.addAssemblyFile(b.path("sdk/mem.s"));
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes-gtrom/ines.s"));
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes/ines.s"));
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes/rompoke/rompoke.s"));
@@ -1727,6 +1736,7 @@ fn addNesMmc3Exe(
     exe.bundle_compiler_rt = false;
     exe.lto = .full;
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/common/crt0/crt0.S"));
+    exe.root_module.addAssemblyFile(b.path("sdk/mem.s"));
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes-mmc3/ines.s"));
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes/ines.s"));
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes/rompoke/rompoke.s"));

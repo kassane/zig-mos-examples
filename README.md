@@ -98,20 +98,22 @@ Output files land in `zig-out/bin/`.
 | Example | Preview |
 |---------|---------|
 | `nes-zig-logo` — Zig mark logo with shimmer palette animation | ![](.github/zig-logo.gif) |
-| `nes-hello1` / `nes-hello2` / `nes-hello3` — text hello-world variants | ![](.github/hello.gif) |
-| `nes-fade` — full-screen palette fade in/out | ![](.github/fade.gif) |
+| `nes-hello1` — text hello-world (NROM) | ![](.github/hello1-nes.png) |
+| `nes-hello2` — text hello-world variant 2 | ![](.github/hello2-nes.png) |
+| `nes-hello3` — text hello-world variant 3 | ![](.github/hello3-nes.png) |
+| `nes-fade` — full-screen palette fade in/out | ![](.github/fade-nes.png) |
 | `nes-fullbg` — full background with metatiles | |
-| `nes-sprites` — OAM sprite rendering | ![](.github/sprites.gif) |
-| `nes-random` — 64 sprites at random positions, three fall speeds | |
-| `nes-bat-ball` — bat-and-ball game loop (CH05 port) | ![](.github/bat-ball.gif) |
+| `nes-sprites` — OAM sprite rendering | ![](.github/sprites-nes.png) |
+| `nes-random` — 64 sprites at random positions, three fall speeds | ![](.github/random-nes.png) |
+| `nes-bat-ball` — bat-and-ball game loop (CH05 port) | |
 | `nes-megablast` — title screen + game screen (CH06 port) | |
-| `nes-gg-demo` — Game Genie demo: metatile font, scrolling, player physics | |
-| `nes-color-cycle` — background colour cycling | ![](.github/color-cycle.gif) |
-| `nes-pads` — controller input with two 16×16 metasprites | ![](.github/pads.gif) |
+| `nes-gg-demo` — Game Genie demo: metatile font, scrolling, player physics | ![](.github/gg-demo.gif) |
+| `nes-color-cycle` — background colour cycling | |
+| `nes-pads` — controller input with two 16×16 metasprites | ![](.github/pads-nes.png) |
 | `nes-mappers` — CNROM 4-bank CHR demo, press Start to cycle banks | |
-| `nes-cnrom-hello` — CNROM banked CHR ROM | ![](.github/cnrom-hello.gif) |
-| `nes-unrom-hello` — UNROM banked PRG ROM | ![](.github/unrom-hello.gif) |
-| `nes-mmc1-hello` — MMC1 mapper | ![](.github/mmc1-hello.gif) |
+| `nes-cnrom-hello` — CNROM banked CHR ROM | |
+| `nes-unrom-hello` — UNROM banked PRG ROM | |
+| `nes-mmc1-hello` — MMC1 mapper | |
 | `nes-mmc3-hello` — MMC3 mapper | |
 | `nes-gtrom-hello` — GTROM mapper | |
 
@@ -126,9 +128,9 @@ Output files land in `zig-out/bin/`.
 
 | Example | Preview |
 |---------|---------|
-| `c64-plasma` — Commodore 64 plasma effect | ![](.github/c64-plasma.gif) |
-| `pce-color-cycle-banked` — PC Engine banked colour cycle | ![](.github/pce-color-cycle-banked.gif) |
-| `atari2600-colorbar` — Atari 2600 colour bars | ![](.github/atari2600-colorbar.gif) |
+| `c64-plasma` — Commodore 64 plasma effect | |
+| `pce-color-cycle-banked` — PC Engine banked colour cycle | |
+| `atari2600-colorbar` — Atari 2600 colour bars | |
 
 ## Platforms
 

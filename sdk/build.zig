@@ -252,12 +252,12 @@ fn buildNes(
     libnes_c_startup.root_module.addIncludePath(.{ .cwd_relative = com_asm });
     libnes_c_startup.root_module.addIncludePath(.{ .cwd_relative = com_inc });
     libnes_c_startup.root_module.addIncludePath(.{ .cwd_relative = nes_dir });
-    // mem.c — provides memcpy/memmove/memcmp/memchr; mem.s overrides __memset.
-    // zig cc (clang 21) produces a broken recursive stub for __memset on MOS 6502
-    // instead of the actual write loop.  sdk/mem.s provides a strong (non-weak)
-    // correct implementation that wins over the __attribute__((weak)) one in mem.c.
+    // mem.c — provides memcpy/memmove/memcmp/memchr.
+    // sdk/mem.s overrides __memset, but must be a TRUE object linked directly
+    // into each exe (not an archive member) — see build.zig addNes*Exe builders.
+    // If placed in this archive, the linker satisfies __memset with the weak
+    // definition from mem.c before scanning mem.s, so mem.s is never extracted.
     libnes_c_startup.root_module.addCMacro("__NES__", "1");
-    libnes_c_startup.root_module.addAssemblyFile(b.path("sdk/mem.s"));
     libnes_c_startup.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = b.fmt("{s}/../c", .{crt0_dir}) },
         .files = &.{"mem.c"},
