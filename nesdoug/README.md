@@ -26,7 +26,7 @@ originally written in C for the llvm-mos toolchain.
 | `bat-ball/` | CH05*      | Bat-and-ball from ProgrammingGamesForTheNES CH05             |
 | `megablast/` | CH06*     | Title screen + game screen from ProgrammingGamesForTheNES CH06 |
 
-\* `bat-ball` and `megablast` are ported from
+* `bat-ball` and `megablast` are ported from
 [tony-cruise/ProgrammingGamesForTheNES](https://github.com/tony-cruise/ProgrammingGamesForTheNES),
-also MIT licensed.
-- `gg-demo` is ported from [jroweboy/llvm-mos-game-genie-jam](https://github.com/jroweboy/llvm-mos-game-genie-jam)
+MIT licensed.
+- `gg-demo` is ported from [jroweboy/llvm-mos-game-genie-jam](https://github.com/jroweboy/llvm-mos-game-genie-jam), APACHE licensed.
