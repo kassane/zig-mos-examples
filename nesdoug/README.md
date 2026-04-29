@@ -29,3 +29,4 @@ originally written in C for the llvm-mos toolchain.
 \* `bat-ball` and `megablast` are ported from
 [tony-cruise/ProgrammingGamesForTheNES](https://github.com/tony-cruise/ProgrammingGamesForTheNES),
 also MIT licensed.
+- `gg-demo` is ported from [jroweboy/llvm-mos-game-genie-jam](https://github.com/jroweboy/llvm-mos-game-genie-jam)
