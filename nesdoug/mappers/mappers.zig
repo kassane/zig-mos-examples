@@ -50,6 +50,7 @@ pub export fn main() callconv(.c) void {
     while (true) {
         neslib.ppu_wait_nmi();
 
+        _ = neslib.pad_poll(0);
         const pad1_new = nesdoug.get_pad_new(0);
         if (pad1_new & 0x10 != 0) { // PAD_START
             which_chr = (which_chr + 1) & 3;

@@ -24,7 +24,9 @@ originally written in C for the llvm-mos toolchain.
 | `random/`   | 23_Random  | 64 sprites at random positions, three fall speeds            |
 | `mappers/`  | 24_Mappers | CNROM 4-bank CHR demo — press Start to cycle banks           |
 | `bat-ball/` | CH05*      | Bat-and-ball from ProgrammingGamesForTheNES CH05             |
+| `megablast/` | CH06*     | Title screen + game screen from ProgrammingGamesForTheNES CH06 |
 
-\* `bat-ball` is ported from
+* `bat-ball` and `megablast` are ported from
 [tony-cruise/ProgrammingGamesForTheNES](https://github.com/tony-cruise/ProgrammingGamesForTheNES),
-also MIT licensed.
+MIT licensed.
+- `gg-demo` is ported from [jroweboy/llvm-mos-game-genie-jam](https://github.com/jroweboy/llvm-mos-game-genie-jam), APACHE licensed.

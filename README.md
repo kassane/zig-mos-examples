@@ -1,3 +1,6 @@
+[![CI](https://github.com/kassane/zig-mos-examples/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/kassane/zig-mos-examples/actions/workflows/ci.yml)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/kassane/zig-mos-examples)
+
 # zig-mos-examples
 
 Zig examples targeting MOS 6502 platforms via [zig-mos-bootstrap](https://github.com/kassane/zig-mos-bootstrap) and [llvm-mos-sdk](https://github.com/llvm-mos/llvm-mos-sdk).
@@ -29,6 +32,8 @@ zig build nes-color-cycle
 zig build nes-fullbg
 zig build nes-random
 zig build nes-bat-ball
+zig build nes-megablast
+zig build nes-gg-demo
 zig build nes-mappers
 zig build nes-cnrom-hello
 zig build nes-unrom-hello
@@ -93,18 +98,22 @@ Output files land in `zig-out/bin/`.
 | Example | Preview |
 |---------|---------|
 | `nes-zig-logo` — Zig mark logo with shimmer palette animation | ![](.github/zig-logo.gif) |
-| `nes-hello1` / `nes-hello2` / `nes-hello3` — text hello-world variants | ![](.github/hello.gif) |
-| `nes-fade` — full-screen palette fade in/out | ![](.github/fade.gif) |
+| `nes-hello1` — text hello-world (NROM) | ![](.github/hello1-nes.png) |
+| `nes-hello2` — text hello-world variant 2 | ![](.github/hello2-nes.png) |
+| `nes-hello3` — text hello-world variant 3 | ![](.github/hello3-nes.png) |
+| `nes-fade` — full-screen palette fade in/out | ![](.github/fade-nes.png) |
 | `nes-fullbg` — full background with metatiles | |
-| `nes-sprites` — OAM sprite rendering | ![](.github/sprites.gif) |
-| `nes-random` — 64 sprites at random positions, three fall speeds | |
+| `nes-sprites` — OAM sprite rendering | |
+| `nes-random` — 64 sprites at random positions, three fall speeds | ![](.github/random.gif) |
 | `nes-bat-ball` — bat-and-ball game loop (CH05 port) | ![](.github/bat-ball.gif) |
-| `nes-color-cycle` — background colour cycling | ![](.github/color-cycle.gif) |
-| `nes-pads` — controller input with two 16×16 metasprites | ![](.github/pads.gif) |
-| `nes-mappers` — CNROM 4-bank CHR demo, press Start to cycle banks | |
-| `nes-cnrom-hello` — CNROM banked CHR ROM | ![](.github/cnrom-hello.gif) |
-| `nes-unrom-hello` — UNROM banked PRG ROM | ![](.github/unrom-hello.gif) |
-| `nes-mmc1-hello` — MMC1 mapper | ![](.github/mmc1-hello.gif) |
+| `nes-megablast` — title screen + game screen (CH06 port) | ![](.github/megablast.gif) |
+| `nes-gg-demo` — Game Genie demo: metatile font, scrolling, player physics | ![](.github/gg-demo.gif) |
+| `nes-color-cycle` — background colour cycling | |
+| `nes-pads` — controller input with two 16×16 metasprites | ![](.github/mmc3-pads.gif) |
+| `nes-mappers` — CNROM 4-bank CHR demo, press Start to cycle banks | ![](.github/mappers.gif) |
+| `nes-cnrom-hello` — CNROM banked CHR ROM | |
+| `nes-unrom-hello` — UNROM banked PRG ROM | |
+| `nes-mmc1-hello` — MMC1 mapper | |
 | `nes-mmc3-hello` — MMC3 mapper | |
 | `nes-gtrom-hello` — GTROM mapper | |
 
@@ -112,16 +121,16 @@ Output files land in `zig-out/bin/`.
 
 | Example | Preview |
 |---------|---------|
-| `snes-zig-logo` — Zig mark logo on BG1 with shimmer palette animation | |
+| `snes-zig-logo` — Zig mark logo on BG1 with shimmer palette animation | ![](.github/snes-zig-logo.gif) |
 | `snes-color-cycle` — backdrop hue rotation (192-step colour wheel) | |
 
 ### Other platforms
 
 | Example | Preview |
 |---------|---------|
-| `c64-plasma` — Commodore 64 plasma effect | ![](.github/c64-plasma.gif) |
-| `pce-color-cycle-banked` — PC Engine banked colour cycle | ![](.github/pce-color-cycle-banked.gif) |
-| `atari2600-colorbar` — Atari 2600 colour bars | ![](.github/atari2600-colorbar.gif) |
+| `c64-plasma` — Commodore 64 plasma effect | |
+| `pce-color-cycle-banked` — PC Engine banked colour cycle | |
+| `atari2600-colorbar` — Atari 2600 colour bars | |
 
 ## Platforms
 
@@ -136,6 +145,8 @@ Output files land in `zig-out/bin/`.
 | `nes-pads` | NES NROM | mos6502 | `.nes` |
 | `nes-color-cycle` | NES NROM | mos6502 | `.nes` |
 | `nes-bat-ball` | NES NROM | mos6502 | `.nes` |
+| `nes-megablast` | NES NROM | mos6502 | `.nes` |
+| `nes-gg-demo` | NES NROM | mos6502 | `.nes` |
 | `nes-mappers` | NES CNROM (4-bank) | mos6502 | `.nes` |
 | `nes-cnrom-hello` | NES CNROM | mos6502 | `.nes` |
 | `nes-unrom-hello` | NES UNROM | mos6502 | `.nes` |

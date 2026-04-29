@@ -7,16 +7,19 @@
 const neslib = @import("neslib");
 const mapper = @import("mapper");
 
-export fn main() void {
+pub export fn main() callconv(.c) void {
     neslib.ppu_off();
     // Initialise MMC3: select PRG banks and set vertical mirroring.
     mapper.set_prg_8000(0);
     mapper.set_prg_a000(1);
     mapper.set_mirroring(mapper.MIRROR_VERTICAL);
-    const bg_pal = [_]u8{ 0x0F, 0x1C, 0x2C, 0x3C };
+    const bg_pal: [16]u8 = .{ 0x1C, 0x1C, 0x2C, 0x3C } ++ .{0x00} ** 12;
+    neslib.pal_bright(4);
     neslib.pal_bg(&bg_pal);
-    neslib.ppu_on_bg();
-    while (true) {}
+    neslib.ppu_on_all();
+    while (true) {
+        neslib.ppu_wait_nmi();
+    }
 }
 
 pub fn panic(_: []const u8, _: ?*@import("std").builtin.StackTrace, _: ?usize) noreturn {
