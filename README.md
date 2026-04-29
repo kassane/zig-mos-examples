@@ -103,25 +103,25 @@ Output files land in `zig-out/bin/`.
 | `nes-hello3` — text hello-world variant 3 | ![](.github/hello3-nes.png) |
 | `nes-fade` — full-screen palette fade in/out | ![](.github/fade-nes.png) |
 | `nes-fullbg` — full background with metatiles | |
-| `nes-sprites` — OAM sprite rendering | ![](.github/sprites-nes.png) |
-| `nes-random` — 64 sprites at random positions, three fall speeds | ![](.github/random-nes.png) |
-| `nes-bat-ball` — bat-and-ball game loop (CH05 port) | |
-| `nes-megablast` — title screen + game screen (CH06 port) | |
+| `nes-sprites` — OAM sprite rendering | |
+| `nes-random` — 64 sprites at random positions, three fall speeds | ![](.github/random.gif) |
+| `nes-bat-ball` — bat-and-ball game loop (CH05 port) | ![](.github/bat-ball.gif) |
+| `nes-megablast` — title screen + game screen (CH06 port) | ![](.github/megablast.gif) |
 | `nes-gg-demo` — Game Genie demo: metatile font, scrolling, player physics | ![](.github/gg-demo.gif) |
 | `nes-color-cycle` — background colour cycling | |
 | `nes-pads` — controller input with two 16×16 metasprites | ![](.github/pads-nes.png) |
-| `nes-mappers` — CNROM 4-bank CHR demo, press Start to cycle banks | |
+| `nes-mappers` — CNROM 4-bank CHR demo, press Start to cycle banks | ![](.github/mappers.gif) |
 | `nes-cnrom-hello` — CNROM banked CHR ROM | |
 | `nes-unrom-hello` — UNROM banked PRG ROM | |
 | `nes-mmc1-hello` — MMC1 mapper | |
-| `nes-mmc3-hello` — MMC3 mapper | |
+| `nes-mmc3-hello` — MMC3 mapper | ![](.github/mmc3-pads.gif) |
 | `nes-gtrom-hello` — GTROM mapper | |
 
 ### SNES
 
 | Example | Preview |
 |---------|---------|
-| `snes-zig-logo` — Zig mark logo on BG1 with shimmer palette animation | |
+| `snes-zig-logo` — Zig mark logo on BG1 with shimmer palette animation | ![](.github/snes-zig-logo.gif) |
 | `snes-color-cycle` — backdrop hue rotation (192-step colour wheel) | |
 
 ### Other platforms

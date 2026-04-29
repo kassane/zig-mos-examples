@@ -42,12 +42,12 @@ const chr_data = @embedFile("Alpha3.chr");
 pub export fn main() callconv(.c) void {
     neslib.ppu_off();
     mapper.set_prg_8000(0);
-    mapper.set_prg_a000(1);
     mapper.set_mirroring(mapper.MIRROR_VERTICAL);
     mapper.disable_irq();
     // Upload 8 KiB of CHR tile data to PPU pattern tables while rendering is off.
     neslib.vram_adr(0x0000);
     neslib.vram_write(chr_data, @intCast(chr_data.len));
+    neslib.pal_bright(4);
     neslib.pal_bg(&palette_bg);
     neslib.pal_spr(&palette_sp);
     neslib.bank_spr(1);

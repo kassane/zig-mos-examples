@@ -34,11 +34,15 @@ const metasprite2: []const u8 = &.{
 
 pub export fn main() callconv(.c) void {
     neslib.ppu_off();
+    // 0x0E = bit4=0 (8KB CHR mode), bits2-3=11 (fix last PRG bank), bits0-1=10 (vertical mirror).
+    // Must set 8KB CHR mode before uploading; default 0x1F has bit4=1 (4KB mode) which aliases
+    // both PPU halves to the same 4KB, causing the second 4KB write to overwrite the first.
+    mapper.set_mmc1_ctrl(0x0E);
     mapper.set_prg_bank(0);
-    mapper.set_mirroring(mapper.MIRROR_VERTICAL);
     // Upload 8 KiB of CHR tile data to PPU pattern tables while rendering is off.
     neslib.vram_adr(0x0000);
     neslib.vram_write(chr_data, @intCast(chr_data.len));
+    neslib.pal_bright(4);
     neslib.pal_bg(&palette_bg);
     neslib.pal_spr(&palette_sp);
     neslib.bank_spr(1);
