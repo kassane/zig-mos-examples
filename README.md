@@ -109,12 +109,12 @@ Output files land in `zig-out/bin/`.
 | `nes-megablast` — title screen + game screen (CH06 port) | ![](.github/megablast.gif) |
 | `nes-gg-demo` — Game Genie demo: metatile font, scrolling, player physics | ![](.github/gg-demo.gif) |
 | `nes-color-cycle` — background colour cycling | |
-| `nes-pads` — controller input with two 16×16 metasprites | ![](.github/pads-nes.png) |
+| `nes-pads` — controller input with two 16×16 metasprites | ![](.github/mmc3-pads.gif) |
 | `nes-mappers` — CNROM 4-bank CHR demo, press Start to cycle banks | ![](.github/mappers.gif) |
 | `nes-cnrom-hello` — CNROM banked CHR ROM | |
 | `nes-unrom-hello` — UNROM banked PRG ROM | |
 | `nes-mmc1-hello` — MMC1 mapper | |
-| `nes-mmc3-hello` — MMC3 mapper | ![](.github/mmc3-pads.gif) |
+| `nes-mmc3-hello` — MMC3 mapper | |
 | `nes-gtrom-hello` — GTROM mapper | |
 
 ### SNES
