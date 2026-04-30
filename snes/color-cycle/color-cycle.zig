@@ -5,6 +5,8 @@
 // wheel (192 steps of ~1.875° each) by updating CGRAM palette entry 0 every
 // vblank. Uses HVBJOY polling — no NMI handler required.
 
+pub const panic = @import("mos_panic");
+
 const sneslib = @import("sneslib");
 comptime {
     _ = @import("snes_header");

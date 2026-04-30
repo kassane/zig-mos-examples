@@ -1,6 +1,7 @@
 // Copyright (c) 2024 Matheus C. França
 // SPDX-License-Identifier: Apache-2.0
 //! C64 Fibonacci — computes and prints fib(0..9) using comptime recursion.
+pub const panic = @import("mos_panic");
 const std = @import("std");
 
 /// Recursive Fibonacci evaluated at comptime when called with a comptime argument.
@@ -13,8 +14,4 @@ export fn main() void {
     inline while (i < 10) : (i += 1) {
         _ = std.c.printf("fib(%d) = %d\n", @as(c_int, i), @as(c_int, fibonacci(u8, i)));
     }
-}
-
-pub fn panic(_: []const u8, _: ?*std.builtin.StackTrace, _: ?usize) noreturn {
-    while (true) {}
 }

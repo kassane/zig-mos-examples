@@ -4,6 +4,7 @@
 //! draws scrolling sprites.  MMC1 (mapper 1) uses CHR RAM; tile data must be
 //! written to PPU $0000–$1FFF while rendering is off.
 //! Matches nesdoug 07_Sprites ported to MMC1.
+pub const panic = @import("mos_panic");
 const neslib = @import("neslib");
 const mapper = @import("mapper");
 
@@ -63,8 +64,4 @@ pub export fn main() callconv(.c) void {
         neslib.oam_meta_spr(x_pos3, y_pos, @ptrCast(metasprite2.ptr));
         y_pos +%= 1;
     }
-}
-
-pub fn panic(_: []const u8, _: ?*@import("std").builtin.StackTrace, _: ?usize) noreturn {
-    while (true) {}
 }

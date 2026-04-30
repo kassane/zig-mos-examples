@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //! NES CNROM CHR bank-switching demo: press Start to cycle through 4 CHR banks
 //! (apples, balls, snake, flower). Matches nesdoug 24_Mappers.
+pub const panic = @import("mos_panic");
 const neslib = @import("neslib");
 const nesdoug = @import("nesdoug");
 const mapper = @import("mapper");
@@ -58,8 +59,4 @@ pub export fn main() callconv(.c) void {
             mapper.set_chr_bank(which_chr);
         }
     }
-}
-
-pub fn panic(_: []const u8, _: ?*@import("std").builtin.StackTrace, _: ?usize) noreturn {
-    while (true) {}
 }

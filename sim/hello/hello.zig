@@ -152,6 +152,40 @@ pub fn main() void {
     reg().exit = 0;
 }
 
+/// Unsigned 8-bit division (compiler-rt builtin; needed by Debug safety checks).
+/// Implemented via subtraction loop to avoid recursive call to __udivqi3.
+export fn __udivqi3(dividend: u8, divisor: u8) u8 {
+    if (divisor == 0) return 0;
+    var n = dividend;
+    var d = divisor;
+    var bit: u8 = 1;
+    while (d <= n and d & 0x80 == 0) {
+        d <<= 1;
+        bit <<= 1;
+    }
+    var q: u8 = 0;
+    while (bit != 0) : (bit >>= 1) {
+        if (n >= d) {
+            n -= d;
+            q |= bit;
+        }
+        d >>= 1;
+    }
+    return q;
+}
+
+/// Unsigned 8-bit modulo (compiler-rt builtin).
+export fn __umodqi3(dividend: u8, divisor: u8) u8 {
+    if (divisor == 0) return 0;
+    var n = dividend;
+    var d = divisor;
+    while (d <= n and d & 0x80 == 0) d <<= 1;
+    while (d >= divisor) : (d >>= 1) {
+        if (n >= d) n -= d;
+    }
+    return n;
+}
+
 /// Unsigned 16-bit division (compiler-rt builtin; libcrt.a is LLVM-23 bitcode, incompatible).
 export fn __udivhi3(dividend: u16, divisor: u16) u16 {
     if (divisor == 0) return 0;
@@ -195,6 +229,12 @@ export fn __mulhi3(a: u16, b: u16) u16 {
         x +%= x;
     }
     return result;
+}
+
+/// Strong abort symbol required by Debug-mode code paths (undefined on bare-metal sim).
+export fn abort() callconv(.c) noreturn {
+    reg().exit = 1;
+    while (true) {}
 }
 
 /// Satisfy crt0's __zero_bss (no libc linked).

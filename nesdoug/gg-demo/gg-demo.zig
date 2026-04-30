@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //! NES Game Genie demo: metatile font + nametable scrolling + player physics.
 //! Zig port of llvm-mos-game-genie-jam (NROM 16KB PRG / 8KB CHR, vertical mirror).
+pub const panic = @import("mos_panic");
 const neslib = @import("neslib");
 const nesdoug = @import("nesdoug");
 
@@ -153,6 +154,7 @@ const all_letters: [37]Metatile23 = blk: {
 // ─── VRAM-buffered metatile draw ───
 
 fn drawMetatile23(nmt: Nametable, x: u8, y: u8, tile: Metatile23) void {
+    @setRuntimeSafety(false);
     const idx: usize = VRAM_INDEX;
     const nmt_byte: u16 = @intFromEnum(nmt);
     const ppuaddr_left: u16 = 0x2000 | (nmt_byte << 8) | (@as(u16, y) << 5 | @as(u16, x));
@@ -254,6 +256,7 @@ const Player = struct {
 var player = Player{};
 
 fn updatePlayer() void {
+    @setRuntimeSafety(false);
     const input = neslib.pad_state(0);
 
     // Horizontal movement with acceleration and speed limit
@@ -334,6 +337,7 @@ fn updateTextView() void {
 }
 
 fn updateScrollingView() void {
+    @setRuntimeSafety(false);
     scroll_frame_count = (scroll_frame_count +% 1) & 0x1F;
     if (scroll_frame_count == 0) direction = -direction;
     scroll_y +%= @as(u8, @bitCast(direction));
@@ -381,8 +385,4 @@ pub export fn main() callconv(.c) void {
         updatePlayer();
         neslib.ppu_wait_nmi();
     }
-}
-
-pub fn panic(_: []const u8, _: ?*@import("std").builtin.StackTrace, _: ?usize) noreturn {
-    while (true) {}
 }

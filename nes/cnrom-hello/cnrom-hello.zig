@@ -3,6 +3,7 @@
 //! NES CNROM mapper hello — solid background colour, explicit CHR bank init.
 //! CNROM (mapper 3) switches 8 KiB CHR ROM banks by writing to $8000-$FFFF.
 //! Uses translated mapper.h (set_chr_bank / swap_chr_bank / split_chr_bank).
+pub const panic = @import("mos_panic");
 const neslib = @import("neslib");
 const mapper = @import("mapper");
 
@@ -20,8 +21,4 @@ pub export fn main() callconv(.c) void {
     while (true) {
         neslib.ppu_wait_nmi();
     }
-}
-
-pub fn panic(_: []const u8, _: ?*@import("std").builtin.StackTrace, _: ?usize) noreturn {
-    while (true) {}
 }

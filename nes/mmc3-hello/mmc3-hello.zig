@@ -4,6 +4,7 @@
 //! MMC3 (mapper 4) supports banked PRG/CHR ROM, configurable mirroring, and
 //! a scanline-based IRQ counter.  Uses CHR RAM (no CHR ROM embedded).
 //! Uses translated mapper.h (set_prg_8000 / set_prg_a000 / set_mirroring).
+pub const panic = @import("mos_panic");
 const neslib = @import("neslib");
 const mapper = @import("mapper");
 
@@ -20,8 +21,4 @@ pub export fn main() callconv(.c) void {
     while (true) {
         neslib.ppu_wait_nmi();
     }
-}
-
-pub fn panic(_: []const u8, _: ?*@import("std").builtin.StackTrace, _: ?usize) noreturn {
-    while (true) {}
 }

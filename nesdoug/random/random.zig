@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //! NES random demo: 64 sprites placed at random positions when Start is pressed,
 //! then fall at three different speeds. Matches nesdoug 23_Random.
+pub const panic = @import("mos_panic");
 const neslib = @import("neslib");
 const nesdoug = @import("nesdoug");
 
@@ -11,6 +12,7 @@ const palette_sp: [16]u8 = .{ 0x0f, 0x0f, 0x0f, 0x28, 0x0f, 0x0f, 0x0f, 0x28, 0x
 const PAD_START: u8 = 0x10;
 
 pub export fn main() callconv(.c) void {
+    @setRuntimeSafety(false);
     neslib.ppu_off();
     neslib.pal_bg(&palette_bg);
     neslib.pal_spr(&palette_sp);
@@ -56,8 +58,4 @@ pub export fn main() callconv(.c) void {
             }
         }
     }
-}
-
-pub fn panic(_: []const u8, _: ?*@import("std").builtin.StackTrace, _: ?usize) noreturn {
-    while (true) {}
 }

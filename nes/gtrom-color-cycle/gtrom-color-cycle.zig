@@ -3,6 +3,7 @@
 //! NES GTROM colour-cycle with LED control: cycles the universal BG colour
 //! through all 64 NES palette entries.  Press Start to toggle the green LED;
 //! press Select to toggle the red LED on the GTROM (mapper 111) PCB.
+pub const panic = @import("mos_panic");
 const neslib = @import("neslib");
 const nesdoug = @import("nesdoug");
 const mapper = @import("mapper");
@@ -37,8 +38,4 @@ pub export fn main() callconv(.c) void {
             _ = mapper.set_mapper_red_led(red_on);
         }
     }
-}
-
-pub fn panic(_: []const u8, _: ?*@import("std").builtin.StackTrace, _: ?usize) noreturn {
-    while (true) {}
 }

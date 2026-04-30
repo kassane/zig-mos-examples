@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //! NES full-screen background demo: unpacks an RLE-compressed nametable
 //! (Girl5, exported from NES Screen Tool) into NAMETABLE_A with rendering off.
+pub const panic = @import("mos_panic");
 const neslib = @import("neslib");
 
 /// Background palette: 4 sub-palettes x 4 colours.
@@ -45,9 +46,5 @@ pub export fn main() callconv(.c) void {
     neslib.vram_adr(neslib.NAMETABLE_A);
     neslib.vram_unrle(&girl5_rle);
     neslib.ppu_on_all();
-    while (true) {}
-}
-
-pub fn panic(_: []const u8, _: ?*@import("std").builtin.StackTrace, _: ?usize) noreturn {
     while (true) {}
 }

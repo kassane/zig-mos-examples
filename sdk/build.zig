@@ -30,9 +30,8 @@ pub const Libs = struct {
 
 /// Build platform libraries for `pd` from the SDK source tree at `sdk_root`.
 /// Returns the compile artifacts; the caller decides how to install/link them.
-pub fn buildPlatform(b: *std.Build, sdk_root: []const u8, pd: Platform) Libs {
+pub fn buildPlatform(b: *std.Build, sdk_root: []const u8, pd: Platform, opt: std.builtin.OptimizeMode) Libs {
     const target = b.resolveTargetQuery(pd.query);
-    const opt: std.builtin.OptimizeMode = .ReleaseFast;
 
     const common = b.fmt("{s}/mos-platform/common", .{sdk_root});
     const com_inc = b.fmt("{s}/include", .{common});
@@ -43,7 +42,7 @@ pub fn buildPlatform(b: *std.Build, sdk_root: []const u8, pd: Platform) Libs {
     const comm_dir = b.fmt("{s}/mos-platform/commodore", .{sdk_root});
 
     // libcrt — compiler runtime builtins (all platforms share this).
-    const libcrt = addLib(b, "crt", target, opt);
+    const libcrt = addLib(b, "crt", target, .ReleaseFast);
     libcrt.root_module.addIncludePath(.{ .cwd_relative = crt_dir });
     libcrt.root_module.addIncludePath(.{ .cwd_relative = com_inc });
     libcrt.root_module.addIncludePath(.{ .cwd_relative = com_asm });
@@ -336,16 +335,18 @@ fn buildNes(
         }
     }
 
-    // sdk/mem.zig — strong __memset override (TRUE object, lto = .none).
+    // sdk/mem.s — strong __memset + abort (TRUE object, lto = .none).
     // Must be linked directly into each exe, not placed in an archive.
+    // mem.c's __memset is __attribute__((weak)); zig cc (clang 21) compiles it to a
+    // broken recursive stub. sdk/mem.s provides the correct byte-store loop.
     const mem_obj = b.addObject(.{
         .name = "mem",
         .root_module = b.createModule(.{
-            .root_source_file = b.path("sdk/mem.zig"),
             .target = target,
             .optimize = opt,
         }),
     });
+    mem_obj.root_module.addCSourceFiles(.{ .root = b.path("sdk"), .files = &.{"mem.s"} });
     mem_obj.lto = .none;
 
     return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc, .neslib = libneslib, .nesdoug = libnesdoug, .nes_c = libnes_c, .nes_c_startup = libnes_c_startup, .mem = mem_obj };
@@ -432,19 +433,18 @@ fn buildSnes(
         .files = &.{"mem.c"},
     });
 
-    // sdk/mem.zig — strong __memset TRUE object.
+    // sdk/mem.s — strong __memset + abort (TRUE object, lto = .none).
     // mem.c's __memset is __attribute__((weak)); zig cc (clang 21) compiles it to a
-    // broken recursive stub.  sdk/mem.zig (Zig frontend → LLVM-MOS) generates a
-    // correct byte-store loop and must land on the link line as a plain object,
-    // NOT inside an archive.
+    // broken recursive stub. sdk/mem.s provides the correct byte-store loop and
+    // must land on the link line as a plain object, NOT inside an archive.
     const mem_obj = b.addObject(.{
         .name = "mem",
         .root_module = b.createModule(.{
-            .root_source_file = b.path("sdk/mem.zig"),
             .target = target,
             .optimize = opt,
         }),
     });
+    mem_obj.root_module.addCSourceFiles(.{ .root = b.path("sdk"), .files = &.{"mem.s"} });
     mem_obj.lto = .none;
 
     return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc, .mem = mem_obj };
@@ -1449,7 +1449,7 @@ pub fn build(b: *std.Build) void {
         .{ .name = "pce-cd", .query = .{ .cpu_arch = .mos, .os_tag = .pce_cd } },
     }) |pd| {
         if (filter) |f| if (!std.mem.eql(u8, f, pd.name)) continue;
-        const libs = buildPlatform(b, sdk_root, pd);
+        const libs = buildPlatform(b, sdk_root, pd, .ReleaseFast);
         installLib(b, libs.crt, pd.name);
         installLib(b, libs.crt0, pd.name);
         installLib(b, libs.c, pd.name);
@@ -1460,7 +1460,7 @@ pub fn build(b: *std.Build) void {
 }
 
 fn addLib(b: *std.Build, name: []const u8, target: std.Build.ResolvedTarget, opt: std.builtin.OptimizeMode) *std.Build.Step.Compile {
-    const lib = b.addLibrary(.{ .name = name, .linkage = .static, .root_module = b.createModule(.{ .target = target, .optimize = opt }) });
+    const lib = b.addLibrary(.{ .name = name, .linkage = .static, .root_module = b.createModule(.{ .target = target, .optimize = opt, .sanitize_c = .off }) });
     // Match prebuilt llvm-mos-sdk behaviour: libraries were built with LTO enabled.
     // Startup libs (libcrt0, libnes_c_startup) override this with lto = .none after creation.
     lib.lto = .full;

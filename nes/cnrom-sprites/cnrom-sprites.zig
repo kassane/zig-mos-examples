@@ -3,6 +3,7 @@
 //! NES CNROM sprites demo: draws scrolling sprites using CHR ROM bank 0 (Alpha2.chr).
 //! CNROM (mapper 3) switches 8 KiB CHR ROM banks; bank 0 selected at startup.
 //! Matches nesdoug 07_Sprites ported to CNROM.
+pub const panic = @import("mos_panic");
 const neslib = @import("neslib");
 const mapper = @import("mapper");
 
@@ -52,8 +53,4 @@ pub export fn main() callconv(.c) void {
         neslib.oam_meta_spr(x_pos3, y_pos, @ptrCast(metasprite2.ptr));
         y_pos +%= 1;
     }
-}
-
-pub fn panic(_: []const u8, _: ?*@import("std").builtin.StackTrace, _: ?usize) noreturn {
-    while (true) {}
 }

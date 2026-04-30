@@ -3,6 +3,7 @@
 //! NES bat-and-ball demo: bat moves left/right with P1, ball bounces off walls.
 //! Faithful Zig port of ProgrammingGamesForTheNES CH05 (originally 6502 assembly).
 //! Sprites: tile 1 = bat, tile 2 = ball (example.chr bank 1).
+pub const panic = @import("mos_panic");
 const neslib = @import("neslib");
 
 const TILE_BAT: u8 = 1;
@@ -22,6 +23,7 @@ const palette_sp: [16]u8 = .{
 };
 
 pub export fn main() callconv(.c) void {
+    @setRuntimeSafety(false);
     neslib.ppu_off();
     neslib.pal_bg(&palette_bg);
     neslib.pal_spr(&palette_sp);
@@ -59,8 +61,4 @@ pub export fn main() callconv(.c) void {
         neslib.oam_spr(bat_x, bat_y, TILE_BAT, 0);
         neslib.oam_spr(ball_x, ball_y, TILE_BALL, 0);
     }
-}
-
-pub fn panic(_: []const u8, _: ?*@import("std").builtin.StackTrace, _: ?usize) noreturn {
-    while (true) {}
 }

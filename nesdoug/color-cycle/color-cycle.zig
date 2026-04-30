@@ -1,6 +1,7 @@
 // Copyright (c) 2024 Matheus C. França
 // SPDX-License-Identifier: Apache-2.0
 //! NES colour-cycle: advances the universal background colour through all 64 palette entries.
+pub const panic = @import("mos_panic");
 const neslib = @import("neslib");
 
 pub export fn main() callconv(.c) void {

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //! NES sprites demo: draws a single sprite and two metasprites, scrolling down.
 //! Matches nesdoug 07_Sprites: bank_spr(1) routes sprites to the upper CHR bank.
+pub const panic = @import("mos_panic");
 const neslib = @import("neslib");
 
 const palette_bg: [16]u8 = .{ 0x0f, 0x00, 0x10, 0x30, 0x0f, 0x00, 0x10, 0x30, 0x0f, 0x00, 0x10, 0x30, 0x0f, 0x00, 0x10, 0x30 };
@@ -50,8 +51,4 @@ pub export fn main() callconv(.c) void {
         neslib.oam_meta_spr(x_pos3, y_pos, @ptrCast(metasprite2.ptr));
         y_pos +%= 1;
     }
-}
-
-pub fn panic(_: []const u8, _: ?*@import("std").builtin.StackTrace, _: ?usize) noreturn {
-    while (true) {}
 }

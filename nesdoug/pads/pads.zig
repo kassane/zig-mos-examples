@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //! NES controller demo: two metasprites (yellow P1, blue P2) with box collision.
 //! Matches nesdoug 08_Pads: bank_spr(1), check_collision for AABB detection.
+pub const panic = @import("mos_panic");
 const neslib = @import("neslib");
 const nesdoug = @import("nesdoug");
 
@@ -71,8 +72,4 @@ pub export fn main() callconv(.c) void {
         neslib.oam_meta_spr(box1.x, box1.y, @ptrCast(yellow_spr.ptr));
         neslib.oam_meta_spr(box2.x, box2.y, @ptrCast(blue_spr.ptr));
     }
-}
-
-pub fn panic(_: []const u8, _: ?*@import("std").builtin.StackTrace, _: ?usize) noreturn {
-    while (true) {}
 }

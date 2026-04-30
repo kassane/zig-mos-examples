@@ -1,6 +1,8 @@
 // Copyright (c) 2024 Matheus C. França
 // SPDX-License-Identifier: Apache-2.0
 //! Apple IIe Sierpiński triangle via midpoint-iteration IFS on the HIRES page.
+pub const panic = @import("mos_panic");
+
 const std = @import("std");
 const hw = @import("apple2");
 
@@ -53,8 +55,4 @@ export fn main() void {
         sy = (sy + pt[1]) / 2;
         hiresPlot(sx, sy);
     }
-}
-
-pub fn panic(_: []const u8, _: ?*std.builtin.StackTrace, _: ?usize) noreturn {
-    while (true) {}
 }

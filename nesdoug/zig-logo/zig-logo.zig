@@ -1,6 +1,7 @@
 // Copyright (c) 2024 Matheus C. França
 // SPDX-License-Identifier: Apache-2.0
 //! NES Zig-mark logo display with shimmer palette animation.
+pub const panic = @import("mos_panic");
 const neslib = @import("neslib");
 
 /// Nametable address for tile at column `col`, row `row` on nametable A ($2000).

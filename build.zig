@@ -65,7 +65,7 @@ pub fn build(b: *std.Build) void {
         .{ .name = "atari8-cart-std", .query = .{ .cpu_arch = .mos, .os_tag = .atari8 } },
         .{ .name = "snes", .query = .{ .cpu_arch = .mos, .os_tag = .snes } },
     }) |pd| {
-        const libs = sdk_mod.buildPlatform(b, sdk_src_raw, pd);
+        const libs = sdk_mod.buildPlatform(b, sdk_src_raw, pd, optimize);
         const dest = b.fmt("mos-platform/{s}/lib", .{pd.name});
         for ([3]*std.Build.Step.Compile{ libs.crt, libs.crt0, libs.c }) |lib| {
             sdk_step.dependOn(&b.addInstallArtifact(lib, .{ .dest_dir = .{ .override = .{ .custom = dest } } }).step);
@@ -97,41 +97,41 @@ pub fn build(b: *std.Build) void {
 
     // Translate neslib.h and nesdoug.h from the MOS SDK into Zig modules.
     const nes_target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .nes });
-    const neslib_mod = nesHeaderMod(b, sdk_dep, nes_target, "neslib");
-    const nesdoug_mod = nesHeaderMod(b, sdk_dep, nes_target, "nesdoug");
+    const neslib_mod = nesHeaderMod(b, sdk_dep, nes_target, "neslib", optimize);
+    const nesdoug_mod = nesHeaderMod(b, sdk_dep, nes_target, "nesdoug", optimize);
 
     // Translate mapper headers for NES banked-ROM platforms.
-    const nes_cnrom_mapper_mod = nesMapperHeaderMod(b, sdk_dep, nes_target, "nes-cnrom");
-    const nes_unrom_mapper_mod = nesMapperHeaderMod(b, sdk_dep, nes_target, "nes-unrom");
-    const nes_mmc1_mapper_mod = nesMapperHeaderMod(b, sdk_dep, nes_target, "nes-mmc1");
-    const nes_mmc3_mapper_mod = nesMapperHeaderMod(b, sdk_dep, nes_target, "nes-mmc3");
-    const nes_gtrom_mapper_mod = nesMapperHeaderMod(b, sdk_dep, nes_target, "nes-gtrom");
-    const nes_unrom_512_mapper_mod = nesMapperHeaderMod(b, sdk_dep, nes_target, "nes-unrom-512");
+    const nes_cnrom_mapper_mod = nesMapperHeaderMod(b, sdk_dep, nes_target, "nes-cnrom", optimize);
+    const nes_unrom_mapper_mod = nesMapperHeaderMod(b, sdk_dep, nes_target, "nes-unrom", optimize);
+    const nes_mmc1_mapper_mod = nesMapperHeaderMod(b, sdk_dep, nes_target, "nes-mmc1", optimize);
+    const nes_mmc3_mapper_mod = nesMapperHeaderMod(b, sdk_dep, nes_target, "nes-mmc3", optimize);
+    const nes_gtrom_mapper_mod = nesMapperHeaderMod(b, sdk_dep, nes_target, "nes-gtrom", optimize);
+    const nes_unrom_512_mapper_mod = nesMapperHeaderMod(b, sdk_dep, nes_target, "nes-unrom-512", optimize);
 
     // Translate mega65.h into a Zig module.
     const mega65_target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .mega65 });
-    const mega65_mod = mega65HeaderMod(b, sdk_dep, mega65_target);
+    const mega65_mod = mega65HeaderMod(b, sdk_dep, mega65_target, optimize);
 
     // Translated headers for CX16.
     const cx16_target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .cx16 });
-    const cx16_mod = cx16HeaderMod(b, sdk_dep, cx16_target);
-    const cbm_mod = cbmHeaderMod(b, sdk_dep, cx16_target);
+    const cx16_mod = cx16HeaderMod(b, sdk_dep, cx16_target, optimize);
+    const cbm_mod = cbmHeaderMod(b, sdk_dep, cx16_target, optimize);
 
     // Translated headers for C64.
     const c64_build_target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .c64 });
-    const c64_mod = c64HeaderMod(b, sdk_dep, c64_build_target);
+    const c64_mod = c64HeaderMod(b, sdk_dep, c64_build_target, optimize);
 
     // Translated headers for Lynx.
     const lynx_build_target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .lynx });
-    const lynx_mod = lynxHeaderMod(b, sdk_dep, lynx_build_target);
+    const lynx_mod = lynxHeaderMod(b, sdk_dep, lynx_build_target, optimize);
 
     // Translated headers for Sim.
     const sim_build_target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .sim });
-    const sim_io_mod = simIoHeaderMod(b, sdk_dep, sim_build_target);
+    const sim_io_mod = simIoHeaderMod(b, sdk_dep, sim_build_target, optimize);
 
     // Translated GTIA headers for Atari 8-bit.
     const atari8_target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .atari8 });
-    const atari8_gtia_mod = atari8GtiaHeaderMod(b, sdk_dep, atari8_target);
+    const atari8_gtia_mod = atari8GtiaHeaderMod(b, sdk_dep, atari8_target, optimize);
 
     // Host tool: converts MOS ELF symbol tables to Mesen label files (.mlb).
     const elf2mlb = b.addExecutable(.{
@@ -196,7 +196,7 @@ pub fn build(b: *std.Build) void {
         .name = "mos-sim",
         .root_module = b.createModule(.{
             .target = b.graph.host,
-            .optimize = .ReleaseFast,
+            .optimize = .ReleaseSafe,
             .link_libc = true,
         }),
     });
@@ -466,7 +466,7 @@ pub fn build(b: *std.Build) void {
     // ---- Neo6502 graphics ----
     {
         const neo6502_target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .rp6502 });
-        const neo6502_mod = neo6502HeaderMod(b, sdk_dep, neo6502_target);
+        const neo6502_mod = neo6502HeaderMod(b, sdk_dep, neo6502_target, optimize);
         const step = b.step("neo6502-graphics", "Build Neo6502 graphics example");
         const exe = addNeo6502Exe(b, sdk_dep, sdk_src, sdk_libs.neo6502 orelse @panic("neo6502 libs not built"), optimize);
         exe.root_module.addImport("neo6502", neo6502_mod);
@@ -495,7 +495,7 @@ pub fn build(b: *std.Build) void {
     // ---- Atari 2600 colorbar ----
     {
         const atari2600_target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .atari2600 });
-        const vcslib_mod = atari2600HeaderMod(b, sdk_dep, atari2600_target);
+        const vcslib_mod = atari2600HeaderMod(b, sdk_dep, atari2600_target, optimize);
         const step = b.step("atari2600-colorbar", "Build Atari 2600 4K color-bar demo");
         const exe = addAtari2600Exe(b, sdk_dep, sdk_src, sdk_libs.atari2600 orelse @panic("atari2600 libs not built"), optimize, "colorbar", "atari2600/colorbar/colorbar.zig");
         exe.root_module.addImport("vcslib", vcslib_mod);
@@ -734,7 +734,7 @@ pub fn build(b: *std.Build) void {
     // ---- Atari 2600 3E colorbar ----
     {
         const atari2600_target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .atari2600 });
-        const vcslib_mod_3e = atari2600HeaderMod(b, sdk_dep, atari2600_target);
+        const vcslib_mod_3e = atari2600HeaderMod(b, sdk_dep, atari2600_target, optimize);
         const step = b.step("atari2600-3e-colorbar", "Build Atari 2600 3E mapper color-bar demo");
         const exe = addAtari2600_3eExe(b, sdk_dep, sdk_src, sdk_libs.a2600_3e orelse @panic("atari2600-3e libs not built"), optimize, "colorbar-3e", "atari2600/colorbar-3e/colorbar-3e.zig");
         exe.root_module.addImport("vcslib", vcslib_mod_3e);
@@ -800,11 +800,12 @@ fn atari2600HeaderMod(
     b: *std.Build,
     sdk_dep: *std.Build.Dependency,
     target: std.Build.ResolvedTarget,
+    opt: std.builtin.OptimizeMode,
 ) *std.Build.Module {
     const tc = b.addTranslateC(.{
         .root_source_file = sdk_dep.path("mos-platform/atari2600-common/vcslib.h"),
         .target = target,
-        .optimize = .ReleaseFast,
+        .optimize = opt,
         .link_libc = false,
     });
     tc.addIncludePath(sdk_dep.path("mos-platform/atari2600-common"));
@@ -816,11 +817,12 @@ fn neo6502HeaderMod(
     b: *std.Build,
     sdk_dep: *std.Build.Dependency,
     target: std.Build.ResolvedTarget,
+    opt: std.builtin.OptimizeMode,
 ) *std.Build.Module {
     const tc = b.addTranslateC(.{
         .root_source_file = sdk_dep.path("mos-platform/neo6502/api/neo/api.h"),
         .target = target,
-        .optimize = .ReleaseFast,
+        .optimize = opt,
         .link_libc = false,
     });
     tc.addIncludePath(sdk_dep.path("mos-platform/neo6502/api"));
@@ -834,11 +836,12 @@ fn mega65HeaderMod(
     b: *std.Build,
     sdk_dep: *std.Build.Dependency,
     target: std.Build.ResolvedTarget,
+    opt: std.builtin.OptimizeMode,
 ) *std.Build.Module {
     const tc = b.addTranslateC(.{
         .root_source_file = sdk_dep.path("mos-platform/mega65/mega65.h"),
         .target = target,
-        .optimize = .ReleaseFast,
+        .optimize = opt,
         .link_libc = false,
     });
     tc.addIncludePath(sdk_dep.path("mos-platform/mega65"));
@@ -853,11 +856,12 @@ fn nesHeaderMod(
     sdk_dep: *std.Build.Dependency,
     target: std.Build.ResolvedTarget,
     header_name: []const u8,
+    opt: std.builtin.OptimizeMode,
 ) *std.Build.Module {
     const tc = b.addTranslateC(.{
         .root_source_file = sdk_dep.path(b.fmt("mos-platform/nes/{s}/{s}.h", .{ header_name, header_name })),
         .target = target,
-        .optimize = .ReleaseFast,
+        .optimize = opt,
         .link_libc = false,
     });
     tc.addIncludePath(sdk_dep.path(b.fmt("mos-platform/nes/{s}", .{header_name})));
@@ -925,6 +929,7 @@ fn addNesExe(
             .root_source_file = b.path(root_src),
             .target = target,
             .optimize = opt,
+            .sanitize_c = .off,
         }),
     });
     exe.bundle_compiler_rt = false;
@@ -951,6 +956,12 @@ fn addNesExe(
     if (libs.nes_c) |nc| exe.root_module.linkLibrary(nc);
     if (libs.nes_c_startup) |ncs| exe.root_module.linkLibrary(ncs);
     exe.setLinkerScript(wrapper_ld);
+    exe.root_module.addImport("mos_panic", b.createModule(.{
+        .root_source_file = b.path("sdk/panic.zig"),
+        .target = target,
+        .optimize = opt,
+        .sanitize_c = .off,
+    }));
 
     return exe;
 }
@@ -1001,6 +1012,7 @@ fn addC64Exe(
             .root_source_file = b.path(root_src),
             .target = target,
             .optimize = opt,
+            .sanitize_c = .off,
         }),
     });
     exe.bundle_compiler_rt = false;
@@ -1015,6 +1027,12 @@ fn addC64Exe(
     exe.setLibCFile(libc_txt);
     exe.root_module.link_libc = true;
     exe.setLinkerScript(wrapper_ld);
+    exe.root_module.addImport("mos_panic", b.createModule(.{
+        .root_source_file = b.path("sdk/panic.zig"),
+        .target = target,
+        .optimize = opt,
+        .sanitize_c = .off,
+    }));
 
     return exe;
 }
@@ -1066,6 +1084,7 @@ fn addMega65Exe(
             .root_source_file = b.path(root_src),
             .target = target,
             .optimize = opt,
+            .sanitize_c = .off,
         }),
     });
     exe.bundle_compiler_rt = false;
@@ -1082,6 +1101,12 @@ fn addMega65Exe(
     exe.setLibCFile(libc_txt);
     exe.root_module.link_libc = true;
     exe.setLinkerScript(wrapper_ld);
+    exe.root_module.addImport("mos_panic", b.createModule(.{
+        .root_source_file = b.path("sdk/panic.zig"),
+        .target = target,
+        .optimize = opt,
+        .sanitize_c = .off,
+    }));
 
     return exe;
 }
@@ -1115,6 +1140,7 @@ fn addNeo6502Exe(
             .root_source_file = b.path("neo6502/graphics.zig"),
             .target = target,
             .optimize = opt,
+            .sanitize_c = .off,
         }),
     });
     exe.bundle_compiler_rt = false;
@@ -1125,6 +1151,12 @@ fn addNeo6502Exe(
     exe.setLibCFile(libc_txt);
     exe.root_module.link_libc = true;
     exe.setLinkerScript(wrapper_ld);
+    exe.root_module.addImport("mos_panic", b.createModule(.{
+        .root_source_file = b.path("sdk/panic.zig"),
+        .target = target,
+        .optimize = opt,
+        .sanitize_c = .off,
+    }));
     _ = sdk_dep;
 
     return exe;
@@ -1154,6 +1186,7 @@ fn addSimExe(
             .root_source_file = b.path(root_src),
             .target = target,
             .optimize = opt,
+            .sanitize_c = .off,
         }),
     });
     exe.bundle_compiler_rt = false;
@@ -1168,6 +1201,12 @@ fn addSimExe(
     exe.root_module.linkLibrary(libs.crt0);
     exe.root_module.linkLibrary(libs.c);
     exe.setLinkerScript(wrapper_ld);
+    exe.root_module.addImport("mos_panic", b.createModule(.{
+        .root_source_file = b.path("sdk/panic.zig"),
+        .target = target,
+        .optimize = opt,
+        .sanitize_c = .off,
+    }));
     _ = sdk_dep;
 
     return exe;
@@ -1197,6 +1236,7 @@ fn addAtari2600Exe(
             .root_source_file = b.path(root_src),
             .target = target,
             .optimize = opt,
+            .sanitize_c = .off,
         }),
     });
     exe.bundle_compiler_rt = false;
@@ -1209,6 +1249,12 @@ fn addAtari2600Exe(
     exe.root_module.linkLibrary(libs.crt0);
     exe.root_module.linkLibrary(libs.c);
     exe.setLinkerScript(wrapper_ld);
+    exe.root_module.addImport("mos_panic", b.createModule(.{
+        .root_source_file = b.path("sdk/panic.zig"),
+        .target = target,
+        .optimize = opt,
+        .sanitize_c = .off,
+    }));
 
     return exe;
 }
@@ -1244,6 +1290,7 @@ fn addAtari8DosExe(
             .root_source_file = b.path(root_src),
             .target = target,
             .optimize = opt,
+            .sanitize_c = .off,
         }),
     });
     exe.bundle_compiler_rt = false;
@@ -1256,6 +1303,12 @@ fn addAtari8DosExe(
     exe.setLibCFile(libc_txt);
     exe.root_module.link_libc = true;
     exe.setLinkerScript(wrapper_ld);
+    exe.root_module.addImport("mos_panic", b.createModule(.{
+        .root_source_file = b.path("sdk/panic.zig"),
+        .target = target,
+        .optimize = opt,
+        .sanitize_c = .off,
+    }));
 
     return exe;
 }
@@ -1303,6 +1356,7 @@ fn addCx16Exe(
             .root_source_file = b.path(root_src),
             .target = target,
             .optimize = opt,
+            .sanitize_c = .off,
         }),
     });
     exe.bundle_compiler_rt = false;
@@ -1317,6 +1371,12 @@ fn addCx16Exe(
     exe.setLibCFile(libc_txt);
     exe.root_module.link_libc = true;
     exe.setLinkerScript(wrapper_ld);
+    exe.root_module.addImport("mos_panic", b.createModule(.{
+        .root_source_file = b.path("sdk/panic.zig"),
+        .target = target,
+        .optimize = opt,
+        .sanitize_c = .off,
+    }));
 
     return exe;
 }
@@ -1346,6 +1406,7 @@ fn addLynxBllExe(
             .root_source_file = b.path(root_src),
             .target = target,
             .optimize = opt,
+            .sanitize_c = .off,
         }),
     });
     exe.bundle_compiler_rt = false;
@@ -1356,6 +1417,12 @@ fn addLynxBllExe(
     exe.root_module.linkLibrary(libs.crt0);
     exe.root_module.linkLibrary(libs.c);
     exe.setLinkerScript(wrapper_ld);
+    exe.root_module.addImport("mos_panic", b.createModule(.{
+        .root_source_file = b.path("sdk/panic.zig"),
+        .target = target,
+        .optimize = opt,
+        .sanitize_c = .off,
+    }));
 
     return exe;
 }
@@ -1385,6 +1452,7 @@ fn addPceExe(
             .root_source_file = b.path(root_src),
             .target = target,
             .optimize = opt,
+            .sanitize_c = .off,
         }),
     });
     exe.bundle_compiler_rt = false;
@@ -1400,6 +1468,12 @@ fn addPceExe(
     exe.root_module.linkLibrary(libs.crt0);
     exe.root_module.linkLibrary(libs.c);
     exe.setLinkerScript(wrapper_ld);
+    exe.root_module.addImport("mos_panic", b.createModule(.{
+        .root_source_file = b.path("sdk/panic.zig"),
+        .target = target,
+        .optimize = opt,
+        .sanitize_c = .off,
+    }));
 
     return exe;
 }
@@ -1445,6 +1519,7 @@ fn addNesCnromExe(
             .root_source_file = b.path(root_src),
             .target = target,
             .optimize = opt,
+            .sanitize_c = .off,
         }),
     });
     exe.bundle_compiler_rt = false;
@@ -1463,6 +1538,12 @@ fn addNesCnromExe(
     if (libs.nes_c) |nc| exe.root_module.linkLibrary(nc);
     if (libs.nes_c_startup) |ncs| exe.root_module.linkLibrary(ncs);
     exe.setLinkerScript(wrapper_ld);
+    exe.root_module.addImport("mos_panic", b.createModule(.{
+        .root_source_file = b.path("sdk/panic.zig"),
+        .target = target,
+        .optimize = opt,
+        .sanitize_c = .off,
+    }));
 
     return exe;
 }
@@ -1518,6 +1599,7 @@ fn addNesCnromMultiExe(
             .root_source_file = b.path(root_src),
             .target = target,
             .optimize = opt,
+            .sanitize_c = .off,
         }),
     });
     exe.bundle_compiler_rt = false;
@@ -1536,6 +1618,12 @@ fn addNesCnromMultiExe(
     if (libs.nes_c) |nc| exe.root_module.linkLibrary(nc);
     if (libs.nes_c_startup) |ncs| exe.root_module.linkLibrary(ncs);
     exe.setLinkerScript(wrapper_ld);
+    exe.root_module.addImport("mos_panic", b.createModule(.{
+        .root_source_file = b.path("sdk/panic.zig"),
+        .target = target,
+        .optimize = opt,
+        .sanitize_c = .off,
+    }));
 
     return exe;
 }
@@ -1581,6 +1669,7 @@ fn addNesUnromExe(
             .root_source_file = b.path(root_src),
             .target = target,
             .optimize = opt,
+            .sanitize_c = .off,
         }),
     });
     exe.bundle_compiler_rt = false;
@@ -1599,6 +1688,12 @@ fn addNesUnromExe(
     if (libs.nes_c_startup) |ncs| exe.root_module.linkLibrary(ncs);
     exe.setLinkerScript(wrapper_ld);
     exe.step.dependOn(&install_reset.step);
+    exe.root_module.addImport("mos_panic", b.createModule(.{
+        .root_source_file = b.path("sdk/panic.zig"),
+        .target = target,
+        .optimize = opt,
+        .sanitize_c = .off,
+    }));
 
     return exe;
 }
@@ -1644,6 +1739,7 @@ fn addNesUnrom512Exe(
             .root_source_file = b.path(root_src),
             .target = target,
             .optimize = opt,
+            .sanitize_c = .off,
         }),
     });
     exe.bundle_compiler_rt = false;
@@ -1662,6 +1758,12 @@ fn addNesUnrom512Exe(
     if (libs.nes_c_startup) |ncs| exe.root_module.linkLibrary(ncs);
     exe.setLinkerScript(wrapper_ld);
     exe.step.dependOn(&install_reset.step);
+    exe.root_module.addImport("mos_panic", b.createModule(.{
+        .root_source_file = b.path("sdk/panic.zig"),
+        .target = target,
+        .optimize = opt,
+        .sanitize_c = .off,
+    }));
 
     return exe;
 }
@@ -1704,6 +1806,7 @@ fn addNesMmc1Exe(
             .root_source_file = b.path(root_src),
             .target = target,
             .optimize = opt,
+            .sanitize_c = .off,
         }),
     });
     exe.bundle_compiler_rt = false;
@@ -1722,6 +1825,12 @@ fn addNesMmc1Exe(
     if (libs.nes_c_startup) |ncs| exe.root_module.linkLibrary(ncs);
     exe.setLinkerScript(wrapper_ld);
     exe.step.dependOn(&install_reset.step);
+    exe.root_module.addImport("mos_panic", b.createModule(.{
+        .root_source_file = b.path("sdk/panic.zig"),
+        .target = target,
+        .optimize = opt,
+        .sanitize_c = .off,
+    }));
 
     return exe;
 }
@@ -1761,6 +1870,7 @@ fn addNesGtromExe(
             .root_source_file = b.path(root_src),
             .target = target,
             .optimize = opt,
+            .sanitize_c = .off,
         }),
     });
     exe.bundle_compiler_rt = false;
@@ -1779,6 +1889,12 @@ fn addNesGtromExe(
     if (libs.nes_c) |nc| exe.root_module.linkLibrary(nc);
     if (libs.nes_c_startup) |ncs| exe.root_module.linkLibrary(ncs);
     exe.setLinkerScript(wrapper_ld);
+    exe.root_module.addImport("mos_panic", b.createModule(.{
+        .root_source_file = b.path("sdk/panic.zig"),
+        .target = target,
+        .optimize = opt,
+        .sanitize_c = .off,
+    }));
 
     return exe;
 }
@@ -1821,6 +1937,7 @@ fn addNesMmc3Exe(
             .root_source_file = b.path(root_src),
             .target = target,
             .optimize = opt,
+            .sanitize_c = .off,
         }),
     });
     exe.bundle_compiler_rt = false;
@@ -1839,6 +1956,12 @@ fn addNesMmc3Exe(
     if (libs.nes_c_startup) |ncs| exe.root_module.linkLibrary(ncs);
     exe.setLinkerScript(wrapper_ld);
     exe.step.dependOn(&install_reset.step);
+    exe.root_module.addImport("mos_panic", b.createModule(.{
+        .root_source_file = b.path("sdk/panic.zig"),
+        .target = target,
+        .optimize = opt,
+        .sanitize_c = .off,
+    }));
 
     return exe;
 }
@@ -1880,6 +2003,7 @@ fn addAtari2600_3eExe(
             .root_source_file = b.path(root_src),
             .target = target,
             .optimize = opt,
+            .sanitize_c = .off,
         }),
     });
     exe.bundle_compiler_rt = false;
@@ -1893,6 +2017,12 @@ fn addAtari2600_3eExe(
     exe.root_module.linkLibrary(libs.c);
     exe.setLinkerScript(wrapper_ld);
     exe.step.dependOn(&install_init.step);
+    exe.root_module.addImport("mos_panic", b.createModule(.{
+        .root_source_file = b.path("sdk/panic.zig"),
+        .target = target,
+        .optimize = opt,
+        .sanitize_c = .off,
+    }));
 
     return exe;
 }
@@ -1929,6 +2059,7 @@ fn addAtari8CartStdExe(
             .root_source_file = b.path(root_src),
             .target = target,
             .optimize = opt,
+            .sanitize_c = .off,
         }),
     });
     exe.bundle_compiler_rt = false;
@@ -1941,6 +2072,12 @@ fn addAtari8CartStdExe(
     exe.setLibCFile(libc_txt);
     exe.root_module.link_libc = true;
     exe.setLinkerScript(wrapper_ld);
+    exe.root_module.addImport("mos_panic", b.createModule(.{
+        .root_source_file = b.path("sdk/panic.zig"),
+        .target = target,
+        .optimize = opt,
+        .sanitize_c = .off,
+    }));
 
     return exe;
 }
@@ -1968,6 +2105,7 @@ fn addSnesExe(
             .root_source_file = b.path(root_src),
             .target = target,
             .optimize = opt,
+            .sanitize_c = .off,
         }),
     });
     exe.bundle_compiler_rt = false;
@@ -1980,11 +2118,13 @@ fn addSnesExe(
         .root_source_file = b.path("snes/hardware.zig"),
         .target = target,
         .optimize = opt,
+        .sanitize_c = .off,
     });
     const sneslib_mod = b.createModule(.{
         .root_source_file = b.path("snes/sneslib.zig"),
         .target = target,
         .optimize = opt,
+        .sanitize_c = .off,
     });
     sneslib_mod.addImport("snes", snes_mod);
     exe.root_module.addImport("snes", snes_mod);
@@ -1993,6 +2133,13 @@ fn addSnesExe(
         .root_source_file = b.path("snes/header.zig"),
         .target = target,
         .optimize = opt,
+        .sanitize_c = .off,
+    }));
+    exe.root_module.addImport("mos_panic", b.createModule(.{
+        .root_source_file = b.path("sdk/panic.zig"),
+        .target = target,
+        .optimize = opt,
+        .sanitize_c = .off,
     }));
     exe.root_module.linkLibrary(libs.crt);
     exe.root_module.linkLibrary(libs.crt0);
@@ -2006,11 +2153,12 @@ fn cx16HeaderMod(
     b: *std.Build,
     sdk_dep: *std.Build.Dependency,
     target: std.Build.ResolvedTarget,
+    opt: std.builtin.OptimizeMode,
 ) *std.Build.Module {
     const tc = b.addTranslateC(.{
         .root_source_file = sdk_dep.path("mos-platform/cx16/cx16.h"),
         .target = target,
-        .optimize = .ReleaseFast,
+        .optimize = opt,
         .link_libc = false,
     });
     tc.addIncludePath(sdk_dep.path("mos-platform/cx16"));
@@ -2023,11 +2171,12 @@ fn cbmHeaderMod(
     b: *std.Build,
     sdk_dep: *std.Build.Dependency,
     target: std.Build.ResolvedTarget,
+    opt: std.builtin.OptimizeMode,
 ) *std.Build.Module {
     const tc = b.addTranslateC(.{
         .root_source_file = sdk_dep.path("mos-platform/commodore/cbm.h"),
         .target = target,
-        .optimize = .ReleaseFast,
+        .optimize = opt,
         .link_libc = false,
     });
     tc.defineCMacro("__CBM__", null);
@@ -2041,11 +2190,12 @@ fn c64HeaderMod(
     b: *std.Build,
     sdk_dep: *std.Build.Dependency,
     target: std.Build.ResolvedTarget,
+    opt: std.builtin.OptimizeMode,
 ) *std.Build.Module {
     const tc = b.addTranslateC(.{
         .root_source_file = sdk_dep.path("mos-platform/c64/c64.h"),
         .target = target,
-        .optimize = .ReleaseFast,
+        .optimize = opt,
         .link_libc = false,
     });
     tc.addIncludePath(sdk_dep.path("mos-platform/c64"));
@@ -2058,11 +2208,12 @@ fn lynxHeaderMod(
     b: *std.Build,
     sdk_dep: *std.Build.Dependency,
     target: std.Build.ResolvedTarget,
+    opt: std.builtin.OptimizeMode,
 ) *std.Build.Module {
     const tc = b.addTranslateC(.{
         .root_source_file = sdk_dep.path("mos-platform/lynx/lynx.h"),
         .target = target,
-        .optimize = .ReleaseFast,
+        .optimize = opt,
         .link_libc = false,
     });
     tc.addIncludePath(sdk_dep.path("mos-platform/lynx"));
@@ -2075,11 +2226,12 @@ fn nesMapperHeaderMod(
     sdk_dep: *std.Build.Dependency,
     target: std.Build.ResolvedTarget,
     platform: []const u8,
+    opt: std.builtin.OptimizeMode,
 ) *std.Build.Module {
     const tc = b.addTranslateC(.{
         .root_source_file = sdk_dep.path(b.fmt("mos-platform/{s}/mapper.h", .{platform})),
         .target = target,
-        .optimize = .ReleaseFast,
+        .optimize = opt,
         .link_libc = false,
     });
     tc.addIncludePath(sdk_dep.path(b.fmt("mos-platform/{s}", .{platform})));
@@ -2092,11 +2244,12 @@ fn atari8GtiaHeaderMod(
     b: *std.Build,
     sdk_dep: *std.Build.Dependency,
     target: std.Build.ResolvedTarget,
+    opt: std.builtin.OptimizeMode,
 ) *std.Build.Module {
     const tc = b.addTranslateC(.{
         .root_source_file = sdk_dep.path("mos-platform/atari8-common/_gtia.h"),
         .target = target,
-        .optimize = .ReleaseFast,
+        .optimize = opt,
         .link_libc = false,
     });
     tc.addIncludePath(sdk_dep.path("mos-platform/atari8-common"));
@@ -2108,11 +2261,12 @@ fn simIoHeaderMod(
     b: *std.Build,
     sdk_dep: *std.Build.Dependency,
     target: std.Build.ResolvedTarget,
+    opt: std.builtin.OptimizeMode,
 ) *std.Build.Module {
     const tc = b.addTranslateC(.{
         .root_source_file = sdk_dep.path("mos-platform/sim/sim-io.h"),
         .target = target,
-        .optimize = .ReleaseFast,
+        .optimize = opt,
         .link_libc = false,
     });
     tc.addIncludePath(sdk_dep.path("mos-platform/sim"));
@@ -2141,6 +2295,7 @@ fn addApple2Exe(
             .root_source_file = b.path("apple2/hello/hello.zig"),
             .target = target,
             .optimize = opt,
+            .sanitize_c = .off,
         }),
     });
     exe.bundle_compiler_rt = false;
@@ -2149,6 +2304,13 @@ fn addApple2Exe(
         .root_source_file = b.path("apple2/hardware.zig"),
         .target = target,
         .optimize = opt,
+        .sanitize_c = .off,
+    }));
+    exe.root_module.addImport("mos_panic", b.createModule(.{
+        .root_source_file = b.path("sdk/panic.zig"),
+        .target = target,
+        .optimize = opt,
+        .sanitize_c = .off,
     }));
     exe.root_module.addIncludePath(.{ .cwd_relative = b.fmt("{s}/mos-platform/common/asminc", .{sdk_src}) });
     exe.root_module.addIncludePath(.{ .cwd_relative = b.fmt("{s}/mos-platform/common/crt", .{sdk_src}) });

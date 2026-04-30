@@ -5,6 +5,8 @@
 // Mode 0 BG1, 8×8 tiles, logo anchored at tile column 8, row 7.
 // Tilemap at VRAM word 0x0000 (BG1SC=0x00), CHR at word 0x1000 (BG12NBA=0x01, unit=0x1000 words).
 
+pub const panic = @import("mos_panic");
+
 const hw = @import("snes");
 const sneslib = @import("sneslib");
 comptime {

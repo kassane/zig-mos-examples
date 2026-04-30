@@ -3,6 +3,7 @@
 //! Atari 8-bit standard cartridge background color cycling demo.
 //! Uses the translated _gtia.h module for the GTIA write struct.
 //! Cycles COLBK through all GTIA hues each frame, synced to ANTIC VCOUNT.
+pub const panic = @import("mos_panic");
 
 const gtia = @import("gtia");
 
@@ -23,8 +24,4 @@ export fn main() void {
         GTIA.colbk = color;
         color +%= 2;
     }
-}
-
-pub fn panic(_: []const u8, _: ?*@import("std").builtin.StackTrace, _: ?usize) noreturn {
-    while (true) {}
 }

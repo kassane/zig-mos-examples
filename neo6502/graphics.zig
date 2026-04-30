@@ -1,6 +1,7 @@
 // Copyright (c) 2024 Matheus C. França
 // SPDX-License-Identifier: Apache-2.0
 //! Neo6502 graphics demo: concentric rectangles, an ellipse, and shadowed text.
+pub const panic = @import("mos_panic");
 const api = @import("neo6502");
 
 /// Colours for the eight concentric rectangles (outermost first).

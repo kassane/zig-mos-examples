@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //! C64 VIC-II border and background colour cycling demo.
 //! Uses the translated c64.h module for VIC struct type and color constants.
+pub const panic = @import("mos_panic");
 
 const c64 = @import("c64");
 
@@ -12,8 +13,4 @@ export fn main() void {
     while (true) {
         VIC.bordercolor +%= 1;
     }
-}
-
-pub fn panic(_: []const u8, _: ?*@import("std").builtin.StackTrace, _: ?usize) noreturn {
-    while (true) {}
 }

@@ -1,6 +1,7 @@
 // Copyright (c) 2024 Matheus C. França
 // SPDX-License-Identifier: Apache-2.0
 //! NES hello-world: demonstrates the VRAM update queue for bulk and non-sequential writes.
+pub const panic = @import("mos_panic");
 const neslib = @import("neslib");
 
 const bg_palette: [16]u8 = .{ 0x0f, 0x00, 0x10, 0x30 } ++ .{0x00} ** 12;

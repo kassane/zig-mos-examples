@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //! NES palette-fade demo: loads a full-screen RLE background (Girl5),
 //! then uses pal_fade_to to cycle between black (0) and normal (4).
+pub const panic = @import("mos_panic");
 const neslib = @import("neslib");
 const nesdoug = @import("nesdoug");
 
@@ -53,8 +54,4 @@ pub export fn main() callconv(.c) void {
         nesdoug.pal_fade_to(4, 0);
         neslib.delay(100);
     }
-}
-
-pub fn panic(_: []const u8, _: ?*@import("std").builtin.StackTrace, _: ?usize) noreturn {
-    while (true) {}
 }

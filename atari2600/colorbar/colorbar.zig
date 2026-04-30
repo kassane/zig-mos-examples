@@ -3,6 +3,7 @@
 //! Atari 2600 4K color-bar demo.
 //! Each frame the background color cycles through the TIA palette.
 //! The default frameloop.c handles VSYNC/VBLANK timing; we only set COLUBK.
+pub const panic = @import("mos_panic");
 
 const vcs = @import("vcslib");
 
@@ -21,8 +22,4 @@ export fn main() void {
         vcs.kernel_4(); // wait for overscan timer
         color +%= 2;
     }
-}
-
-pub fn panic(_: []const u8, _: ?*@import("std").builtin.StackTrace, _: ?usize) noreturn {
-    while (true) {}
 }
