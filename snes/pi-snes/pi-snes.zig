@@ -1,6 +1,7 @@
 // Copyright (c) 2024 Matheus C. França
 // SPDX-License-Identifier: Apache-2.0
 //! SNES π demo — port of pi_snes by Sirmacho.
+//! https://x.com/RheoGamer/status/2049557714280288568
 //! Computes ~900 digits of π using the Rabinowitz-Wagon Spigot algorithm
 //! and displays them on BG1 using the pvsneslib font (pvsneslibfont.pic).
 //!
