@@ -61,7 +61,7 @@ jobs:
         run: zig build sdk-build --summary all
 
       - name: Build NES examples and generate Mesen label files
-        run: zig build nes-hello1 nes-hello2 nes-hello3 nes-zig-logo nes-fade nes-sprites nes-random nes-pads nes-color-cycle nes-fullbg nes-mappers nes-cnrom-hello nes-unrom-hello nes-mmc1-hello nes-mmc3-hello nes-gtrom-hello gen-labels --summary all
+        run: zig build nes-hello1 nes-hello2 nes-hello3 nes-zig-logo nes-fade nes-sprites nes-random nes-pads nes-color-cycle nes-fullbg nes-mappers nes-cnrom-hello nes-unrom-hello nes-unrom-512-hello nes-mmc1-hello nes-mmc3-hello nes-gtrom-hello gen-labels --summary all
 
       - name: Build C64 examples
         run: zig build c64-hello c64-fibonacci c64-plasma --summary all
@@ -104,7 +104,7 @@ jobs:
           ls -la zig-out/bin/
           for f in \
             hello1.nes hello2.nes hello3.nes zig-logo.nes fade.nes sprites.nes random.nes pads.nes color-cycle.nes \
-            fullbg.nes mappers.nes cnrom-hello.nes unrom-hello.nes mmc1-hello.nes mmc3-hello.nes gtrom-hello.nes \
+            fullbg.nes mappers.nes cnrom-hello.nes unrom-hello.nes unrom-512-hello.nes mmc1-hello.nes mmc3-hello.nes gtrom-hello.nes \
             c64-hello.prg fibonacci.prg plasma.prg \
             cx16-hello.prg cx16-k-console-test.prg \
             lynx-hello.bll \
@@ -163,7 +163,7 @@ jobs:
           }
           # NES
           for f in hello1.nes hello2.nes hello3.nes zig-logo.nes fade.nes sprites.nes random.nes \
-                   pads.nes color-cycle.nes fullbg.nes mappers.nes cnrom-hello.nes unrom-hello.nes mmc1-hello.nes mmc3-hello.nes; do
+                   pads.nes color-cycle.nes fullbg.nes mappers.nes cnrom-hello.nes unrom-hello.nes unrom-512-hello.nes mmc1-hello.nes mmc3-hello.nes; do
             smoke "$f"
           done
           # Note: gtrom-hello.nes (mapper 111) is NOT tested here — apt mednafen lacks GTROM support.
@@ -262,7 +262,7 @@ jobs:
             echo "OK: $f (rc=$rc)"
           }
           for f in hello1.nes hello2.nes hello3.nes zig-logo.nes fade.nes sprites.nes random.nes \
-                   pads.nes color-cycle.nes fullbg.nes mappers.nes cnrom-hello.nes unrom-hello.nes mmc1-hello.nes mmc3-hello.nes \
+                   pads.nes color-cycle.nes fullbg.nes mappers.nes cnrom-hello.nes unrom-hello.nes unrom-512-hello.nes mmc1-hello.nes mmc3-hello.nes \
                    gtrom-hello.nes; do
             run_emutest "$f" mesen_libretro.so
           done

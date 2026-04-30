@@ -23,6 +23,9 @@ pub const Libs = struct {
     nes_c: ?*std.Build.Step.Compile = null,
     // NES only: startup C files (copy-data, zero-bss, exit-loop) with lto = .none.
     nes_c_startup: ?*std.Build.Step.Compile = null,
+    // Platforms that need a strong __memset (overrides the weak recursive stub):
+    // built as a TRUE object so ld.lld sees the strong definition before the archive.
+    mem: ?*std.Build.Step.Compile = null,
 };
 
 /// Build platform libraries for `pd` from the SDK source tree at `sdk_root`.
@@ -58,9 +61,9 @@ pub fn buildPlatform(b: *std.Build, sdk_root: []const u8, pd: Platform) Libs {
     if (std.mem.eql(u8, pd.name, "nes"))
         return buildNes(b, target, opt, libcrt, plat_dir, null, null, false, false, crt0_dir, com_inc, com_asm);
     if (std.mem.startsWith(u8, pd.name, "nes-")) {
-        const has_mapper_s = std.mem.eql(u8, pd.name, "nes-unrom") or std.mem.eql(u8, pd.name, "nes-mmc1") or std.mem.eql(u8, pd.name, "nes-mmc3") or std.mem.eql(u8, pd.name, "nes-gtrom");
+        const has_mapper_s = std.mem.eql(u8, pd.name, "nes-unrom") or std.mem.eql(u8, pd.name, "nes-unrom-512") or std.mem.eql(u8, pd.name, "nes-mmc1") or std.mem.eql(u8, pd.name, "nes-mmc3") or std.mem.eql(u8, pd.name, "nes-gtrom");
         const has_irq = std.mem.eql(u8, pd.name, "nes-mmc3");
-        const variant_define: ?[]const u8 = if (std.mem.eql(u8, pd.name, "nes-cnrom")) "__NES_CNROM__" else if (std.mem.eql(u8, pd.name, "nes-unrom")) "__NES_UNROM__" else if (std.mem.eql(u8, pd.name, "nes-mmc1")) "__NES_MMC1__" else if (std.mem.eql(u8, pd.name, "nes-mmc3")) "__NES_MMC3__" else if (std.mem.eql(u8, pd.name, "nes-gtrom")) "__NES_GTROM__" else null;
+        const variant_define: ?[]const u8 = if (std.mem.eql(u8, pd.name, "nes-cnrom")) "__NES_CNROM__" else if (std.mem.eql(u8, pd.name, "nes-unrom")) "__NES_UNROM__" else if (std.mem.eql(u8, pd.name, "nes-unrom-512")) "__NES_UNROM_512__" else if (std.mem.eql(u8, pd.name, "nes-mmc1")) "__NES_MMC1__" else if (std.mem.eql(u8, pd.name, "nes-mmc3")) "__NES_MMC3__" else if (std.mem.eql(u8, pd.name, "nes-gtrom")) "__NES_GTROM__" else null;
         return buildNes(b, target, opt, libcrt, b.fmt("{s}/mos-platform/nes", .{sdk_root}), b.fmt("{s}/mos-platform/{s}", .{ sdk_root, pd.name }), variant_define, has_mapper_s, has_irq, crt0_dir, com_inc, com_asm);
     }
     if (std.mem.eql(u8, pd.name, "neo6502"))
@@ -333,7 +336,16 @@ fn buildNes(
         }
     }
 
-    return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc, .neslib = libneslib, .nesdoug = libnesdoug, .nes_c = libnes_c, .nes_c_startup = libnes_c_startup };
+    // mem.s — strong __memset override (TRUE object, lto = .none).
+    // Must be linked directly into each exe, not placed in an archive.
+    const mem_obj = b.addObject(.{
+        .name = "mem",
+        .root_module = b.createModule(.{ .target = target, .optimize = opt }),
+    });
+    mem_obj.lto = .none;
+    mem_obj.root_module.addAssemblyFile(b.path("sdk/mem.s"));
+
+    return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc, .neslib = libneslib, .nesdoug = libnesdoug, .nes_c = libnes_c, .nes_c_startup = libnes_c_startup, .mem = mem_obj };
 }
 
 fn buildNeo6502(
@@ -409,7 +421,7 @@ fn buildSnes(
         .files = &.{"exit-loop.c"},
     });
 
-    // libc: mem.c provides memcpy/__memset used by copy-data.c and zero-bss.c.
+    // libc: mem.c provides memcpy/memmove/memcmp/memchr (but NOT __memset — see below).
     const libc = addLib(b, "c", target, opt);
     libc.root_module.addIncludePath(.{ .cwd_relative = com_inc });
     libc.root_module.addCSourceFiles(.{
@@ -417,7 +429,19 @@ fn buildSnes(
         .files = &.{"mem.c"},
     });
 
-    return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc };
+    // sdk/mem.s — strong __memset TRUE object.
+    // mem.c's __memset is __attribute__((weak)); zig cc (clang 21) compiles it to a
+    // broken recursive stub.  sdk/mem.s provides a correct strong definition that
+    // must land on the link line as a plain object, NOT inside an archive, so ld.lld
+    // sees it before resolving the weak symbol from libc.
+    const mem_obj = b.addObject(.{
+        .name = "mem",
+        .root_module = b.createModule(.{ .target = target, .optimize = opt }),
+    });
+    mem_obj.lto = .none;
+    mem_obj.root_module.addAssemblyFile(b.path("sdk/mem.s"));
+
+    return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc, .mem = mem_obj };
 }
 
 fn buildAtari2600_4k(

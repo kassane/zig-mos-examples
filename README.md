@@ -72,6 +72,7 @@ zig build neo6502-graphics
 zig build snes-hello
 zig build snes-color-cycle
 zig build snes-zig-logo
+zig build snes-pi-test
 
 # mos-sim (6502 simulator)
 zig build sim-hello
@@ -123,6 +124,7 @@ Output files land in `zig-out/bin/`.
 |---------|---------|
 | `snes-zig-logo` — Zig mark logo on BG1 with shimmer palette animation | ![](.github/snes-zig-logo.gif) |
 | `snes-color-cycle` — backdrop hue rotation (192-step colour wheel) | |
+| `snes-pi-test` — ~900 digits of π via Spigot algorithm, BG1 text (port of pi_snes by Sirmacho) | |
 
 ### Other platforms
 
@@ -168,6 +170,7 @@ Output files land in `zig-out/bin/`.
 | `snes-hello` | SNES LoROM | mosw65816 | `.sfc` |
 | `snes-color-cycle` | SNES LoROM | mosw65816 | `.sfc` |
 | `snes-zig-logo` | SNES LoROM | mosw65816 | `.sfc` |
+| `snes-pi-test` | SNES LoROM | mosw65816 | `.sfc` |
 | `sim-hello` | mos-sim (6502 simulator) | mos6502 | binary |
 | `mega65-hello`, `mega65-plasma` | MEGA65 | mos45gs02 | `.prg` |
 | `mega65-viciv` | MEGA65 VICIV | mos45gs02 | `.prg` |
