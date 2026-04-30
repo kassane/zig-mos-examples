@@ -1,6 +1,7 @@
 // Copyright (c) 2024 Matheus C. França
 // SPDX-License-Identifier: Apache-2.0
 //! NES hello-world: writes "Hello Zig!" to the background nametable.
+pub const panic = @import("mos_panic");
 const neslib = @import("neslib");
 
 /// One full BG palette (4 sub-palettes × 4 colours = 16 bytes).

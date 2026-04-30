@@ -3,6 +3,7 @@
 //! Atari Lynx BLL palette cycling demo.
 //! Uses the translated lynx.h module for MIKEY struct type.
 //! The MIKEY palette is at 0xFDA0 (32 bytes).
+pub const panic = @import("mos_panic");
 
 const lynx = @import("lynx");
 
@@ -17,8 +18,4 @@ export fn main() void {
         }
         phase +%= 1;
     }
-}
-
-pub fn panic(_: []const u8, _: ?*@import("std").builtin.StackTrace, _: ?usize) noreturn {
-    while (true) {}
 }

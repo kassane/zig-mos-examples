@@ -5,6 +5,7 @@
 //! 16 KiB CHR-RAM, and unique features: 2 CHR banks, 2 nametable banks, and
 //! green/red LEDs on the PCB itself.
 //! Uses translated mapper.h (set_prg_bank / set_chr_bank / set_nt_bank).
+pub const panic = @import("mos_panic");
 const neslib = @import("neslib");
 const mapper = @import("mapper");
 
@@ -23,8 +24,4 @@ pub export fn main() callconv(.c) void {
     while (true) {
         neslib.ppu_wait_nmi();
     }
-}
-
-pub fn panic(_: []const u8, _: ?*@import("std").builtin.StackTrace, _: ?usize) noreturn {
-    while (true) {}
 }

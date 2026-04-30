@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //! MEGA65 plasma: full-screen interference pattern using a VIC-IV custom charset.
 //! Runs at 3.5 MHz (C65 FAST mode); charset generated from an XOR-shift PRNG + sine table.
+pub const panic = @import("mos_panic");
 const std = @import("std");
 const mega65 = @import("mega65");
 
@@ -126,10 +127,6 @@ export fn main() void {
     charptr_reg.* = CHARSET_ADDRESS;
     speed_mode3();
     while (true) draw();
-}
-
-pub fn panic(_: []const u8, _: ?*std.builtin.StackTrace, _: ?usize) noreturn {
-    while (true) {}
 }
 
 /// Satisfy crt0's __zero_bss / compiler-generated memory ops (no C stdlib linked).

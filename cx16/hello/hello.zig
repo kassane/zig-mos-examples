@@ -3,6 +3,7 @@
 //! Commander X16 hello demo.
 //! Uses the cbm module to print "HELLO X16!" via cbm_k_chrout,
 //! then cycles the VIC border colour register.
+pub const panic = @import("mos_panic");
 
 const cbm = @import("cbm");
 
@@ -16,8 +17,4 @@ export fn main() void {
     while (true) {
         VIC_BORDERCOL.* +%= 1;
     }
-}
-
-pub fn panic(_: []const u8, _: ?*@import("std").builtin.StackTrace, _: ?usize) noreturn {
-    while (true) {}
 }

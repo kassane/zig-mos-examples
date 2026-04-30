@@ -1,6 +1,7 @@
 // Copyright (c) 2024 Matheus C. França
 // SPDX-License-Identifier: Apache-2.0
 //! NES Megablast: full game port of ProgrammingGamesForTheNES CH13.
+pub const panic = @import("mos_panic");
 const neslib = @import("neslib");
 const nesdoug = @import("nesdoug");
 
@@ -137,6 +138,7 @@ fn queueGameOver() void {
 }
 
 fn addScore(pts: u8) void {
+    @setRuntimeSafety(false);
     const s0 = @as(u16, score[0]) + pts;
     if (s0 >= 100) {
         score[0] = @intCast(s0 - 100);
@@ -162,6 +164,7 @@ fn addScore(pts: u8) void {
 }
 
 fn subtractScore(pts: u8) void {
+    @setRuntimeSafety(false);
     if (score[0] == 0 and score[1] == 0 and score[2] == 0) return;
     if (score[0] >= pts) {
         score[0] -= pts;
@@ -191,6 +194,7 @@ fn placeStars() void {
 }
 
 fn animateStars(frame: u8) void {
+    @setRuntimeSafety(false);
     if (frame & 3 != 0) return;
     const tile: u8 = if ((frame >> 2) & 1 != 0) 13 else 12;
     for (star_addrs) |a| {
@@ -237,6 +241,7 @@ fn setPlayerShape(pat: u8) void {
 }
 
 fn spawnEnemy() void {
+    @setRuntimeSafety(false);
     if (enemy_cooldown > 0) {
         enemy_cooldown -= 1;
         if (enemy_cooldown != 0) return;
@@ -306,6 +311,7 @@ fn spawnEnemy() void {
 }
 
 fn moveEnemies(frame: u8) void {
+    @setRuntimeSafety(false);
     const bx = oam[19];
     const by = oam[16];
     const bullet_on = by != 0xFF;
@@ -421,6 +427,7 @@ fn moveEnemies(frame: u8) void {
 }
 
 fn playerActions(pad: u8) void {
+    @setRuntimeSafety(false);
     if (player_dead != 0) {
         switch (player_dead) {
             1 => {
@@ -472,6 +479,7 @@ fn playerActions(pad: u8) void {
 }
 
 fn movePlayerBullet() void {
+    @setRuntimeSafety(false);
     if (oam[16] == 0xFF) return;
     if (oam[16] < 4) {
         oam[16] = 0xFF;
@@ -622,6 +630,7 @@ pub export fn main() callconv(.c) void {
 }
 
 fn updatePalette(frame: u8) void {
+    @setRuntimeSafety(false);
     // Swap bg palette colors 1 and 2 every 8 frames for rainbow shimmer
     if (frame & 7 == 0) {
         const tmp = pal1;
@@ -640,14 +649,11 @@ fn updatePalette(frame: u8) void {
 }
 
 fn updateShake() void {
+    @setRuntimeSafety(false);
     if (shake > 0) {
         shake -= 1;
         neslib.scroll(@as(u8, (shake & 1) * 4), 0);
     } else {
         neslib.scroll(0, 0);
     }
-}
-
-pub fn panic(_: []const u8, _: ?*@import("std").builtin.StackTrace, _: ?usize) noreturn {
-    while (true) {}
 }

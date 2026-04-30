@@ -3,6 +3,8 @@
 //
 // SNES LoROM hello: fills the backdrop with Zig orange and spins forever.
 
+pub const panic = @import("mos_panic");
+
 const sneslib = @import("sneslib");
 comptime {
     _ = @import("snes_header");

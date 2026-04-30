@@ -13,6 +13,8 @@
 //! Font: pvsneslibfont.pic — 96 SNES 4bpp tiles covering ASCII $20–$7F.
 //! Tile index for character C = TILE_OFFSET + (C - 0x20).
 
+pub const panic = @import("mos_panic");
+
 const hw = @import("snes");
 const sneslib = @import("sneslib");
 comptime {
@@ -37,6 +39,7 @@ var pi_count: u16 = 0;
 var render_head: u16 = 0;
 
 fn store_digit(ch: u8) void {
+    @setRuntimeSafety(false);
     if (pi_count < MAX_DIGITS) {
         pi_digits[pi_count] = ch;
         pi_count += 1;
@@ -47,6 +50,7 @@ fn store_digit(ch: u8) void {
 // Called once per Spigot outer iteration — typically flushes 0–4 new tiles.
 // VRAM writes during VBlank require no force-blank.
 fn flush_new_vblank() void {
+    @setRuntimeSafety(false);
     if (render_head >= pi_count) return;
     sneslib.wait_vblank();
     while (render_head < pi_count) {
@@ -58,6 +62,7 @@ fn flush_new_vblank() void {
 }
 
 fn calculate_pi() void {
+    @setRuntimeSafety(false);
     hw.INIDISP.* = 0x80;
     sneslib.cgram_set(0, hw.color(31, 0, 0));
     hw.INIDISP.* = 0x0F;

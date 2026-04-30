@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //! C64 plasma: character-mode interference pattern using SID noise as PRNG.
 //! Custom 256-char charset at $2000; VIC-II bank 0 ($D018 = 0x18).
+pub const panic = @import("mos_panic");
 const COLS: usize = 40;
 const ROWS: usize = 25;
 

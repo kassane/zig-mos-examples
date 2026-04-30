@@ -4,6 +4,7 @@
 //! Sets screen to 320x240 graphics mode, draws a text console greeting,
 //! waits for a keypress, renders a small face bitmap, waits again, then
 //! returns to text mode.
+pub const panic = @import("mos_panic");
 
 const cx16 = @import("cx16");
 const cbm = @import("cbm");
@@ -44,8 +45,4 @@ export fn main() void {
 
     _ = cx16.cx16_k_screen_mode_set(0);
     consolePuts("DONE.", 0);
-}
-
-pub fn panic(_: []const u8, _: ?*@import("std").builtin.StackTrace, _: ?usize) noreturn {
-    while (true) {}
 }

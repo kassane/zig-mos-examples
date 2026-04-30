@@ -3,6 +3,7 @@
 //! PC Engine banked color-cycle demo.
 //! Declares ROM bank 1 at virtual offset 6 (0xC000), places cycle_color
 //! in that bank section, maps the bank at startup, then loops.
+pub const panic = @import("mos_panic");
 
 // translate-c cannot handle the volatile pointer cast macros in hardware.h
 // (they use C volatile casts that translate-c rejects), so we define the
@@ -51,7 +52,3 @@ export fn irq_timer() callconv(.c) void {}
 export fn nmi() callconv(.c) void {}
 export fn irq_ext() callconv(.c) void {}
 export fn irq_vdc_2() callconv(.c) void {}
-
-pub fn panic(_: []const u8, _: ?*@import("std").builtin.StackTrace, _: ?usize) noreturn {
-    while (true) {}
-}

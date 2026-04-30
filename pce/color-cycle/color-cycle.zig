@@ -3,6 +3,7 @@
 //! PC Engine color-cycle demo.
 //! Writes a cycling 9-bit color to VCE palette entry 0 (background color).
 //! VCE registers: COLOR_INDEX at 0x0400, COLOR_DATA at 0x0402.
+pub const panic = @import("mos_panic");
 
 const IO_VCE_COLOR_INDEX: *volatile u16 = @ptrFromInt(0x0402);
 const IO_VCE_COLOR_DATA: *volatile u16 = @ptrFromInt(0x0404);
@@ -22,7 +23,3 @@ export fn irq_timer() callconv(.c) void {}
 export fn nmi() callconv(.c) void {}
 export fn irq_ext() callconv(.c) void {}
 export fn irq_vdc_2() callconv(.c) void {}
-
-pub fn panic(_: []const u8, _: ?*@import("std").builtin.StackTrace, _: ?usize) noreturn {
-    while (true) {}
-}
