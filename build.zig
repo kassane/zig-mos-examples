@@ -198,6 +198,7 @@ pub fn build(b: *std.Build) void {
             .target = b.graph.host,
             .optimize = .ReleaseSafe,
             .link_libc = true,
+            .sanitize_c = .off,
         }),
     });
     mos_sim.root_module.addCSourceFiles(.{
