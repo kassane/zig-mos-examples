@@ -336,14 +336,17 @@ fn buildNes(
         }
     }
 
-    // mem.s — strong __memset override (TRUE object, lto = .none).
+    // sdk/mem.zig — strong __memset override (TRUE object, lto = .none).
     // Must be linked directly into each exe, not placed in an archive.
     const mem_obj = b.addObject(.{
         .name = "mem",
-        .root_module = b.createModule(.{ .target = target, .optimize = opt }),
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("sdk/mem.zig"),
+            .target = target,
+            .optimize = opt,
+        }),
     });
     mem_obj.lto = .none;
-    mem_obj.root_module.addAssemblyFile(b.path("sdk/mem.s"));
 
     return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc, .neslib = libneslib, .nesdoug = libnesdoug, .nes_c = libnes_c, .nes_c_startup = libnes_c_startup, .mem = mem_obj };
 }
@@ -429,17 +432,20 @@ fn buildSnes(
         .files = &.{"mem.c"},
     });
 
-    // sdk/mem.s — strong __memset TRUE object.
+    // sdk/mem.zig — strong __memset TRUE object.
     // mem.c's __memset is __attribute__((weak)); zig cc (clang 21) compiles it to a
-    // broken recursive stub.  sdk/mem.s provides a correct strong definition that
-    // must land on the link line as a plain object, NOT inside an archive, so ld.lld
-    // sees it before resolving the weak symbol from libc.
+    // broken recursive stub.  sdk/mem.zig (Zig frontend → LLVM-MOS) generates a
+    // correct byte-store loop and must land on the link line as a plain object,
+    // NOT inside an archive.
     const mem_obj = b.addObject(.{
         .name = "mem",
-        .root_module = b.createModule(.{ .target = target, .optimize = opt }),
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("sdk/mem.zig"),
+            .target = target,
+            .optimize = opt,
+        }),
     });
     mem_obj.lto = .none;
-    mem_obj.root_module.addAssemblyFile(b.path("sdk/mem.s"));
 
     return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc, .mem = mem_obj };
 }
