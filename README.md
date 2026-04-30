@@ -40,6 +40,7 @@ zig build nes-unrom-hello
 zig build nes-mmc1-hello
 zig build nes-mmc3-hello
 zig build nes-gtrom-hello
+zig build nes-unrom-512-hello
 
 # Commodore 64
 zig build c64-hello
@@ -117,6 +118,7 @@ Output files land in `zig-out/bin/`.
 | `nes-mmc1-hello` — MMC1 mapper | |
 | `nes-mmc3-hello` — MMC3 mapper | |
 | `nes-gtrom-hello` — GTROM mapper | |
+| `nes-unrom-512-hello` — UNROM-512 mapper (mapper 30) | |
 
 ### SNES
 
@@ -155,6 +157,7 @@ Output files land in `zig-out/bin/`.
 | `nes-mmc1-hello` | NES MMC1 | mos6502 | `.nes` |
 | `nes-mmc3-hello` | NES MMC3 | mos6502 | `.nes` |
 | `nes-gtrom-hello` | NES GTROM | mos6502 | `.nes` |
+| `nes-unrom-512-hello` | NES UNROM-512 | mos6502 | `.nes` |
 | `c64-hello`, `c64-fibonacci` | Commodore 64 | mos6502 | `.prg` |
 | `c64-plasma` | Commodore 64 | mos6502 | `.prg` |
 | `cx16-hello` | Commander X16 | mosw65c02 | `.prg` |
@@ -208,6 +211,7 @@ sieve<127>: 31 primes  (6905 cycles)
 - **NES MMC1 hello** — uses translated `mapper.h`; calls `set_prg_bank(0)` and `set_mirroring(MIRROR_VERTICAL)` to initialise MMC1 registers. ROM: 256 KB PRG + 8 KB CHR RAM.
 - **NES MMC3 hello** — uses translated `mapper.h`; calls `set_prg_bank(0)` to initialise MMC3 PRG bank. ROM: 512 KB PRG + 256 KB CHR ROM.
 - **NES GTROM hello** — uses translated `mapper.h`; GTROM (Codemasters) flash mapper. ROM: 512 KB PRG flash.
+- **NES UNROM-512 hello** — uses translated `mapper.h`; calls `set_prg_bank(0)` and `set_chr_bank(0)` to initialise mapper 30 registers. ROM: 512 KB PRG + 32 KB CHR RAM.
 - **C64 hello** — uses translated `c64.h` (VIC-II typed struct) via `b.addTranslateC`; cycles VIC-II border colour register.
 - **CX16 hello** — uses CBM KERNAL `cbm_k_chrout` to print "HELLO X16!", then cycles the border colour register.
 - **Lynx hello** — uses translated `_mikey.h` (MIKEY typed struct) via `b.addTranslateC`; animates all 32 palette entries.

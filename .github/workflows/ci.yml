@@ -88,7 +88,7 @@ jobs:
         run: zig build neo6502-graphics --summary all
 
       - name: Build SNES examples
-        run: zig build snes-hello snes-color-cycle snes-zig-logo --summary all
+        run: zig build snes-hello snes-color-cycle snes-zig-logo snes-pi-test --summary all
 
       - name: Build Apple IIe example
         run: zig build apple2-hello --summary all
@@ -113,7 +113,7 @@ jobs:
             pce-color-cycle.pce pce-color-cycle-banked.pce \
             mega65-hello.prg viciv.prg \
             graphics.neo \
-            snes-hello.sfc snes-color-cycle.sfc snes-zig-logo.sfc \
+            snes-hello.sfc snes-color-cycle.sfc snes-zig-logo.sfc snes-pi-test.sfc \
             hello.sys \
             sim-hello mos-sim; do
             test -f "zig-out/bin/$f" && echo "OK: $f" || echo "MISSING: $f"
@@ -173,7 +173,7 @@ jobs:
             smoke "$f"
           done
           # SNES
-          for f in snes-hello.sfc snes-color-cycle.sfc snes-zig-logo.sfc; do
+          for f in snes-hello.sfc snes-color-cycle.sfc snes-zig-logo.sfc snes-pi-test.sfc; do
             smoke "$f"
           done
           # Note: Atari 2600 (.a26) is NOT tested here — apt mednafen lacks the vcs module.
