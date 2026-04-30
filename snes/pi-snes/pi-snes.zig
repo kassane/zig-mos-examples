@@ -21,35 +21,39 @@ comptime {
 
 const font_pic = @embedFile("pvsneslibfont.pic");
 
-const CHR_BASE: u16 = 0x2000;
 const FONT_VRAM: u16 = 0x3000;
 const MAP_VRAM: u16 = 0x6800;
 const TILE_OFFSET: u16 = 0x0100;
 const MAP_COLS: u8 = 32;
 
 const A_LEN: usize = 2687;
+const MAX_DIGITS: usize = 900;
 
 var A: [A_LEN]u8 = undefined;
-var col: u8 = 0;
-var row: u8 = 0;
+// WRAM buffer: all computed digits as ASCII.
+var pi_digits: [MAX_DIGITS]u8 = .{0} ** MAX_DIGITS;
+var pi_count: u16 = 0;
+// Tracks how many digits have been written to VRAM so far.
+var render_head: u16 = 0;
 
-fn draw_char(c: u8, r: u8, ch: u8) void {
-    const idx: u16 = @as(u16, r) * MAP_COLS + c;
-    const tile: u16 = TILE_OFFSET + (@as(u16, ch) - 0x20);
-    // VRAM writes are only valid during force-blank or vblank.
-    // Brief force-blank (<10 cycles) is imperceptible at ~60 fps.
-    hw.INIDISP.* = 0x80;
-    sneslib.vram_set_addr(MAP_VRAM + idx);
-    sneslib.vram_write(@truncate(tile), @truncate(tile >> 8));
-    hw.INIDISP.* = 0x0F;
+fn store_digit(ch: u8) void {
+    if (pi_count < MAX_DIGITS) {
+        pi_digits[pi_count] = ch;
+        pi_count += 1;
+    }
 }
 
-fn print_digit(ch: u8) void {
-    draw_char(col, row, ch);
-    col +%= 1;
-    if (col == MAP_COLS) {
-        col = 0;
-        row +%= 1;
+// Waits for the next VBlank then writes any digits not yet in VRAM.
+// Called once per Spigot outer iteration — typically flushes 0–4 new tiles.
+// VRAM writes during VBlank require no force-blank.
+fn flush_new_vblank() void {
+    if (render_head >= pi_count) return;
+    sneslib.wait_vblank();
+    while (render_head < pi_count) {
+        const tile: u16 = TILE_OFFSET + (@as(u16, pi_digits[render_head]) - 0x20);
+        sneslib.vram_set_addr(MAP_VRAM + render_head);
+        sneslib.vram_write(@truncate(tile), @truncate(tile >> 8));
+        render_head += 1;
     }
 }
 
@@ -80,22 +84,27 @@ fn calculate_pi() void {
         if (q == 9) {
             nines += 1;
         } else if (q == 10) {
-            print_digit(@truncate(predigit + 1 + '0'));
+            store_digit(@truncate(predigit + 1 + '0'));
             var n: u8 = 0;
-            while (n < nines) : (n += 1) print_digit('0');
+            while (n < nines) : (n += 1) store_digit('0');
             predigit = 0;
             nines = 0;
         } else {
-            print_digit(@truncate(predigit + '0'));
+            store_digit(@truncate(predigit + '0'));
             predigit = q;
             if (nines != 0) {
                 var n: u8 = 0;
-                while (n < nines) : (n += 1) print_digit('9');
+                while (n < nines) : (n += 1) store_digit('9');
                 nines = 0;
             }
         }
+
+        // Flush any new digits to VRAM during the upcoming VBlank.
+        // Skipped when q==9 (no new digit this iteration).
+        flush_new_vblank();
     }
-    print_digit(@truncate(predigit + '0'));
+    store_digit(@truncate(predigit + '0'));
+    flush_new_vblank();
 }
 
 pub fn main() void {
@@ -125,7 +134,6 @@ pub fn main() void {
     hw.TM.* = 0x01;
 
     sneslib.ppu_on();
-    // Display shows black backdrop until calculate_pi() sets it to red.
 
     calculate_pi();
 
