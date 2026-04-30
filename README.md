@@ -108,7 +108,7 @@ Output files land in `zig-out/bin/`.
 | `nes-sprites` — OAM sprite rendering | |
 | `nes-random` — 64 sprites at random positions, three fall speeds | ![](.github/random.gif) |
 | `nes-bat-ball` — bat-and-ball game loop (CH05 port) | ![](.github/bat-ball.gif) |
-| `nes-megablast` — title screen + game screen (CH06 port) | ![](.github/megablast.gif) |
+| `nes-megablast` — full-game [no sound] (CH13 port) | ![](.github/megablast.gif) |
 | `nes-gg-demo` — Game Genie demo: metatile font, scrolling, player physics | ![](.github/gg-demo.gif) |
 | `nes-color-cycle` — background colour cycling | |
 | `nes-pads` — controller input with two 16×16 metasprites | ![](.github/mmc3-pads.gif) |
