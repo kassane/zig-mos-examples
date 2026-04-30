@@ -324,12 +324,12 @@ fn moveEnemies(frame: u8) void {
             const px = oam[3];
             const sdx = enemy_data[base + 4];
             if (sdx & 0x80 != 0) {
-                // moving left — flip if too far left of player
-                if (sx >= px and sx - px >= 32)
+                // moving left: flip if smart bomb went 32+ pixels left of player
+                if (px >= sx and px - sx >= 32)
                     enemy_data[base + 4] = (~sdx) +% 1;
             } else {
-                // moving right — flip if too far right of player
-                if (px +% 12 >= sx and sx -% px >= 44)
+                // moving right: flip if smart bomb went 44+ pixels right of player
+                if (sx >= px and sx - px >= 44)
                     enemy_data[base + 4] = (~sdx) +% 1;
             }
         }
@@ -547,7 +547,7 @@ pub export fn main() callconv(.c) void {
         setupLevel(); // initialises enemy_data, cooldowns, display_level, hides sprites
         displayGameScreen(); // draws BG, places stars, activates VRAM buffer
         displayPlayer();
-        // Queue all initial HUD writes and flush them before entering game loop
+        // Queue initial HUD writes; NMI will flush them on the first ppu_wait_nmi().
         score_dirty = false;
         highscore_dirty = false;
         lives_dirty = false;
@@ -556,7 +556,6 @@ pub export fn main() callconv(.c) void {
         queueHighScore();
         queueLives();
         queueLevelText();
-        nesdoug.flush_vram_update2();
 
         // ---- Main game loop ----
         var gameover_shown: bool = false;
