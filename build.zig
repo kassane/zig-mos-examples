@@ -239,7 +239,7 @@ pub fn build(b: *std.Build) void {
     // ---- NES hello1 ----
     {
         const step = b.step("nes-hello1", "Build NES hello1 example");
-        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs.nes orelse @panic("nes libs not built"), optimize, "hello1", "nesdoug/hello1/hello1.zig", "nesdoug/hello1/Alpha.chr", false);
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "hello1", "nesdoug/hello1/hello1.zig", .{ .chr_src = "nesdoug/hello1/Alpha.chr" });
         exe.root_module.addImport("neslib", neslib_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "hello1.nes" });
         step.dependOn(&install.step);
@@ -251,7 +251,7 @@ pub fn build(b: *std.Build) void {
     // ---- NES hello2 ----
     {
         const step = b.step("nes-hello2", "Build NES hello2 example");
-        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs.nes orelse @panic("nes libs not built"), optimize, "hello2", "nesdoug/hello2/hello2.zig", "nesdoug/hello2/Alpha.chr", false);
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "hello2", "nesdoug/hello2/hello2.zig", .{ .chr_src = "nesdoug/hello2/Alpha.chr" });
         exe.root_module.addImport("neslib", neslib_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "hello2.nes" });
         step.dependOn(&install.step);
@@ -263,7 +263,7 @@ pub fn build(b: *std.Build) void {
     // ---- NES hello3 ----
     {
         const step = b.step("nes-hello3", "Build NES hello3 example");
-        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs.nes orelse @panic("nes libs not built"), optimize, "hello3", "nesdoug/hello3/hello3.zig", "nesdoug/hello3/Alpha.chr", true);
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "hello3", "nesdoug/hello3/hello3.zig", .{ .chr_src = "nesdoug/hello3/Alpha.chr", .with_nesdoug = true });
         exe.root_module.addImport("neslib", neslib_mod);
         exe.root_module.addImport("nesdoug", nesdoug_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "hello3.nes" });
@@ -276,7 +276,7 @@ pub fn build(b: *std.Build) void {
     // ---- NES zig-logo ----
     {
         const step = b.step("nes-zig-logo", "Build NES Zig logo display example");
-        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs.nes orelse @panic("nes libs not built"), optimize, "zig-logo", "nesdoug/zig-logo/zig-logo.zig", "nesdoug/zig-logo/zig-mark.chr", false);
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "zig-logo", "nesdoug/zig-logo/zig-logo.zig", .{ .chr_src = "nesdoug/zig-logo/zig-mark.chr" });
         exe.root_module.addImport("neslib", neslib_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "zig-logo.nes" });
         step.dependOn(&install.step);
@@ -288,7 +288,7 @@ pub fn build(b: *std.Build) void {
     // ---- NES fade ----
     {
         const step = b.step("nes-fade", "Build NES palette fade example");
-        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs.nes orelse @panic("nes libs not built"), optimize, "fade", "nesdoug/fade/fade.zig", "nesdoug/fade/Girl5.chr", true);
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "fade", "nesdoug/fade/fade.zig", .{ .chr_src = "nesdoug/fade/Girl5.chr", .with_nesdoug = true });
         exe.root_module.addImport("neslib", neslib_mod);
         exe.root_module.addImport("nesdoug", nesdoug_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "fade.nes" });
@@ -301,7 +301,7 @@ pub fn build(b: *std.Build) void {
     // ---- NES fullbg ----
     {
         const step = b.step("nes-fullbg", "Build NES full-screen background (RLE nametable) example");
-        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs.nes orelse @panic("nes libs not built"), optimize, "fullbg", "nesdoug/fullbg/fullbg.zig", "nesdoug/fullbg/Girl5.chr", false);
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "fullbg", "nesdoug/fullbg/fullbg.zig", .{ .chr_src = "nesdoug/fullbg/Girl5.chr" });
         exe.root_module.addImport("neslib", neslib_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "fullbg.nes" });
         step.dependOn(&install.step);
@@ -313,7 +313,7 @@ pub fn build(b: *std.Build) void {
     // ---- NES sprites ----
     {
         const step = b.step("nes-sprites", "Build NES sprites example");
-        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs.nes orelse @panic("nes libs not built"), optimize, "sprites", "nesdoug/sprites/sprites.zig", "nesdoug/sprites/Alpha2.chr", false);
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "sprites", "nesdoug/sprites/sprites.zig", .{ .chr_src = "nesdoug/sprites/Alpha2.chr" });
         exe.root_module.addImport("neslib", neslib_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "sprites.nes" });
         step.dependOn(&install.step);
@@ -325,7 +325,7 @@ pub fn build(b: *std.Build) void {
     // ---- NES random ----
     {
         const step = b.step("nes-random", "Build NES random sprites demo");
-        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs.nes orelse @panic("nes libs not built"), optimize, "random", "nesdoug/random/random.zig", "nesdoug/random/Alpha2.chr", true);
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "random", "nesdoug/random/random.zig", .{ .chr_src = "nesdoug/random/Alpha2.chr", .with_nesdoug = true });
         exe.root_module.addImport("neslib", neslib_mod);
         exe.root_module.addImport("nesdoug", nesdoug_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "random.nes" });
@@ -338,7 +338,7 @@ pub fn build(b: *std.Build) void {
     // ---- NES pads ----
     {
         const step = b.step("nes-pads", "Build NES controller input example");
-        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs.nes orelse @panic("nes libs not built"), optimize, "pads", "nesdoug/pads/pads.zig", "nesdoug/pads/Alpha3.chr", true);
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "pads", "nesdoug/pads/pads.zig", .{ .chr_src = "nesdoug/pads/Alpha3.chr", .with_nesdoug = true });
         exe.root_module.addImport("neslib", neslib_mod);
         exe.root_module.addImport("nesdoug", nesdoug_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "pads.nes" });
@@ -351,7 +351,7 @@ pub fn build(b: *std.Build) void {
     // ---- NES color-cycle ----
     {
         const step = b.step("nes-color-cycle", "Build NES palette colour-cycle example");
-        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs.nes orelse @panic("nes libs not built"), optimize, "color-cycle", "nesdoug/color-cycle/color-cycle.zig", "nesdoug/color-cycle/blocks.chr", false);
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "color-cycle", "nesdoug/color-cycle/color-cycle.zig", .{ .chr_src = "nesdoug/color-cycle/blocks.chr" });
         exe.root_module.addImport("neslib", neslib_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "color-cycle.nes" });
         step.dependOn(&install.step);
@@ -363,7 +363,7 @@ pub fn build(b: *std.Build) void {
     // ---- NES bat-ball ----
     {
         const step = b.step("nes-bat-ball", "Build NES bat-ball game (CH05 port)");
-        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs.nes orelse @panic("nes libs not built"), optimize, "bat-ball", "nesdoug/bat-ball/bat-ball.zig", "nesdoug/bat-ball/example.chr", false);
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "bat-ball", "nesdoug/bat-ball/bat-ball.zig", .{ .chr_src = "nesdoug/bat-ball/example.chr" });
         exe.root_module.addImport("neslib", neslib_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "bat-ball.nes" });
         step.dependOn(&install.step);
@@ -375,7 +375,7 @@ pub fn build(b: *std.Build) void {
     // ---- NES megablast ----
     {
         const step = b.step("nes-megablast", "Build NES megablast full game (CH13 port: enemies, score, lives, levels)");
-        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs.nes orelse @panic("nes libs not built"), optimize, "megablast", "nesdoug/megablast/megablast.zig", "nesdoug/megablast/megablast.chr", true);
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "megablast", "nesdoug/megablast/megablast.zig", .{ .chr_src = "nesdoug/megablast/megablast.chr", .with_nesdoug = true });
         exe.root_module.addImport("neslib", neslib_mod);
         exe.root_module.addImport("nesdoug", nesdoug_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "megablast.nes" });
@@ -388,7 +388,7 @@ pub fn build(b: *std.Build) void {
     // ---- NES gg-demo ----
     {
         const step = b.step("nes-gg-demo", "Build NES Game Genie demo (metatile font + scrolling + player)");
-        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs.nes orelse @panic("nes libs not built"), optimize, "gg-demo", "nesdoug/gg-demo/gg-demo.zig", "nesdoug/gg-demo/GG-8K.chr", true);
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "gg-demo", "nesdoug/gg-demo/gg-demo.zig", .{ .chr_src = "nesdoug/gg-demo/GG-8K.chr", .with_nesdoug = true });
         exe.root_module.addImport("neslib", neslib_mod);
         exe.root_module.addImport("nesdoug", nesdoug_mod);
         exe.root_module.addAssemblyFile(b.path("nesdoug/gg-demo/nesheader.s"));
@@ -583,7 +583,7 @@ pub fn build(b: *std.Build) void {
     // ---- NES CNROM hello ----
     {
         const step = b.step("nes-cnrom-hello", "Build NES CNROM mapper hello example");
-        const exe = addNesCnromExe(b, sdk_dep, sdk_src, sdk_libs.nes_cnrom orelse @panic("nes-cnrom libs not built"), optimize, "cnrom-hello", "nes/cnrom-hello/cnrom-hello.zig", "nesdoug/hello1/Alpha.chr");
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "cnrom-hello", "nes/cnrom-hello/cnrom-hello.zig", .{ .mapper = .cnrom, .chr_src = "nesdoug/hello1/Alpha.chr" });
         exe.root_module.addImport("neslib", neslib_mod);
         exe.root_module.addImport("mapper", nes_cnrom_mapper_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "cnrom-hello.nes" });
@@ -595,12 +595,12 @@ pub fn build(b: *std.Build) void {
     // ---- NES CNROM mappers demo (4 CHR banks) ----
     {
         const step = b.step("nes-mappers", "Build NES CNROM CHR bank-switching demo (4 banks)");
-        const exe = addNesCnromMultiExe(b, sdk_dep, sdk_src, sdk_libs.nes_cnrom orelse @panic("nes-cnrom libs not built"), optimize, "mappers", "nesdoug/mappers/mappers.zig", &.{
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "mappers", "nesdoug/mappers/mappers.zig", .{ .mapper = .cnrom, .chr_srcs = &.{
             "nesdoug/mappers/apples.chr",
             "nesdoug/mappers/balls.chr",
             "nesdoug/mappers/snake.chr",
             "nesdoug/mappers/flower.chr",
-        });
+        }, .with_nesdoug = true });
         exe.root_module.addImport("neslib", neslib_mod);
         exe.root_module.addImport("nesdoug", nesdoug_mod);
         exe.root_module.addImport("mapper", nes_cnrom_mapper_mod);
@@ -613,7 +613,7 @@ pub fn build(b: *std.Build) void {
     // ---- NES UNROM hello ----
     {
         const step = b.step("nes-unrom-hello", "Build NES UNROM mapper hello example");
-        const exe = addNesUnromExe(b, sdk_dep, sdk_src, sdk_libs.nes_unrom orelse @panic("nes-unrom libs not built"), optimize, "unrom-hello", "nes/unrom-hello/unrom-hello.zig");
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "unrom-hello", "nes/unrom-hello/unrom-hello.zig", .{ .mapper = .unrom });
         exe.root_module.addImport("neslib", neslib_mod);
         exe.root_module.addImport("mapper", nes_unrom_mapper_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "unrom-hello.nes" });
@@ -625,7 +625,7 @@ pub fn build(b: *std.Build) void {
     // ---- NES UNROM-512 hello ----
     {
         const step = b.step("nes-unrom-512-hello", "Build NES UNROM-512 mapper hello example");
-        const exe = addNesUnrom512Exe(b, sdk_dep, sdk_src, sdk_libs.nes_unrom_512 orelse @panic("nes-unrom-512 libs not built"), optimize, "unrom-512-hello", "nes/unrom-512-hello/unrom-512-hello.zig");
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "unrom-512-hello", "nes/unrom-512-hello/unrom-512-hello.zig", .{ .mapper = .unrom512 });
         exe.root_module.addImport("neslib", neslib_mod);
         exe.root_module.addImport("mapper", nes_unrom_512_mapper_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "unrom-512-hello.nes" });
@@ -637,7 +637,7 @@ pub fn build(b: *std.Build) void {
     // ---- NES MMC1 hello ----
     {
         const step = b.step("nes-mmc1-hello", "Build NES MMC1 mapper hello example");
-        const exe = addNesMmc1Exe(b, sdk_dep, sdk_src, sdk_libs.nes_mmc1 orelse @panic("nes-mmc1 libs not built"), optimize, "mmc1-hello", "nes/mmc1-hello/mmc1-hello.zig");
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "mmc1-hello", "nes/mmc1-hello/mmc1-hello.zig", .{ .mapper = .mmc1 });
         exe.root_module.addImport("neslib", neslib_mod);
         exe.root_module.addImport("mapper", nes_mmc1_mapper_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "mmc1-hello.nes" });
@@ -649,7 +649,7 @@ pub fn build(b: *std.Build) void {
     // ---- NES GTROM hello ----
     {
         const step = b.step("nes-gtrom-hello", "Build NES GTROM mapper hello example");
-        const exe = addNesGtromExe(b, sdk_dep, sdk_src, sdk_libs.nes_gtrom orelse @panic("nes-gtrom libs not built"), optimize, "gtrom-hello", "nes/gtrom-hello/gtrom-hello.zig");
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "gtrom-hello", "nes/gtrom-hello/gtrom-hello.zig", .{ .mapper = .gtrom });
         exe.root_module.addImport("neslib", neslib_mod);
         exe.root_module.addImport("mapper", nes_gtrom_mapper_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "gtrom-hello.nes" });
@@ -661,7 +661,7 @@ pub fn build(b: *std.Build) void {
     // ---- NES MMC3 hello ----
     {
         const step = b.step("nes-mmc3-hello", "Build NES MMC3 mapper hello example");
-        const exe = addNesMmc3Exe(b, sdk_dep, sdk_src, sdk_libs.nes_mmc3 orelse @panic("nes-mmc3 libs not built"), optimize, "mmc3-hello", "nes/mmc3-hello/mmc3-hello.zig");
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "mmc3-hello", "nes/mmc3-hello/mmc3-hello.zig", .{ .mapper = .mmc3 });
         exe.root_module.addImport("neslib", neslib_mod);
         exe.root_module.addImport("mapper", nes_mmc3_mapper_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "mmc3-hello.nes" });
@@ -673,7 +673,7 @@ pub fn build(b: *std.Build) void {
     // ---- NES CNROM sprites ----
     {
         const step = b.step("nes-cnrom-sprites", "Build NES CNROM mapper sprites example");
-        const exe = addNesCnromExe(b, sdk_dep, sdk_src, sdk_libs.nes_cnrom orelse @panic("nes-cnrom libs not built"), optimize, "cnrom-sprites", "nes/cnrom-sprites/cnrom-sprites.zig", "nesdoug/sprites/Alpha2.chr");
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "cnrom-sprites", "nes/cnrom-sprites/cnrom-sprites.zig", .{ .mapper = .cnrom, .chr_src = "nesdoug/sprites/Alpha2.chr" });
         exe.root_module.addImport("neslib", neslib_mod);
         exe.root_module.addImport("mapper", nes_cnrom_mapper_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "cnrom-sprites.nes" });
@@ -685,7 +685,7 @@ pub fn build(b: *std.Build) void {
     // ---- NES UNROM colour-cycle ----
     {
         const step = b.step("nes-unrom-color-cycle", "Build NES UNROM mapper colour-cycle example");
-        const exe = addNesUnromExe(b, sdk_dep, sdk_src, sdk_libs.nes_unrom orelse @panic("nes-unrom libs not built"), optimize, "unrom-color-cycle", "nes/unrom-color-cycle/unrom-color-cycle.zig");
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "unrom-color-cycle", "nes/unrom-color-cycle/unrom-color-cycle.zig", .{ .mapper = .unrom });
         exe.root_module.addImport("neslib", neslib_mod);
         exe.root_module.addImport("mapper", nes_unrom_mapper_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "unrom-color-cycle.nes" });
@@ -697,7 +697,7 @@ pub fn build(b: *std.Build) void {
     // ---- NES MMC1 sprites ----
     {
         const step = b.step("nes-mmc1-sprites", "Build NES MMC1 mapper sprites example (CHR RAM upload)");
-        const exe = addNesMmc1Exe(b, sdk_dep, sdk_src, sdk_libs.nes_mmc1 orelse @panic("nes-mmc1 libs not built"), optimize, "mmc1-sprites", "nes/mmc1-sprites/mmc1-sprites.zig");
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "mmc1-sprites", "nes/mmc1-sprites/mmc1-sprites.zig", .{ .mapper = .mmc1 });
         exe.root_module.addImport("neslib", neslib_mod);
         exe.root_module.addImport("mapper", nes_mmc1_mapper_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "mmc1-sprites.nes" });
@@ -709,7 +709,7 @@ pub fn build(b: *std.Build) void {
     // ---- NES MMC3 pads (controller + collision) ----
     {
         const step = b.step("nes-mmc3-pads", "Build NES MMC3 mapper controller+collision example (CHR RAM upload)");
-        const exe = addNesMmc3Exe(b, sdk_dep, sdk_src, sdk_libs.nes_mmc3 orelse @panic("nes-mmc3 libs not built"), optimize, "mmc3-pads", "nes/mmc3-pads/mmc3-pads.zig");
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "mmc3-pads", "nes/mmc3-pads/mmc3-pads.zig", .{ .mapper = .mmc3, .with_nesdoug = true });
         exe.root_module.addImport("neslib", neslib_mod);
         exe.root_module.addImport("nesdoug", nesdoug_mod);
         exe.root_module.addImport("mapper", nes_mmc3_mapper_mod);
@@ -722,7 +722,7 @@ pub fn build(b: *std.Build) void {
     // ---- NES GTROM colour-cycle with LED ----
     {
         const step = b.step("nes-gtrom-color-cycle", "Build NES GTROM mapper colour-cycle with LED example");
-        const exe = addNesGtromExe(b, sdk_dep, sdk_src, sdk_libs.nes_gtrom orelse @panic("nes-gtrom libs not built"), optimize, "gtrom-color-cycle", "nes/gtrom-color-cycle/gtrom-color-cycle.zig");
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "gtrom-color-cycle", "nes/gtrom-color-cycle/gtrom-color-cycle.zig", .{ .mapper = .gtrom, .with_nesdoug = true });
         exe.root_module.addImport("neslib", neslib_mod);
         exe.root_module.addImport("nesdoug", nesdoug_mod);
         exe.root_module.addImport("mapper", nes_gtrom_mapper_mod);
@@ -748,7 +748,7 @@ pub fn build(b: *std.Build) void {
     // ---- SNES LoROM hello ----
     {
         const step = b.step("snes-hello", "Build SNES LoROM hello example");
-        const exe = addSnesExe(b, sdk_src, sdk_libs.snes orelse @panic("snes libs not built"), optimize, "snes-hello", "snes/hello/hello.zig");
+        const exe = addSnesExe(b, sdk_src, sdk_libs.snes orelse @panic("snes libs not built"), optimize, "snes-hello", "snes/hello/hello.zig", .{ .title = "ZIG SNES HELLO" });
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "snes-hello.sfc" });
         step.dependOn(&install.step);
         b.getInstallStep().dependOn(&install.step);
@@ -758,7 +758,7 @@ pub fn build(b: *std.Build) void {
     // ---- SNES LoROM colour-cycle ----
     {
         const step = b.step("snes-color-cycle", "Build SNES backdrop colour-cycle demo");
-        const exe = addSnesExe(b, sdk_src, sdk_libs.snes orelse @panic("snes libs not built"), optimize, "snes-color-cycle", "snes/color-cycle/color-cycle.zig");
+        const exe = addSnesExe(b, sdk_src, sdk_libs.snes orelse @panic("snes libs not built"), optimize, "snes-color-cycle", "snes/color-cycle/color-cycle.zig", .{ .title = "ZIG COLOR CYCLE" });
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "snes-color-cycle.sfc" });
         step.dependOn(&install.step);
         b.getInstallStep().dependOn(&install.step);
@@ -768,7 +768,7 @@ pub fn build(b: *std.Build) void {
     // ---- SNES Zig-mark logo ----
     {
         const step = b.step("snes-zig-logo", "Build SNES Zig-mark logo with shimmer animation");
-        const exe = addSnesExe(b, sdk_src, sdk_libs.snes orelse @panic("snes libs not built"), optimize, "snes-zig-logo", "snes/zig-logo/zig-logo.zig");
+        const exe = addSnesExe(b, sdk_src, sdk_libs.snes orelse @panic("snes libs not built"), optimize, "snes-zig-logo", "snes/zig-logo/zig-logo.zig", .{ .title = "ZIG SNES LOGO" });
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "snes-zig-logo.sfc" });
         step.dependOn(&install.step);
         b.getInstallStep().dependOn(&install.step);
@@ -778,18 +778,47 @@ pub fn build(b: *std.Build) void {
     // ---- SNES pi_test ----
     {
         const step = b.step("snes-pi-test", "Build SNES pi demo: compute ~900 digits of π with Spigot algorithm");
-        const exe = addSnesExe(b, sdk_src, sdk_libs.snes orelse @panic("snes libs not built"), optimize, "snes-pi-test", "snes/pi-snes/pi-snes.zig");
+        const exe = addSnesExe(b, sdk_src, sdk_libs.snes orelse @panic("snes libs not built"), optimize, "snes-pi-test", "snes/pi-snes/pi-snes.zig", .{ .title = "ZIG PI DEMO" });
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "snes-pi-test.sfc" });
         step.dependOn(&install.step);
         b.getInstallStep().dependOn(&install.step);
         run_bininfo.addFileArg(exe.getEmittedBin());
     }
 
+    // ---- SNES pi FastROM ----
+    {
+        const step = b.step("snes-pi-fastrom", "Build SNES pi demo as FastROM (header $30, MEMSEL=1, ROM at $80:8000)");
+        const exe = addSnesExe(b, sdk_src, sdk_libs.snes orelse @panic("snes libs not built"), optimize, "snes-pi-fastrom", "snes/pi-snes/pi-snes.zig", .{ .fastrom = true, .title = "ZIG PI FASTROM" });
+        const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "snes-pi-fastrom.sfc" });
+        step.dependOn(&install.step);
+        run_bininfo.addFileArg(exe.getEmittedBin());
+    }
+
     // ---- SNES HiROM hello ----
     {
         const step = b.step("snes-hirom-hello", "Build SNES HiROM hello example");
-        const exe = addSnesHiRomExe(b, sdk_src, sdk_libs.snes orelse @panic("snes libs not built"), optimize, "snes-hirom-hello", "snes/hirom-hello/hirom-hello.zig");
+        const exe = addSnesExe(b, sdk_src, sdk_libs.snes orelse @panic("snes libs not built"), optimize, "snes-hirom-hello", "snes/hirom-hello/hirom-hello.zig", .{ .hirom = true, .title = "ZIG HIROM HELLO" });
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "snes-hirom-hello.sfc" });
+        step.dependOn(&install.step);
+        b.getInstallStep().dependOn(&install.step);
+        run_bininfo.addFileArg(exe.getEmittedBin());
+    }
+
+    // ---- SNES Megablast ----
+    {
+        const step = b.step("snes-megablast", "Build SNES Megablast full game port");
+        const exe = addSnesExe(b, sdk_src, sdk_libs.snes orelse @panic("snes libs not built"), optimize, "snes-megablast", "snes/megablast/megablast.zig", .{ .title = "MEGABLAST" });
+        const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "snes-megablast.sfc" });
+        step.dependOn(&install.step);
+        b.getInstallStep().dependOn(&install.step);
+        run_bininfo.addFileArg(exe.getEmittedBin());
+    }
+
+    // ---- SNES pads: controller input + buttonMask demo ----
+    {
+        const step = b.step("snes-pads", "Build SNES joypad demo: d-pad cycles backdrop color, A+B resets");
+        const exe = addSnesExe(b, sdk_src, sdk_libs.snes orelse @panic("snes libs not built"), optimize, "snes-pads", "snes/pads/pads.zig", .{ .title = "SNES PADS DEMO" });
+        const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "snes-pads.sfc" });
         step.dependOn(&install.step);
         b.getInstallStep().dependOn(&install.step);
         run_bininfo.addFileArg(exe.getEmittedBin());
@@ -899,40 +928,183 @@ fn addNesLabels(
     gen_labels.dependOn(&install_elf.step);
 }
 
+const NesMapper = enum {
+    nrom,
+    cnrom,
+    unrom,
+    unrom512,
+    mmc1,
+    mmc3,
+    gtrom,
+};
+
 fn addNesExe(
     b: *std.Build,
     sdk_dep: *std.Build.Dependency,
     sdk_src: []const u8,
-    libs: sdk_mod.Libs,
+    sdk_libs: SdkLibs,
     opt: std.builtin.OptimizeMode,
     name: []const u8,
     root_src: []const u8,
-    chr_src: []const u8,
-    with_nesdoug: bool,
+    cfg: struct {
+        mapper: NesMapper = .nrom,
+        chr_src: ?[]const u8 = null,
+        chr_srcs: ?[]const []const u8 = null,
+        with_nesdoug: bool = false,
+    },
 ) *std.Build.Step.Compile {
     const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .nes });
 
-    // Wrapper linker script: add SEARCH_DIRs for all .ld include files, then INCLUDE the main script.
-    const wf = b.addWriteFiles();
-    const wrapper_ld = wf.add("nes-nrom-wrapper.ld", b.fmt(
-        \\SEARCH_DIR("{s}/mos-platform/nes-nrom");
-        \\SEARCH_DIR("{s}/mos-platform/nes");
-        \\SEARCH_DIR("{s}/mos-platform/nes/rompoke");
-        \\SEARCH_DIR("{s}/mos-platform/common/ldscripts");
-        \\INCLUDE "{s}/mos-platform/nes-nrom/link.ld"
-    , .{ sdk_src, sdk_src, sdk_src, sdk_src, sdk_src }));
+    const libs: sdk_mod.Libs = switch (cfg.mapper) {
+        .nrom => sdk_libs.nes orelse @panic("nes libs not built"),
+        .cnrom => sdk_libs.nes_cnrom orelse @panic("nes-cnrom libs not built"),
+        .unrom => sdk_libs.nes_unrom orelse @panic("nes-unrom libs not built"),
+        .unrom512 => sdk_libs.nes_unrom_512 orelse @panic("nes-unrom-512 libs not built"),
+        .mmc1 => sdk_libs.nes_mmc1 orelse @panic("nes-mmc1 libs not built"),
+        .mmc3 => sdk_libs.nes_mmc3 orelse @panic("nes-mmc3 libs not built"),
+        .gtrom => sdk_libs.nes_gtrom orelse @panic("nes-gtrom libs not built"),
+    };
 
+    const plat: []const u8 = switch (cfg.mapper) {
+        .nrom => "nes-nrom",
+        .cnrom => "nes-cnrom",
+        .unrom => "nes-unrom",
+        .unrom512 => "nes-unrom-512",
+        .mmc1 => "nes-mmc1",
+        .mmc3 => "nes-mmc3",
+        .gtrom => "nes-gtrom",
+    };
+
+    // Mappers that require a separately-compiled reset.o TRUE object (linker INPUT directive).
+    const needs_reset = switch (cfg.mapper) {
+        .nrom, .cnrom => false,
+        else => true,
+    };
+    const reset_dir = if (needs_reset) b.fmt("{s}/objs/{s}", .{ b.install_path, name }) else "";
+    var install_reset: ?*std.Build.Step.InstallFile = null;
+    if (needs_reset) {
+        const reset_asm = if (cfg.mapper == .mmc3)
+            b.fmt("mos-platform/{s}/reset-banked-8.s", .{plat})
+        else
+            b.fmt("mos-platform/{s}/reset.s", .{plat});
+        const reset_obj_name = if (cfg.mapper == .mmc3) "reset-banked-8.o" else "reset.o";
+        const reset_obj_stem = if (cfg.mapper == .mmc3) "reset-banked-8" else "reset";
+        const reset_obj = b.addObject(.{
+            .name = reset_obj_stem,
+            .root_module = b.createModule(.{ .target = target, .optimize = opt }),
+        });
+        reset_obj.root_module.addAssemblyFile(sdk_dep.path(reset_asm));
+        install_reset = b.addInstallFileWithDir(
+            reset_obj.getEmittedBin(),
+            .{ .custom = b.fmt("objs/{s}", .{name}) },
+            reset_obj_name,
+        );
+    }
+
+    // Wrapper linker script: SEARCH_DIRs + optional symbol overrides + INCLUDE.
+    const wf = b.addWriteFiles();
+    const ld_name = b.fmt("{s}-wrapper.ld", .{plat});
+    const wrapper_ld = switch (cfg.mapper) {
+        .nrom => wf.add(ld_name, b.fmt(
+            \\SEARCH_DIR("{s}/mos-platform/nes-nrom");
+            \\SEARCH_DIR("{s}/mos-platform/nes");
+            \\SEARCH_DIR("{s}/mos-platform/nes/rompoke");
+            \\SEARCH_DIR("{s}/mos-platform/common/ldscripts");
+            \\INCLUDE "{s}/mos-platform/nes-nrom/link.ld"
+        , .{ sdk_src, sdk_src, sdk_src, sdk_src, sdk_src })),
+        .cnrom => blk: {
+            const chr_kb: usize = if (cfg.chr_srcs) |s| s.len * 8 else 8;
+            break :blk wf.add(ld_name, b.fmt(
+                \\SEARCH_DIR("{s}/mos-platform/nes-cnrom");
+                \\SEARCH_DIR("{s}/mos-platform/nes");
+                \\SEARCH_DIR("{s}/mos-platform/nes/rompoke");
+                \\SEARCH_DIR("{s}/mos-platform/common/ldscripts");
+                \\/* One or more 8 KiB CHR bank(s); override the 2048 KiB weak default. */
+                \\__chr_rom_size = {d};
+                \\INCLUDE "{s}/mos-platform/nes-cnrom/link.ld"
+            , .{ sdk_src, sdk_src, sdk_src, sdk_src, chr_kb, sdk_src }));
+        },
+        .unrom => wf.add(ld_name, b.fmt(
+            \\SEARCH_DIR("{s}");
+            \\SEARCH_DIR("{s}/mos-platform/nes-unrom");
+            \\SEARCH_DIR("{s}/mos-platform/nes");
+            \\SEARCH_DIR("{s}/mos-platform/nes/rompoke");
+            \\SEARCH_DIR("{s}/mos-platform/common/ldscripts");
+            \\/* UNROM uses CHR RAM, not CHR ROM; override the 8 KiB CHR ROM weak default. */
+            \\__chr_rom_size = 0;
+            \\__chr_ram_size = 8;
+            \\INCLUDE "{s}/mos-platform/nes-unrom/link.ld"
+        , .{ reset_dir, sdk_src, sdk_src, sdk_src, sdk_src, sdk_src })),
+        .unrom512 => wf.add(ld_name, b.fmt(
+            \\SEARCH_DIR("{s}");
+            \\SEARCH_DIR("{s}/mos-platform/nes-unrom-512");
+            \\SEARCH_DIR("{s}/mos-platform/nes");
+            \\SEARCH_DIR("{s}/mos-platform/nes/rompoke");
+            \\SEARCH_DIR("{s}/mos-platform/common/ldscripts");
+            \\/* UNROM-512 uses CHR RAM (32 KiB); zero out CHR ROM default. */
+            \\__chr_rom_size = 0;
+            \\__chr_ram_size = 32;
+            \\INCLUDE "{s}/mos-platform/nes-unrom-512/link.ld"
+        , .{ reset_dir, sdk_src, sdk_src, sdk_src, sdk_src, sdk_src })),
+        .mmc1 => wf.add(ld_name, b.fmt(
+            \\SEARCH_DIR("{s}");
+            \\SEARCH_DIR("{s}/mos-platform/nes-mmc1");
+            \\SEARCH_DIR("{s}/mos-platform/nes");
+            \\SEARCH_DIR("{s}/mos-platform/nes/rompoke");
+            \\SEARCH_DIR("{s}/mos-platform/common/ldscripts");
+            \\/* MMC1 hello uses CHR RAM; override the 128 KiB CHR ROM weak default. */
+            \\__chr_rom_size = 0;
+            \\__chr_ram_size = 8;
+            \\INCLUDE "{s}/mos-platform/nes-mmc1/link.ld"
+        , .{ reset_dir, sdk_src, sdk_src, sdk_src, sdk_src, sdk_src })),
+        .mmc3 => wf.add(ld_name, b.fmt(
+            \\SEARCH_DIR("{s}");
+            \\SEARCH_DIR("{s}/mos-platform/nes-mmc3");
+            \\SEARCH_DIR("{s}/mos-platform/nes");
+            \\SEARCH_DIR("{s}/mos-platform/nes/rompoke");
+            \\SEARCH_DIR("{s}/mos-platform/common/ldscripts");
+            \\/* MMC3 hello uses CHR RAM; override the 256 KiB CHR ROM weak default. */
+            \\__chr_rom_size = 0;
+            \\__chr_ram_size = 8;
+            \\INCLUDE "{s}/mos-platform/nes-mmc3/link.ld"
+        , .{ reset_dir, sdk_src, sdk_src, sdk_src, sdk_src, sdk_src })),
+        .gtrom => wf.add(ld_name, b.fmt(
+            \\SEARCH_DIR("{s}");
+            \\SEARCH_DIR("{s}/mos-platform/nes-gtrom");
+            \\SEARCH_DIR("{s}/mos-platform/nes");
+            \\SEARCH_DIR("{s}/mos-platform/nes/rompoke");
+            \\SEARCH_DIR("{s}/mos-platform/common/ldscripts");
+            \\INCLUDE "{s}/mos-platform/nes-gtrom/link.ld"
+        , .{ reset_dir, sdk_src, sdk_src, sdk_src, sdk_src, sdk_src })),
+    };
+
+    // CHR ROM assembly (NROM/CNROM only).
     const root_fwd = blk: {
         const p = b.build_root.path orelse ".";
         const buf = b.allocator.dupe(u8, p) catch @panic("OOM");
         std.mem.replaceScalar(u8, buf, '\\', '/');
         break :blk buf;
     };
-    const chr_wf = b.addWriteFiles();
-    const chr_asm = chr_wf.add("chr-rom-abs.s", b.fmt(
-        \\.section .chr_rom,"a",@progbits
-        \\.incbin "{s}/{s}"
-    , .{ root_fwd, chr_src }));
+    var chr_asm: ?std.Build.LazyPath = null;
+    if (cfg.chr_srcs) |srcs| {
+        const parts = b.allocator.alloc([]const u8, srcs.len) catch @panic("OOM");
+        for (srcs, 0..) |src, i| {
+            parts[i] = b.fmt(
+                \\.section .chr_rom_{d},"a",@progbits
+                \\.incbin "{s}/{s}"
+                \\
+            , .{ i, root_fwd, src });
+        }
+        const content = std.mem.concat(b.allocator, u8, parts) catch @panic("OOM");
+        const chr_wf = b.addWriteFiles();
+        chr_asm = chr_wf.add("chr-rom-abs.s", content);
+    } else if (cfg.chr_src) |src| {
+        const chr_wf = b.addWriteFiles();
+        chr_asm = chr_wf.add("chr-rom-abs.s", b.fmt(
+            \\.section .chr_rom,"a",@progbits
+            \\.incbin "{s}/{s}"
+        , .{ root_fwd, src }));
+    }
 
     const exe = b.addExecutable(.{
         .name = name,
@@ -945,17 +1117,15 @@ fn addNesExe(
     });
     exe.bundle_compiler_rt = false;
     exe.lto = .full;
-    // crt0.S provides .call_main (jsr main) — must be a direct object, not an
-    // archive member, because it defines no symbols so the linker won't extract it.
+    if (install_reset) |ir| exe.step.dependOn(&ir.step);
+    // crt0.S must be a direct object (no exported symbol → linker won't pull from archive).
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/common/crt0/crt0.S"));
-    // sdk/mem.s provides a strong __memset that overrides the weak recursive stub
-    // compiled by zig cc (clang 21) from mem.c. Must be a TRUE object (not in an
-    // archive) so the linker sees the strong definition before mem.c's weak one.
+    // sdk/mem.s strong __memset overrides the weak recursive stub.
     if (libs.mem) |mem_obj| exe.root_module.addObject(mem_obj);
-    exe.root_module.addAssemblyFile(chr_asm);
-    // iNES header symbols (nes-nrom mapper, chr/prg rom size defaults).
-    exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes-nrom/ines.s"));
-    // iNES 2.0 weak defaults for ram/nvram/chr-ram sizes and misc header fields.
+    if (chr_asm) |ca| exe.root_module.addAssemblyFile(ca);
+    // Variant ines.s: sets mapper number and default CHR/PRG ROM sizes.
+    exe.root_module.addAssemblyFile(sdk_dep.path(b.fmt("mos-platform/{s}/ines.s", .{plat})));
+    // Common nes/ines.s: NES 2.0 weak defaults for ram/nvram/chr-ram/misc fields.
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes/ines.s"));
     // rompoke: weak default for __rom_poke_table_size.
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes/rompoke/rompoke.s"));
@@ -963,7 +1133,7 @@ fn addNesExe(
     exe.root_module.linkLibrary(libs.crt0);
     exe.root_module.linkLibrary(libs.c);
     if (libs.neslib) |neslib| exe.root_module.linkLibrary(neslib);
-    if (with_nesdoug) if (libs.nesdoug) |nesdoug| exe.root_module.linkLibrary(nesdoug);
+    if (cfg.with_nesdoug) if (libs.nesdoug) |nd| exe.root_module.linkLibrary(nd);
     if (libs.nes_c) |nc| exe.root_module.linkLibrary(nc);
     if (libs.nes_c_startup) |ncs| exe.root_module.linkLibrary(ncs);
     exe.setLinkerScript(wrapper_ld);
@@ -1489,494 +1659,6 @@ fn addPceExe(
     return exe;
 }
 
-fn addNesCnromExe(
-    b: *std.Build,
-    sdk_dep: *std.Build.Dependency,
-    sdk_src: []const u8,
-    libs: sdk_mod.Libs,
-    opt: std.builtin.OptimizeMode,
-    name: []const u8,
-    root_src: []const u8,
-    chr_src: []const u8,
-) *std.Build.Step.Compile {
-    const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .nes });
-
-    const wf = b.addWriteFiles();
-    const wrapper_ld = wf.add("nes-cnrom-wrapper.ld", b.fmt(
-        \\SEARCH_DIR("{s}/mos-platform/nes-cnrom");
-        \\SEARCH_DIR("{s}/mos-platform/nes");
-        \\SEARCH_DIR("{s}/mos-platform/nes/rompoke");
-        \\SEARCH_DIR("{s}/mos-platform/common/ldscripts");
-        \\/* One 8 KiB CHR bank (Alpha.chr); override the 2048 KiB weak default. */
-        \\__chr_rom_size = 8;
-        \\INCLUDE "{s}/mos-platform/nes-cnrom/link.ld"
-    , .{ sdk_src, sdk_src, sdk_src, sdk_src, sdk_src }));
-
-    const root_fwd = blk: {
-        const p = b.build_root.path orelse ".";
-        const buf = b.allocator.dupe(u8, p) catch @panic("OOM");
-        std.mem.replaceScalar(u8, buf, '\\', '/');
-        break :blk buf;
-    };
-    const chr_wf = b.addWriteFiles();
-    const chr_asm = chr_wf.add("chr-rom-abs.s", b.fmt(
-        \\.section .chr_rom,"a",@progbits
-        \\.incbin "{s}/{s}"
-    , .{ root_fwd, chr_src }));
-
-    const exe = b.addExecutable(.{
-        .name = name,
-        .root_module = b.createModule(.{
-            .root_source_file = b.path(root_src),
-            .target = target,
-            .optimize = opt,
-            .sanitize_c = .off,
-        }),
-    });
-    exe.bundle_compiler_rt = false;
-    exe.lto = .full;
-    exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/common/crt0/crt0.S"));
-    if (libs.mem) |mem_obj| exe.root_module.addObject(mem_obj);
-    exe.root_module.addAssemblyFile(chr_asm);
-    exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes-cnrom/ines.s"));
-    exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes/ines.s"));
-    exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes/rompoke/rompoke.s"));
-    exe.root_module.linkLibrary(libs.crt);
-    exe.root_module.linkLibrary(libs.crt0);
-    exe.root_module.linkLibrary(libs.c);
-    if (libs.neslib) |neslib| exe.root_module.linkLibrary(neslib);
-    if (libs.nesdoug) |nesdoug| exe.root_module.linkLibrary(nesdoug);
-    if (libs.nes_c) |nc| exe.root_module.linkLibrary(nc);
-    if (libs.nes_c_startup) |ncs| exe.root_module.linkLibrary(ncs);
-    exe.setLinkerScript(wrapper_ld);
-    exe.root_module.addImport("mos_panic", b.createModule(.{
-        .root_source_file = b.path("sdk/panic.zig"),
-        .target = target,
-        .optimize = opt,
-        .sanitize_c = .off,
-    }));
-
-    return exe;
-}
-
-/// Like addNesCnromExe but for multiple CHR banks (e.g. 4 × 8 KB = 32 KB).
-/// chr_srcs must be a slice of relative paths, one per bank, in bank order.
-fn addNesCnromMultiExe(
-    b: *std.Build,
-    sdk_dep: *std.Build.Dependency,
-    sdk_src: []const u8,
-    libs: sdk_mod.Libs,
-    opt: std.builtin.OptimizeMode,
-    name: []const u8,
-    root_src: []const u8,
-    chr_srcs: []const []const u8,
-) *std.Build.Step.Compile {
-    const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .nes });
-
-    const total_kb = chr_srcs.len * 8;
-    const wf = b.addWriteFiles();
-    const wrapper_ld = wf.add("nes-cnrom-wrapper.ld", b.fmt(
-        \\SEARCH_DIR("{s}/mos-platform/nes-cnrom");
-        \\SEARCH_DIR("{s}/mos-platform/nes");
-        \\SEARCH_DIR("{s}/mos-platform/nes/rompoke");
-        \\SEARCH_DIR("{s}/mos-platform/common/ldscripts");
-        \\__chr_rom_size = {d};
-        \\INCLUDE "{s}/mos-platform/nes-cnrom/link.ld"
-    , .{ sdk_src, sdk_src, sdk_src, sdk_src, total_kb, sdk_src }));
-
-    const root_fwd = blk: {
-        const p = b.build_root.path orelse ".";
-        const buf = b.allocator.dupe(u8, p) catch @panic("OOM");
-        std.mem.replaceScalar(u8, buf, '\\', '/');
-        break :blk buf;
-    };
-
-    // Build multi-bank CHR assembly: one .chr_rom_N section per bank.
-    const chr_parts = b.allocator.alloc([]const u8, chr_srcs.len) catch @panic("OOM");
-    for (chr_srcs, 0..) |chr_src, i| {
-        chr_parts[i] = b.fmt(
-            \\.section .chr_rom_{d},"a",@progbits
-            \\.incbin "{s}/{s}"
-            \\
-        , .{ i, root_fwd, chr_src });
-    }
-    const chr_asm_content = std.mem.concat(b.allocator, u8, chr_parts) catch @panic("OOM");
-    const chr_wf = b.addWriteFiles();
-    const chr_asm = chr_wf.add("chr-rom-abs.s", chr_asm_content);
-
-    const exe = b.addExecutable(.{
-        .name = name,
-        .root_module = b.createModule(.{
-            .root_source_file = b.path(root_src),
-            .target = target,
-            .optimize = opt,
-            .sanitize_c = .off,
-        }),
-    });
-    exe.bundle_compiler_rt = false;
-    exe.lto = .full;
-    exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/common/crt0/crt0.S"));
-    if (libs.mem) |mem_obj| exe.root_module.addObject(mem_obj);
-    exe.root_module.addAssemblyFile(chr_asm);
-    exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes-cnrom/ines.s"));
-    exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes/ines.s"));
-    exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes/rompoke/rompoke.s"));
-    exe.root_module.linkLibrary(libs.crt);
-    exe.root_module.linkLibrary(libs.crt0);
-    exe.root_module.linkLibrary(libs.c);
-    if (libs.neslib) |neslib| exe.root_module.linkLibrary(neslib);
-    if (libs.nesdoug) |nesdoug| exe.root_module.linkLibrary(nesdoug);
-    if (libs.nes_c) |nc| exe.root_module.linkLibrary(nc);
-    if (libs.nes_c_startup) |ncs| exe.root_module.linkLibrary(ncs);
-    exe.setLinkerScript(wrapper_ld);
-    exe.root_module.addImport("mos_panic", b.createModule(.{
-        .root_source_file = b.path("sdk/panic.zig"),
-        .target = target,
-        .optimize = opt,
-        .sanitize_c = .off,
-    }));
-
-    return exe;
-}
-
-fn addNesUnromExe(
-    b: *std.Build,
-    sdk_dep: *std.Build.Dependency,
-    sdk_src: []const u8,
-    libs: sdk_mod.Libs,
-    opt: std.builtin.OptimizeMode,
-    name: []const u8,
-    root_src: []const u8,
-) *std.Build.Step.Compile {
-    const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .nes });
-
-    // Pre-build reset.s as a separate object so the linker script's INPUT(reset.o)
-    // can resolve via SEARCH_DIR. We install the .o to a dedicated subdir inside
-    // the install prefix so the linker can find it.
-    const reset_obj = b.addObject(.{
-        .name = "reset",
-        .root_module = b.createModule(.{ .target = target, .optimize = opt }),
-    });
-    reset_obj.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes-unrom/reset.s"));
-    const reset_dir = b.fmt("{s}/objs/{s}", .{ b.install_path, name });
-    const install_reset = b.addInstallFileWithDir(reset_obj.getEmittedBin(), .{ .custom = b.fmt("objs/{s}", .{name}) }, "reset.o");
-
-    const wf = b.addWriteFiles();
-    const wrapper_ld = wf.add("nes-unrom-wrapper.ld", b.fmt(
-        \\SEARCH_DIR("{s}");
-        \\SEARCH_DIR("{s}/mos-platform/nes-unrom");
-        \\SEARCH_DIR("{s}/mos-platform/nes");
-        \\SEARCH_DIR("{s}/mos-platform/nes/rompoke");
-        \\SEARCH_DIR("{s}/mos-platform/common/ldscripts");
-        \\/* UNROM uses CHR RAM, not CHR ROM; override the 8 KiB CHR ROM weak default. */
-        \\__chr_rom_size = 0;
-        \\__chr_ram_size = 8;
-        \\INCLUDE "{s}/mos-platform/nes-unrom/link.ld"
-    , .{ reset_dir, sdk_src, sdk_src, sdk_src, sdk_src, sdk_src }));
-
-    const exe = b.addExecutable(.{
-        .name = name,
-        .root_module = b.createModule(.{
-            .root_source_file = b.path(root_src),
-            .target = target,
-            .optimize = opt,
-            .sanitize_c = .off,
-        }),
-    });
-    exe.bundle_compiler_rt = false;
-    exe.lto = .full;
-    exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/common/crt0/crt0.S"));
-    if (libs.mem) |mem_obj| exe.root_module.addObject(mem_obj);
-    exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes-unrom/ines.s"));
-    exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes/ines.s"));
-    exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes/rompoke/rompoke.s"));
-    exe.root_module.linkLibrary(libs.crt);
-    exe.root_module.linkLibrary(libs.crt0);
-    exe.root_module.linkLibrary(libs.c);
-    if (libs.neslib) |neslib| exe.root_module.linkLibrary(neslib);
-    if (libs.nesdoug) |nesdoug| exe.root_module.linkLibrary(nesdoug);
-    if (libs.nes_c) |nc| exe.root_module.linkLibrary(nc);
-    if (libs.nes_c_startup) |ncs| exe.root_module.linkLibrary(ncs);
-    exe.setLinkerScript(wrapper_ld);
-    exe.step.dependOn(&install_reset.step);
-    exe.root_module.addImport("mos_panic", b.createModule(.{
-        .root_source_file = b.path("sdk/panic.zig"),
-        .target = target,
-        .optimize = opt,
-        .sanitize_c = .off,
-    }));
-
-    return exe;
-}
-
-fn addNesUnrom512Exe(
-    b: *std.Build,
-    sdk_dep: *std.Build.Dependency,
-    sdk_src: []const u8,
-    libs: sdk_mod.Libs,
-    opt: std.builtin.OptimizeMode,
-    name: []const u8,
-    root_src: []const u8,
-) *std.Build.Step.Compile {
-    const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .nes });
-
-    // Pre-build reset.s as a separate object so the linker script's INPUT(reset.o)
-    // can resolve via SEARCH_DIR. We install the .o to a dedicated subdir inside
-    // the install prefix so the linker can find it.
-    const reset_obj = b.addObject(.{
-        .name = "reset",
-        .root_module = b.createModule(.{ .target = target, .optimize = opt }),
-    });
-    reset_obj.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes-unrom-512/reset.s"));
-    const reset_dir = b.fmt("{s}/objs/{s}", .{ b.install_path, name });
-    const install_reset = b.addInstallFileWithDir(reset_obj.getEmittedBin(), .{ .custom = b.fmt("objs/{s}", .{name}) }, "reset.o");
-
-    const wf = b.addWriteFiles();
-    const wrapper_ld = wf.add("nes-unrom-512-wrapper.ld", b.fmt(
-        \\SEARCH_DIR("{s}");
-        \\SEARCH_DIR("{s}/mos-platform/nes-unrom-512");
-        \\SEARCH_DIR("{s}/mos-platform/nes");
-        \\SEARCH_DIR("{s}/mos-platform/nes/rompoke");
-        \\SEARCH_DIR("{s}/mos-platform/common/ldscripts");
-        \\/* UNROM-512 uses CHR RAM (32 KiB); zero out CHR ROM default. */
-        \\__chr_rom_size = 0;
-        \\__chr_ram_size = 32;
-        \\INCLUDE "{s}/mos-platform/nes-unrom-512/link.ld"
-    , .{ reset_dir, sdk_src, sdk_src, sdk_src, sdk_src, sdk_src }));
-
-    const exe = b.addExecutable(.{
-        .name = name,
-        .root_module = b.createModule(.{
-            .root_source_file = b.path(root_src),
-            .target = target,
-            .optimize = opt,
-            .sanitize_c = .off,
-        }),
-    });
-    exe.bundle_compiler_rt = false;
-    exe.lto = .full;
-    exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/common/crt0/crt0.S"));
-    if (libs.mem) |mem_obj| exe.root_module.addObject(mem_obj);
-    exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes-unrom-512/ines.s"));
-    exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes/ines.s"));
-    exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes/rompoke/rompoke.s"));
-    exe.root_module.linkLibrary(libs.crt);
-    exe.root_module.linkLibrary(libs.crt0);
-    exe.root_module.linkLibrary(libs.c);
-    if (libs.neslib) |neslib| exe.root_module.linkLibrary(neslib);
-    if (libs.nesdoug) |nesdoug| exe.root_module.linkLibrary(nesdoug);
-    if (libs.nes_c) |nc| exe.root_module.linkLibrary(nc);
-    if (libs.nes_c_startup) |ncs| exe.root_module.linkLibrary(ncs);
-    exe.setLinkerScript(wrapper_ld);
-    exe.step.dependOn(&install_reset.step);
-    exe.root_module.addImport("mos_panic", b.createModule(.{
-        .root_source_file = b.path("sdk/panic.zig"),
-        .target = target,
-        .optimize = opt,
-        .sanitize_c = .off,
-    }));
-
-    return exe;
-}
-
-fn addNesMmc1Exe(
-    b: *std.Build,
-    sdk_dep: *std.Build.Dependency,
-    sdk_src: []const u8,
-    libs: sdk_mod.Libs,
-    opt: std.builtin.OptimizeMode,
-    name: []const u8,
-    root_src: []const u8,
-) *std.Build.Step.Compile {
-    const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .nes });
-
-    const reset_obj = b.addObject(.{
-        .name = "reset",
-        .root_module = b.createModule(.{ .target = target, .optimize = opt }),
-    });
-    reset_obj.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes-mmc1/reset.s"));
-    const reset_dir = b.fmt("{s}/objs/{s}", .{ b.install_path, name });
-    const install_reset = b.addInstallFileWithDir(reset_obj.getEmittedBin(), .{ .custom = b.fmt("objs/{s}", .{name}) }, "reset.o");
-
-    const wf = b.addWriteFiles();
-    const wrapper_ld = wf.add("nes-mmc1-wrapper.ld", b.fmt(
-        \\SEARCH_DIR("{s}");
-        \\SEARCH_DIR("{s}/mos-platform/nes-mmc1");
-        \\SEARCH_DIR("{s}/mos-platform/nes");
-        \\SEARCH_DIR("{s}/mos-platform/nes/rompoke");
-        \\SEARCH_DIR("{s}/mos-platform/common/ldscripts");
-        \\/* MMC1 hello uses CHR RAM; override the 128 KiB CHR ROM weak default. */
-        \\__chr_rom_size = 0;
-        \\__chr_ram_size = 8;
-        \\INCLUDE "{s}/mos-platform/nes-mmc1/link.ld"
-    , .{ reset_dir, sdk_src, sdk_src, sdk_src, sdk_src, sdk_src }));
-
-    const exe = b.addExecutable(.{
-        .name = name,
-        .root_module = b.createModule(.{
-            .root_source_file = b.path(root_src),
-            .target = target,
-            .optimize = opt,
-            .sanitize_c = .off,
-        }),
-    });
-    exe.bundle_compiler_rt = false;
-    exe.lto = .full;
-    exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/common/crt0/crt0.S"));
-    if (libs.mem) |mem_obj| exe.root_module.addObject(mem_obj);
-    exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes-mmc1/ines.s"));
-    exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes/ines.s"));
-    exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes/rompoke/rompoke.s"));
-    exe.root_module.linkLibrary(libs.crt);
-    exe.root_module.linkLibrary(libs.crt0);
-    exe.root_module.linkLibrary(libs.c);
-    if (libs.neslib) |neslib| exe.root_module.linkLibrary(neslib);
-    if (libs.nesdoug) |nesdoug| exe.root_module.linkLibrary(nesdoug);
-    if (libs.nes_c) |nc| exe.root_module.linkLibrary(nc);
-    if (libs.nes_c_startup) |ncs| exe.root_module.linkLibrary(ncs);
-    exe.setLinkerScript(wrapper_ld);
-    exe.step.dependOn(&install_reset.step);
-    exe.root_module.addImport("mos_panic", b.createModule(.{
-        .root_source_file = b.path("sdk/panic.zig"),
-        .target = target,
-        .optimize = opt,
-        .sanitize_c = .off,
-    }));
-
-    return exe;
-}
-
-fn addNesGtromExe(
-    b: *std.Build,
-    sdk_dep: *std.Build.Dependency,
-    sdk_src: []const u8,
-    libs: sdk_mod.Libs,
-    opt: std.builtin.OptimizeMode,
-    name: []const u8,
-    root_src: []const u8,
-) *std.Build.Step.Compile {
-    const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .nes });
-
-    const reset_obj = b.addObject(.{
-        .name = "reset",
-        .root_module = b.createModule(.{ .target = target, .optimize = opt }),
-    });
-    reset_obj.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes-gtrom/reset.s"));
-    const reset_dir = b.fmt("{s}/objs/{s}", .{ b.install_path, name });
-    const install_reset = b.addInstallFileWithDir(reset_obj.getEmittedBin(), .{ .custom = b.fmt("objs/{s}", .{name}) }, "reset.o");
-
-    const wf = b.addWriteFiles();
-    const wrapper_ld = wf.add("nes-gtrom-wrapper.ld", b.fmt(
-        \\SEARCH_DIR("{s}");
-        \\SEARCH_DIR("{s}/mos-platform/nes-gtrom");
-        \\SEARCH_DIR("{s}/mos-platform/nes");
-        \\SEARCH_DIR("{s}/mos-platform/nes/rompoke");
-        \\SEARCH_DIR("{s}/mos-platform/common/ldscripts");
-        \\INCLUDE "{s}/mos-platform/nes-gtrom/link.ld"
-    , .{ reset_dir, sdk_src, sdk_src, sdk_src, sdk_src, sdk_src }));
-
-    const exe = b.addExecutable(.{
-        .name = name,
-        .root_module = b.createModule(.{
-            .root_source_file = b.path(root_src),
-            .target = target,
-            .optimize = opt,
-            .sanitize_c = .off,
-        }),
-    });
-    exe.bundle_compiler_rt = false;
-    exe.lto = .full;
-    exe.step.dependOn(&install_reset.step);
-    exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/common/crt0/crt0.S"));
-    if (libs.mem) |mem_obj| exe.root_module.addObject(mem_obj);
-    exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes-gtrom/ines.s"));
-    exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes/ines.s"));
-    exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes/rompoke/rompoke.s"));
-    exe.root_module.linkLibrary(libs.crt);
-    exe.root_module.linkLibrary(libs.crt0);
-    exe.root_module.linkLibrary(libs.c);
-    if (libs.neslib) |neslib| exe.root_module.linkLibrary(neslib);
-    if (libs.nesdoug) |nesdoug| exe.root_module.linkLibrary(nesdoug);
-    if (libs.nes_c) |nc| exe.root_module.linkLibrary(nc);
-    if (libs.nes_c_startup) |ncs| exe.root_module.linkLibrary(ncs);
-    exe.setLinkerScript(wrapper_ld);
-    exe.root_module.addImport("mos_panic", b.createModule(.{
-        .root_source_file = b.path("sdk/panic.zig"),
-        .target = target,
-        .optimize = opt,
-        .sanitize_c = .off,
-    }));
-
-    return exe;
-}
-
-fn addNesMmc3Exe(
-    b: *std.Build,
-    sdk_dep: *std.Build.Dependency,
-    sdk_src: []const u8,
-    libs: sdk_mod.Libs,
-    opt: std.builtin.OptimizeMode,
-    name: []const u8,
-    root_src: []const u8,
-) *std.Build.Step.Compile {
-    const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .nes });
-
-    const reset_obj = b.addObject(.{
-        .name = "reset",
-        .root_module = b.createModule(.{ .target = target, .optimize = opt }),
-    });
-    reset_obj.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes-mmc3/reset-banked-8.s"));
-    const reset_dir = b.fmt("{s}/objs/{s}", .{ b.install_path, name });
-    const install_reset = b.addInstallFileWithDir(reset_obj.getEmittedBin(), .{ .custom = b.fmt("objs/{s}", .{name}) }, "reset-banked-8.o");
-
-    const wf = b.addWriteFiles();
-    const wrapper_ld = wf.add("nes-mmc3-wrapper.ld", b.fmt(
-        \\SEARCH_DIR("{s}");
-        \\SEARCH_DIR("{s}/mos-platform/nes-mmc3");
-        \\SEARCH_DIR("{s}/mos-platform/nes");
-        \\SEARCH_DIR("{s}/mos-platform/nes/rompoke");
-        \\SEARCH_DIR("{s}/mos-platform/common/ldscripts");
-        \\/* MMC3 hello uses CHR RAM; override the 256 KiB CHR ROM weak default. */
-        \\__chr_rom_size = 0;
-        \\__chr_ram_size = 8;
-        \\INCLUDE "{s}/mos-platform/nes-mmc3/link.ld"
-    , .{ reset_dir, sdk_src, sdk_src, sdk_src, sdk_src, sdk_src }));
-
-    const exe = b.addExecutable(.{
-        .name = name,
-        .root_module = b.createModule(.{
-            .root_source_file = b.path(root_src),
-            .target = target,
-            .optimize = opt,
-            .sanitize_c = .off,
-        }),
-    });
-    exe.bundle_compiler_rt = false;
-    exe.lto = .full;
-    exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/common/crt0/crt0.S"));
-    if (libs.mem) |mem_obj| exe.root_module.addObject(mem_obj);
-    exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes-mmc3/ines.s"));
-    exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes/ines.s"));
-    exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/nes/rompoke/rompoke.s"));
-    exe.root_module.linkLibrary(libs.crt);
-    exe.root_module.linkLibrary(libs.crt0);
-    exe.root_module.linkLibrary(libs.c);
-    if (libs.neslib) |neslib| exe.root_module.linkLibrary(neslib);
-    if (libs.nesdoug) |nesdoug| exe.root_module.linkLibrary(nesdoug);
-    if (libs.nes_c) |nc| exe.root_module.linkLibrary(nc);
-    if (libs.nes_c_startup) |ncs| exe.root_module.linkLibrary(ncs);
-    exe.setLinkerScript(wrapper_ld);
-    exe.step.dependOn(&install_reset.step);
-    exe.root_module.addImport("mos_panic", b.createModule(.{
-        .root_source_file = b.path("sdk/panic.zig"),
-        .target = target,
-        .optimize = opt,
-        .sanitize_c = .off,
-    }));
-
-    return exe;
-}
-
 fn addAtari2600_3eExe(
     b: *std.Build,
     sdk_dep: *std.Build.Dependency,
@@ -2100,15 +1782,24 @@ fn addSnesExe(
     opt: std.builtin.OptimizeMode,
     name: []const u8,
     root_src: []const u8,
+    cfg: struct { lorom: bool = true, fastrom: bool = false, hirom: bool = false, title: ?[]const u8 = null },
 ) *std.Build.Step.Compile {
     const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .snes });
 
     const build_root = b.build_root.path orelse ".";
     const wf = b.addWriteFiles();
-    const wrapper_ld = wf.add("snes-lorom-wrapper.ld", b.fmt(
+    const ld_file = if (cfg.hirom) "hirom.ld" else if (cfg.fastrom) "fastrom.ld" else "lorom.ld";
+    const ld_wrapper = if (cfg.hirom) "snes-hirom-wrapper.ld" else if (cfg.fastrom) "snes-fastrom-wrapper.ld" else "snes-lorom-wrapper.ld";
+    const wrapper_ld = wf.add(ld_wrapper, b.fmt(
         \\SEARCH_DIR("{s}/mos-platform/common/ldscripts");
-        \\INCLUDE "{s}/snes/lorom.ld"
-    , .{ sdk_src, build_root }));
+        \\INCLUDE "{s}/snes/{s}"
+    , .{ sdk_src, build_root, ld_file }));
+
+    // Build ROM header title: pad/truncate to exactly 21 ASCII bytes.
+    const raw_title = cfg.title orelse if (cfg.hirom) "ZIG SNES HIROM" else "ZIG SNES HELLO";
+    var title_buf: [21]u8 = .{' '} ** 21;
+    @memcpy(title_buf[0..@min(raw_title.len, 21)], raw_title[0..@min(raw_title.len, 21)]);
+    const map_mode: u8 = if (cfg.hirom) 0x21 else if (cfg.fastrom) 0x30 else 0x20;
 
     const exe = b.addExecutable(.{
         .name = name,
@@ -2140,75 +1831,46 @@ fn addSnesExe(
     sneslib_mod.addImport("snes", snes_mod);
     exe.root_module.addImport("snes", snes_mod);
     exe.root_module.addImport("sneslib", sneslib_mod);
+    // Generate SNES ROM header dynamically with the per-exe title.
+    const header_src = b.fmt(
+        \\// Copyright (c) 2024 Matheus C. França
+        \\// SPDX-License-Identifier: Apache-2.0
+        \\comptime {{
+        \\    asm (
+        \\        \\.section .snes_header,"a",@progbits
+        \\        \\    .ascii "{s}"
+        \\        \\    .byte  0x{x:0>2}
+        \\        \\    .byte  0x00
+        \\        \\    .byte  0x05
+        \\        \\    .byte  0x00
+        \\        \\    .byte  0x01
+        \\        \\    .byte  0x00
+        \\        \\    .byte  0x00
+        \\        \\    .word  0xffff
+        \\        \\    .word  0x0000
+        \\        \\
+        \\        \\.extern nmi_handler
+        \\        \\.section .vectors,"a",@progbits
+        \\        \\    .word  0x0000
+        \\        \\    .word  0x0000
+        \\        \\    .word  0x0000
+        \\        \\    .word  nmi_handler
+        \\        \\    .word  0x0000
+        \\        \\    .word  0x0000
+        \\        \\    .word  0x0000
+        \\        \\    .word  0x0000
+        \\        \\    .word  0x0000
+        \\        \\    .word  0x0000
+        \\        \\    .word  0x0000
+        \\        \\    .word  0x0000
+        \\        \\    .word  _start
+        \\        \\    .word  0x0000
+        \\    );
+        \\}}
+        \\
+    , .{ title_buf, map_mode });
     exe.root_module.addImport("snes_header", b.createModule(.{
-        .root_source_file = b.path("snes/header.zig"),
-        .target = target,
-        .optimize = opt,
-        .sanitize_c = .off,
-    }));
-    exe.root_module.addImport("mos_panic", b.createModule(.{
-        .root_source_file = b.path("sdk/panic.zig"),
-        .target = target,
-        .optimize = opt,
-        .sanitize_c = .off,
-    }));
-    exe.root_module.linkLibrary(libs.crt);
-    exe.root_module.linkLibrary(libs.crt0);
-    exe.root_module.linkLibrary(libs.c);
-    exe.setLinkerScript(wrapper_ld);
-
-    return exe;
-}
-
-fn addSnesHiRomExe(
-    b: *std.Build,
-    sdk_src: []const u8,
-    libs: sdk_mod.Libs,
-    opt: std.builtin.OptimizeMode,
-    name: []const u8,
-    root_src: []const u8,
-) *std.Build.Step.Compile {
-    const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .snes });
-
-    const build_root = b.build_root.path orelse ".";
-    const wf = b.addWriteFiles();
-    const wrapper_ld = wf.add("snes-hirom-wrapper.ld", b.fmt(
-        \\SEARCH_DIR("{s}/mos-platform/common/ldscripts");
-        \\INCLUDE "{s}/snes/hirom.ld"
-    , .{ sdk_src, build_root }));
-
-    const exe = b.addExecutable(.{
-        .name = name,
-        .root_module = b.createModule(.{
-            .root_source_file = b.path(root_src),
-            .target = target,
-            .optimize = opt,
-            .sanitize_c = .off,
-        }),
-    });
-    exe.bundle_compiler_rt = false;
-    exe.lto = .full;
-    exe.forceUndefinedSymbol("__zig_call_main_section");
-    exe.forceUndefinedSymbol("main");
-    exe.root_module.addAssemblyFile(b.path("snes/crt0.s"));
-    if (libs.mem) |mem_obj| exe.root_module.addObject(mem_obj);
-    const snes_mod = b.createModule(.{
-        .root_source_file = b.path("snes/hardware.zig"),
-        .target = target,
-        .optimize = opt,
-        .sanitize_c = .off,
-    });
-    const sneslib_mod = b.createModule(.{
-        .root_source_file = b.path("snes/sneslib.zig"),
-        .target = target,
-        .optimize = opt,
-        .sanitize_c = .off,
-    });
-    sneslib_mod.addImport("snes", snes_mod);
-    exe.root_module.addImport("snes", snes_mod);
-    exe.root_module.addImport("sneslib", sneslib_mod);
-    exe.root_module.addImport("snes_header", b.createModule(.{
-        .root_source_file = b.path("snes/hirom_header.zig"),
+        .root_source_file = wf.add("snes_header.zig", header_src),
         .target = target,
         .optimize = opt,
         .sanitize_c = .off,

@@ -74,7 +74,10 @@ zig build snes-hello
 zig build snes-color-cycle
 zig build snes-zig-logo
 zig build snes-pi-test
+zig build snes-pi-fastrom
 zig build snes-hirom-hello
+zig build snes-megablast
+zig build snes-pads
 
 # mos-sim (6502 simulator)
 zig build sim-hello
@@ -125,10 +128,14 @@ Output files land in `zig-out/bin/`.
 
 | Example | Preview |
 |---------|---------|
+| `snes-hello` — LoROM backdrop hello | |
 | `snes-zig-logo` — Zig mark logo on BG1 with shimmer palette animation | ![](.github/snes-zig-logo.gif) |
 | `snes-color-cycle` — backdrop hue rotation (192-step colour wheel) | |
 | `snes-pi-test` — ~900 digits of π via Spigot algorithm, BG1 text (port of pi_snes by Sirmacho) | |
+| `snes-pi-fastrom` — same π demo built as FastROM (map mode $30, MEMSEL=1) | |
 | `snes-hirom-hello` — HiROM backdrop hello (map mode $21) | |
+| `snes-megablast` — full-game port [no sound] of NES Megablast (CH13), Mode 1 BG+OBJ | |
+| `snes-pads` — joypad demo: LEFT/RIGHT cycles backdrop color, A+B resets; exercises `buttonMask`, `held`, `pressed` | |
 
 ### Other platforms
 
@@ -176,7 +183,10 @@ Output files land in `zig-out/bin/`.
 | `snes-color-cycle` | SNES LoROM | mosw65816 | `.sfc` |
 | `snes-zig-logo` | SNES LoROM | mosw65816 | `.sfc` |
 | `snes-pi-test` | SNES LoROM | mosw65816 | `.sfc` |
+| `snes-pi-fastrom` | SNES FastROM | mosw65816 | `.sfc` |
 | `snes-hirom-hello` | SNES HiROM | mosw65816 | `.sfc` |
+| `snes-megablast` | SNES LoROM | mosw65816 | `.sfc` |
+| `snes-pads` | SNES LoROM | mosw65816 | `.sfc` |
 | `sim-hello` | mos-sim (6502 simulator) | mos6502 | binary |
 | `mega65-hello`, `mega65-plasma` | MEGA65 | mos45gs02 | `.prg` |
 | `mega65-viciv` | MEGA65 VICIV | mos45gs02 | `.prg` |

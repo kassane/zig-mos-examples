@@ -1,15 +1,62 @@
 // Copyright (c) 2024 Matheus C. França
 // SPDX-License-Identifier: Apache-2.0
 //
-// SNES convenience library: common PPU, VRAM, CGRAM, and scroll helpers.
+// SNES convenience library: PPU, VRAM, CGRAM, scroll, joypad, and video-effect helpers.
 
 const hw = @import("snes");
 
 /// Re-export color() from hardware.zig.
 pub const color = hw.color;
 
+// ---------------------------------------------------------------------------
+// VBlank / NMI
+// ---------------------------------------------------------------------------
+
 /// VBlank flag set by the NMI handler each vertical blank; cleared by wait_vblank().
 pub export var vblank_flag: u16 = 0;
+
+// ---------------------------------------------------------------------------
+// Joypad — auto-read buffers updated by the NMI handler each VBlank.
+// Layout: index 0 = pad 1, index 1 = pad 2.
+// Bit format (16-bit): JOY1H<<8 | JOY1L  (matches $4218/$4219 byte order).
+// ---------------------------------------------------------------------------
+
+/// Currently-held buttons (all frames while held).
+pub export var pad_keys: [2]u16 = .{ 0, 0 };
+/// Buttons held last frame (used for transition detection).
+pub export var pad_keysold: [2]u16 = .{ 0, 0 };
+/// Buttons newly pressed this frame (0→1 transitions only).
+pub export var pad_keysdown: [2]u16 = .{ 0, 0 };
+
+pub const KEY_B = @as(u16, 0x8000);
+pub const KEY_Y = @as(u16, 0x4000);
+pub const KEY_SELECT = @as(u16, 0x2000);
+pub const KEY_START = @as(u16, 0x1000);
+pub const KEY_UP = @as(u16, 0x0800);
+pub const KEY_DOWN = @as(u16, 0x0400);
+pub const KEY_LEFT = @as(u16, 0x0200);
+pub const KEY_RIGHT = @as(u16, 0x0100);
+pub const KEY_A = @as(u16, 0x0080);
+pub const KEY_X = @as(u16, 0x0040);
+pub const KEY_L = @as(u16, 0x0020);
+pub const KEY_R = @as(u16, 0x0010);
+
+/// Returns true if ALL of `buttons` are currently held on pad `pad` (0 or 1).
+pub fn held(pad: u1, buttons: u16) bool {
+    return pad_keys[pad] & buttons == buttons;
+}
+
+/// Returns true if ALL of `buttons` were just pressed this frame on pad `pad`.
+pub fn pressed(pad: u1, buttons: u16) bool {
+    return pad_keysdown[pad] & buttons == buttons;
+}
+
+// ---------------------------------------------------------------------------
+// Display
+// ---------------------------------------------------------------------------
+
+/// Tracked brightness (0–15). $2100 (INIDISP) is write-only on real hardware.
+var _brightness: u8 = 0;
 
 /// Disable display (force blank) and turn off NMI/IRQ.
 pub fn ppu_off() void {
@@ -19,6 +66,7 @@ pub fn ppu_off() void {
 
 /// Enable display at full brightness (force-blank off).
 pub fn ppu_on() void {
+    _brightness = 15;
     hw.INIDISP.* = 0x0f;
 }
 
@@ -67,7 +115,7 @@ pub fn dma_copy_vram(src: [*]const u8, vram_addr: u16, size: u16) void {
     hw.BBAD(0).* = 0x18; // B-bus destination = $2118 (VMDATAL)
     hw.A1TL(0).* = @truncate(ptr);
     hw.A1TH(0).* = @truncate(ptr >> 8);
-    hw.A1B(0).* = @truncate(ptr >> 16);
+    hw.A1B(0).* = @truncate(@as(u32, @intCast(ptr)) >> 16);
     hw.DASL(0).* = @truncate(size);
     hw.DASH(0).* = @truncate(size >> 8);
     hw.MDMAEN.* = 0x01;
@@ -82,7 +130,7 @@ pub fn dma_copy_cgram(src: [*]const u8, cgram_addr: u8, size: u16) void {
     hw.BBAD(0).* = 0x22; // B-bus destination = $2122 (CGDATA)
     hw.A1TL(0).* = @truncate(ptr);
     hw.A1TH(0).* = @truncate(ptr >> 8);
-    hw.A1B(0).* = @truncate(ptr >> 16);
+    hw.A1B(0).* = @truncate(@as(u32, @intCast(ptr)) >> 16);
     hw.DASL(0).* = @truncate(size);
     hw.DASH(0).* = @truncate(size >> 8);
     hw.MDMAEN.* = 0x01;
@@ -98,7 +146,7 @@ pub fn dma_copy_oam(src: [*]const u8, size: u16) void {
     hw.BBAD(0).* = 0x04; // B-bus destination = $2104 (OAMDATA)
     hw.A1TL(0).* = @truncate(ptr);
     hw.A1TH(0).* = @truncate(ptr >> 8);
-    hw.A1B(0).* = @truncate(ptr >> 16);
+    hw.A1B(0).* = @truncate(@as(u32, @intCast(ptr)) >> 16);
     hw.DASL(0).* = @truncate(size);
     hw.DASH(0).* = @truncate(size >> 8);
     hw.MDMAEN.* = 0x01;
@@ -129,4 +177,59 @@ pub fn bg_scroll_zero() void {
     hw.BG4HOFS.* = 0x00;
     hw.BG4VOFS.* = 0x00;
     hw.BG4VOFS.* = 0x00;
+}
+
+// ---------------------------------------------------------------------------
+// Brightness / fades
+// ---------------------------------------------------------------------------
+
+/// Set display brightness (0 = off/blank, 15 = full). Updates the write-only INIDISP shadow.
+pub fn set_brightness(level: u4) void {
+    _brightness = level;
+    hw.INIDISP.* = level;
+}
+
+/// Decrease brightness by one step. Returns true when it reaches 0 (fade-out complete).
+pub fn fade_out_step() bool {
+    if (_brightness == 0) return true;
+    _brightness -= 1;
+    hw.INIDISP.* = _brightness;
+    return _brightness == 0;
+}
+
+/// Increase brightness by one step. Returns true when it reaches 15 (fade-in complete).
+pub fn fade_in_step() bool {
+    if (_brightness == 15) return true;
+    _brightness += 1;
+    hw.INIDISP.* = _brightness;
+    return _brightness == 15;
+}
+
+// ---------------------------------------------------------------------------
+// Video effects
+// ---------------------------------------------------------------------------
+
+/// Enable mosaic: `size` = pixel enlargement 0–15, `bg_mask` = BG enable bits 0–3.
+pub fn set_mosaic(size: u4, bg_mask: u4) void {
+    hw.MOSAIC.* = (@as(u8, size) << 4) | @as(u8, bg_mask);
+}
+
+/// Disable mosaic on all BGs.
+pub fn mosaic_off() void {
+    hw.MOSAIC.* = 0x00;
+}
+
+/// Configure colour math registers: `cgwsel` → $2130, `cgadsub` → $2131.
+pub fn set_color_math(cgwsel: u8, cgadsub: u8) void {
+    hw.CGWSEL.* = cgwsel;
+    hw.CGADSUB.* = cgadsub;
+}
+
+
+/// OR multiple button constants together at comptime.
+/// Usage: `sneslib.buttonMask(.{sneslib.KEY_A, sneslib.KEY_B})`
+pub fn buttonMask(comptime btns: anytype) u16 {
+    comptime var mask: u16 = 0;
+    inline for (btns) |b| mask |= b;
+    return mask;
 }

@@ -21,6 +21,9 @@ __rc0 = 0x0000;
 INCLUDE imag-regs.ld
 ASSERT(__rc31 == 0x001f, "Inconsistent zero page map.")
 
+/* ROM access speed for MEMSEL ($420D): 0=SlowROM, 1=FastROM.   */
+__snes_memsel = 0;
+
 MEMORY {
     /* Direct page: bytes after imaginary regs, up to end of page */
     zp  (rw) : ORIGIN = __rc31 + 1, LENGTH = 0x100 - (__rc31 + 1)
