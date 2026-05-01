@@ -41,13 +41,45 @@ pub const VMADDH = reg(0x2117); // VRAM address high byte
 pub const VMDATAL = reg(0x2118); // VRAM data write low byte
 pub const VMDATAH = reg(0x2119); // VRAM data write high byte
 
+// ---- PPU: Mode 7 ----
+pub const M7SEL = reg(0x211a); // Mode 7 settings (flip, repeat)
+pub const M7A = reg(0x211b); // Mode 7 matrix A (write twice: low, high)
+pub const M7B = reg(0x211c); // Mode 7 matrix B / multiplicand (write twice)
+pub const M7C = reg(0x211d); // Mode 7 matrix C (write twice)
+pub const M7D = reg(0x211e); // Mode 7 matrix D (write twice)
+pub const M7X = reg(0x211f); // Mode 7 center X (write twice)
+pub const M7Y = reg(0x2120); // Mode 7 center Y (write twice)
+
 // ---- PPU: Palette (CGRAM) ----
 pub const CGADD = reg(0x2121); // CGRAM byte address (palette index × 2)
 pub const CGDATA = reg(0x2122); // CGRAM data write (two 8-bit writes per 15-bit BGR entry)
 
+// ---- PPU: Window Masking ----
+pub const W12SEL = reg(0x2123); // Window mask settings for BG1/BG2
+pub const W34SEL = reg(0x2124); // Window mask settings for BG3/BG4
+pub const WOBJSEL = reg(0x2125); // Window mask settings for OBJ and color window
+pub const WH0 = reg(0x2126); // Window 1 left border
+pub const WH1 = reg(0x2127); // Window 1 right border
+pub const WH2 = reg(0x2128); // Window 2 left border
+pub const WH3 = reg(0x2129); // Window 2 right border
+pub const WBGLOG = reg(0x212a); // Window mask logic for BG1–BG4
+pub const WOBJLOG = reg(0x212b); // Window mask logic for OBJ and color window
+
 // ---- PPU: Layer enable ----
 pub const TM = reg(0x212c); // Main screen layer enable
 pub const TS = reg(0x212d); // Sub screen layer enable
+pub const TMW = reg(0x212e); // Main screen window enable
+pub const TSW = reg(0x212f); // Sub screen window enable
+
+// ---- PPU: Color Math ----
+pub const CGWSEL = reg(0x2130); // Color math control (clip/prevent, add/sub windows)
+pub const CGADSUB = reg(0x2131); // Color math add/subtract layer select
+pub const COLDATA = reg(0x2132); // Fixed color data (B/G/R + intensity)
+
+// ---- PPU: Multiplication result (read) ----
+pub const MPYL = reg(0x2134); // Signed multiply result low   (M7A × M7B)
+pub const MPYM = reg(0x2135); // Signed multiply result middle
+pub const MPYH = reg(0x2136); // Signed multiply result high
 
 // ---- PPU: Status (read) ----
 pub const RDNMI = reg(0x4210); // V-blank NMI flag and CPU version
@@ -93,6 +125,9 @@ pub fn DASL(comptime n: u3) *volatile u8 {
 }
 pub fn DASH(comptime n: u3) *volatile u8 {
     return reg(0x4306 + @as(u16, n) * 0x10);
+}
+pub fn DASB(comptime n: u3) *volatile u8 {
+    return reg(0x4307 + @as(u16, n) * 0x10);
 }
 
 /// Build a 15-bit BGR colour word (SNES format: 0bbbbbgggggrrrrr).

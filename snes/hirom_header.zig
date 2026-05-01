@@ -1,22 +1,24 @@
 // Copyright (c) 2024 Matheus C. França
 // SPDX-License-Identifier: Apache-2.0
 //
-// SNES LoROM internal ROM header ($FFC0–$FFDF) and interrupt vector table
-// ($FFE4–$FFFF). Both sections are placed at fixed addresses by lorom.ld.
+// SNES HiROM internal ROM header ($FFC0–$FFDF) and interrupt vector table
+// ($FFE4–$FFFF). Both sections are placed at fixed addresses by hirom.ld.
+//
+// Map mode $21 = HiROM. $31 = FastROM HiROM. Use $21 for compatibility.
 
 comptime {
     asm (
         \\.section .snes_header,"a",@progbits
-        \\    .ascii "ZIG SNES HELLO       "
-        \\    .byte  0x20
-        \\    .byte  0x00
-        \\    .byte  0x05
-        \\    .byte  0x00
-        \\    .byte  0x01
-        \\    .byte  0x00
-        \\    .byte  0x00
-        \\    .word  0xffff
-        \\    .word  0x0000
+        \\    .ascii "ZIG SNES HIROM       "
+        \\    .byte  0x21        /* map mode: HiROM        */
+        \\    .byte  0x00        /* ROM type: ROM only      */
+        \\    .byte  0x05        /* ROM size: 1 Mbit        */
+        \\    .byte  0x00        /* SRAM size: 0            */
+        \\    .byte  0x01        /* destination: NTSC       */
+        \\    .byte  0x00        /* fixed: $00              */
+        \\    .byte  0x00        /* version: 1.0            */
+        \\    .word  0xffff      /* checksum complement     */
+        \\    .word  0x0000      /* checksum                */
         \\
         \\.extern nmi_handler
         \\.section .vectors,"a",@progbits

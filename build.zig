@@ -785,6 +785,16 @@ pub fn build(b: *std.Build) void {
         run_bininfo.addFileArg(exe.getEmittedBin());
     }
 
+    // ---- SNES HiROM hello ----
+    {
+        const step = b.step("snes-hirom-hello", "Build SNES HiROM hello example");
+        const exe = addSnesHiRomExe(b, sdk_src, sdk_libs.snes orelse @panic("snes libs not built"), optimize, "snes-hirom-hello", "snes/hirom-hello/hirom-hello.zig");
+        const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "snes-hirom-hello.sfc" });
+        step.dependOn(&install.step);
+        b.getInstallStep().dependOn(&install.step);
+        run_bininfo.addFileArg(exe.getEmittedBin());
+    }
+
     // ---- Atari 8-bit cartridge hello ----
     {
         const step = b.step("atari8-cart-hello", "Build Atari 8-bit standard cartridge hello example");
@@ -2132,6 +2142,73 @@ fn addSnesExe(
     exe.root_module.addImport("sneslib", sneslib_mod);
     exe.root_module.addImport("snes_header", b.createModule(.{
         .root_source_file = b.path("snes/header.zig"),
+        .target = target,
+        .optimize = opt,
+        .sanitize_c = .off,
+    }));
+    exe.root_module.addImport("mos_panic", b.createModule(.{
+        .root_source_file = b.path("sdk/panic.zig"),
+        .target = target,
+        .optimize = opt,
+        .sanitize_c = .off,
+    }));
+    exe.root_module.linkLibrary(libs.crt);
+    exe.root_module.linkLibrary(libs.crt0);
+    exe.root_module.linkLibrary(libs.c);
+    exe.setLinkerScript(wrapper_ld);
+
+    return exe;
+}
+
+fn addSnesHiRomExe(
+    b: *std.Build,
+    sdk_src: []const u8,
+    libs: sdk_mod.Libs,
+    opt: std.builtin.OptimizeMode,
+    name: []const u8,
+    root_src: []const u8,
+) *std.Build.Step.Compile {
+    const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .snes });
+
+    const build_root = b.build_root.path orelse ".";
+    const wf = b.addWriteFiles();
+    const wrapper_ld = wf.add("snes-hirom-wrapper.ld", b.fmt(
+        \\SEARCH_DIR("{s}/mos-platform/common/ldscripts");
+        \\INCLUDE "{s}/snes/hirom.ld"
+    , .{ sdk_src, build_root }));
+
+    const exe = b.addExecutable(.{
+        .name = name,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path(root_src),
+            .target = target,
+            .optimize = opt,
+            .sanitize_c = .off,
+        }),
+    });
+    exe.bundle_compiler_rt = false;
+    exe.lto = .full;
+    exe.forceUndefinedSymbol("__zig_call_main_section");
+    exe.forceUndefinedSymbol("main");
+    exe.root_module.addAssemblyFile(b.path("snes/crt0.s"));
+    if (libs.mem) |mem_obj| exe.root_module.addObject(mem_obj);
+    const snes_mod = b.createModule(.{
+        .root_source_file = b.path("snes/hardware.zig"),
+        .target = target,
+        .optimize = opt,
+        .sanitize_c = .off,
+    });
+    const sneslib_mod = b.createModule(.{
+        .root_source_file = b.path("snes/sneslib.zig"),
+        .target = target,
+        .optimize = opt,
+        .sanitize_c = .off,
+    });
+    sneslib_mod.addImport("snes", snes_mod);
+    exe.root_module.addImport("snes", snes_mod);
+    exe.root_module.addImport("sneslib", sneslib_mod);
+    exe.root_module.addImport("snes_header", b.createModule(.{
+        .root_source_file = b.path("snes/hirom_header.zig"),
         .target = target,
         .optimize = opt,
         .sanitize_c = .off,

@@ -8,7 +8,7 @@ Open an issue with: what went wrong, steps to reproduce, Zig version, OS.
 
 ## Pull Requests
 
-- New examples must build with `zig build -Dsdk=...` and include a named step in the root `build.zig`.
+- New examples must build with `zig build` and include a named step in the root `build.zig`.
 - Follow Zig style — run `zig fmt` before committing.
 - PR title should summarize the change; description should explain why.
 
