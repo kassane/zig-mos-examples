@@ -811,8 +811,24 @@ fn buildPce(
 ) Libs {
     const libpce_src = b.fmt("{s}/libpce/src", .{pce_common_dir});
     const libpce_inc = b.fmt("{s}/libpce/include", .{pce_common_dir});
+    // common/crt0/crt0.S provides .call_main (jsr main) and .fini_rts sections.
+    // Must be a TRUE object (not archive member): section-only contributions with no
+    // exported symbol are silently skipped by ld.lld archive extraction.
+    // Mirrors cmake add_platform_object_file(common-crt0-o).
+    const crt0_obj = b.addObject(.{
+        .name = "crt0",
+        .root_module = b.createModule(.{ .target = target, .optimize = opt }),
+    });
+    crt0_obj.root_module.addIncludePath(.{ .cwd_relative = com_asm });
+    crt0_obj.root_module.addIncludePath(.{ .cwd_relative = com_inc });
+    crt0_obj.root_module.addCSourceFiles(.{
+        .root = .{ .cwd_relative = crt0_dir },
+        .files = &.{"crt0.S"},
+    });
+    crt0_obj.lto = .none;
+
     // libcrt0: pce-specific crt0 files + common init-stack + exit-loop.
-    // Note: crt0/crt0.S is a standalone object added per-exe (not in this lib).
+    // Note: pce/crt0/crt0.S is a standalone object added per-exe (not in this lib).
     const libcrt0 = addLib(b, "crt0", target, opt);
     libcrt0.lto = .none;
     libcrt0.root_module.addIncludePath(.{ .cwd_relative = com_asm });
@@ -851,7 +867,7 @@ fn buildPce(
         },
     });
 
-    return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc };
+    return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc, .crt0_obj = crt0_obj };
 }
 
 fn buildAtari8CartStd(

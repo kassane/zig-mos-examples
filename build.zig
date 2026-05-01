@@ -133,6 +133,10 @@ pub fn build(b: *std.Build) void {
     const atari8_target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .atari8 });
     const atari8_gtia_mod = atari8GtiaHeaderMod(b, sdk_dep, atari8_target, optimize);
 
+    // Translated PCE headers for PC Engine.
+    const pce_target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .pce });
+    const pce_mod = pceHeaderMod(b, sdk_dep, pce_target, optimize);
+
     // Host tool: converts MOS ELF symbol tables to Mesen label files (.mlb).
     const elf2mlb = b.addExecutable(.{
         .name = "elf2mlb",
@@ -564,6 +568,7 @@ pub fn build(b: *std.Build) void {
     {
         const step = b.step("pce-color-cycle", "Build PC Engine color-cycle example");
         const exe = addPceExe(b, sdk_dep, sdk_src, sdk_libs.pce orelse @panic("pce libs not built"), optimize, "pce-color-cycle", "pce/color-cycle/color-cycle.zig");
+        exe.root_module.addImport("pce", pce_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "pce-color-cycle.pce" });
         step.dependOn(&install.step);
         b.getInstallStep().dependOn(&install.step);
@@ -574,6 +579,7 @@ pub fn build(b: *std.Build) void {
     {
         const step = b.step("pce-color-cycle-banked", "Build PC Engine banked color-cycle example");
         const exe = addPceExe(b, sdk_dep, sdk_src, sdk_libs.pce orelse @panic("pce libs not built"), optimize, "pce-color-cycle-banked", "pce/color-cycle-banked/color-cycle-banked.zig");
+        exe.root_module.addImport("pce", pce_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "pce-color-cycle-banked.pce" });
         step.dependOn(&install.step);
         b.getInstallStep().dependOn(&install.step);
@@ -834,6 +840,24 @@ pub fn build(b: *std.Build) void {
         b.getInstallStep().dependOn(&install.step);
         run_bininfo.addFileArg(exe.getEmittedBin());
     }
+}
+
+fn pceHeaderMod(
+    b: *std.Build,
+    sdk_dep: *std.Build.Dependency,
+    target: std.Build.ResolvedTarget,
+    opt: std.builtin.OptimizeMode,
+) *std.Build.Module {
+    const tc = b.addTranslateC(.{
+        .root_source_file = b.path("pce/pce.h"),
+        .target = target,
+        .optimize = opt,
+        .link_libc = false,
+    });
+    tc.addIncludePath(sdk_dep.path("mos-platform/pce-common/libpce/include"));
+    tc.addIncludePath(sdk_dep.path("mos-platform/pce-common"));
+    tc.addIncludePath(sdk_dep.path("mos-platform/common/include"));
+    return tc.createModule();
 }
 
 fn atari2600HeaderMod(
@@ -1643,6 +1667,11 @@ fn addPceExe(
     });
     exe.bundle_compiler_rt = false;
     exe.lto = .full;
+    // LTO DCE eliminates mosCallMainSection (in .call_main) because the
+    // linker KEEP() reference runs after LTO. Force both symbols to keep
+    // the .call_main JSR and the main() function itself.
+    exe.forceUndefinedSymbol("__zig_call_main_section");
+    exe.forceUndefinedSymbol("main");
     exe.root_module.addCSourceFile(.{
         .file = sdk_dep.path("mos-platform/pce/crt0/crt0.S"),
     });
@@ -1653,6 +1682,7 @@ fn addPceExe(
     exe.root_module.linkLibrary(libs.crt);
     exe.root_module.linkLibrary(libs.crt0);
     exe.root_module.linkLibrary(libs.c);
+    if (libs.crt0_obj) |obj| exe.root_module.addObject(obj);
     exe.setLinkerScript(wrapper_ld);
     exe.root_module.addImport("mos_panic", b.createModule(.{
         .root_source_file = b.path("sdk/panic.zig"),
