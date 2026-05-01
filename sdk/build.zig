@@ -26,6 +26,13 @@ pub const Libs = struct {
     // Platforms that need a strong __memset (overrides the weak recursive stub):
     // built as a TRUE object so ld.lld sees the strong definition before the archive.
     mem: ?*std.Build.Step.Compile = null,
+    // C64/CBM: printf.cc + varint.cc compiled with lto=.none (C++ bitcode crashes LLVM LTO codegen for 6502).
+    printf: ?*std.Build.Step.Compile = null,
+    // C64/CBM: crt0.S must be a TRUE object (not an archive member).
+    // common-crt0-o in CMake = add_platform_object_file → always force-linked.
+    // Without this, .call_main (jsr main) is a section-only archive member with no
+    // exported symbol, so ld.lld never extracts it → main is never called.
+    crt0_obj: ?*std.Build.Step.Compile = null,
 };
 
 /// Build platform libraries for `pd` from the SDK source tree at `sdk_root`.
@@ -138,16 +145,28 @@ pub fn buildPlatform(b: *std.Build, sdk_root: []const u8, pd: Platform, opt: std
     libcrt0.root_module.addIncludePath(.{ .cwd_relative = com_inc });
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = crt0_dir },
-        .files = &.{ "crt0.S", "init-stack.S" },
+        // crt0.S is kept here for sim (sim uses Zig start.zig + forceUndefinedSymbol
+        // for startup, so the archive copy is harmless).  For CBM platforms, crt0.S
+        // is built as a TRUE object (crt0_obj) and added directly to each exe, because
+        // its .call_main section has no exported symbol → ld.lld would silently skip
+        // the archive member → main is never called.
+        .files = if (std.mem.eql(u8, pd.name, "sim")) &.{ "crt0.S", "init-stack.S" } else &.{"init-stack.S"},
     });
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = crt0_dir },
         .files = &.{"copy-zp-data.c"},
     });
-    const exit_file: []const u8 = if (std.mem.eql(u8, pd.name, "sim")) "exit-custom.S" else "exit-loop.c";
+    // CBM exit: exit-custom.S defines __after_main (jmp exit) so crt0.S's undefined
+    // __after_main reference pulls it from the archive.  exit.c provides exit() which
+    // calls _fini() + _Exit().  exit-loop.c provides _Exit() = infinite loop.
+    // sim only needs exit-custom.S (it defines __after_main for that platform too).
+    const exit_files: []const []const u8 = if (std.mem.eql(u8, pd.name, "sim"))
+        &.{"exit-custom.S"}
+    else
+        &.{ "exit-custom.S", "exit-loop.c", "exit.c" };
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = b.fmt("{s}/exit", .{crt0_dir}) },
-        .files = &.{exit_file},
+        .files = exit_files,
     });
 
     // libc — platform I/O and kernal wrappers.
@@ -160,12 +179,14 @@ pub fn buildPlatform(b: *std.Build, sdk_root: []const u8, pd: Platform, opt: std
             .files = &.{ "putchar.c", "stdlib.c", "sim-io.c" },
         });
     } else {
+        const com_c_dir = b.fmt("{s}/c", .{common});
         const asm_files: []const []const u8 = if (std.mem.eql(u8, pd.name, "mega65"))
             &.{ "filevars.s", "kernal.S" }
         else
             &.{ "basic-header.S", "kernal.S", "unmap-basic.S", "devnum.s" };
         libc.root_module.addIncludePath(.{ .cwd_relative = plat_dir });
         libc.root_module.addIncludePath(.{ .cwd_relative = comm_dir });
+        libc.root_module.addIncludePath(.{ .cwd_relative = com_c_dir });
         libc.root_module.addIncludePath(.{ .cwd_relative = com_asm });
         libc.root_module.addIncludePath(.{ .cwd_relative = com_inc });
         libc.root_module.addCSourceFiles(.{
@@ -174,8 +195,48 @@ pub fn buildPlatform(b: *std.Build, sdk_root: []const u8, pd: Platform, opt: std
         });
         libc.root_module.addCSourceFiles(.{
             .root = .{ .cwd_relative = comm_dir },
-            .files = &.{ "abort.c", "cbm_k_bsout.c", "cbm_k_chrout.c", "chrout.c", "char-conv.c" },
+            .files = &.{ "abort.c", "cbm_k_bsout.c", "cbm_k_chrout.c", "chrout.c", "char-conv.c", "putchar.c", "getchar.c" },
         });
+        libc.root_module.addCSourceFiles(.{
+            .root = .{ .cwd_relative = com_c_dir },
+            .files = &.{ "stdio-minimal.c", "mem.c", "util.c", "string.c" },
+        });
+        // Build printf.cc + varint.cc with lto=.none: C++ bitcode crashes LLVM LTO
+        // codegen for the 6502 target. Pre-compiling to native code avoids the crash.
+        const libprintf = addLib(b, "printf", target, opt);
+        libprintf.lto = .none;
+        libprintf.root_module.addIncludePath(.{ .cwd_relative = plat_dir });
+        libprintf.root_module.addIncludePath(.{ .cwd_relative = comm_dir });
+        libprintf.root_module.addIncludePath(.{ .cwd_relative = com_c_dir });
+        libprintf.root_module.addIncludePath(.{ .cwd_relative = com_asm });
+        libprintf.root_module.addIncludePath(.{ .cwd_relative = com_inc });
+        libprintf.root_module.addCSourceFiles(.{
+            .root = .{ .cwd_relative = com_c_dir },
+            .files = &.{ "printf.cc", "varint.cc" },
+            .flags = &.{ "-fno-exceptions", "-fno-rtti" },
+        });
+        // sdk/mem.s — strong __memset + abort TRUE object (same pattern as NES/SNES).
+        const mem_obj = b.addObject(.{
+            .name = "mem",
+            .root_module = b.createModule(.{ .target = target, .optimize = opt }),
+        });
+        mem_obj.root_module.addCSourceFiles(.{ .root = b.path("sdk"), .files = &.{"mem.s"} });
+        mem_obj.lto = .none;
+        // crt0.S TRUE object — mirrors cmake add_platform_object_file(common-crt0-o).
+        // Must be linked directly (not via archive) so its .call_main / .fini_rts
+        // anonymous sections reach the linker.  lto=.none matches libcrt0 policy.
+        const crt0_obj = b.addObject(.{
+            .name = "crt0",
+            .root_module = b.createModule(.{ .target = target, .optimize = opt }),
+        });
+        crt0_obj.root_module.addIncludePath(.{ .cwd_relative = com_asm });
+        crt0_obj.root_module.addIncludePath(.{ .cwd_relative = com_inc });
+        crt0_obj.root_module.addCSourceFiles(.{
+            .root = .{ .cwd_relative = crt0_dir },
+            .files = &.{"crt0.S"},
+        });
+        crt0_obj.lto = .none;
+        return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc, .printf = libprintf, .mem = mem_obj, .crt0_obj = crt0_obj };
     }
 
     return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc };

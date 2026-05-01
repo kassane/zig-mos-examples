@@ -1198,12 +1198,17 @@ fn addC64Exe(
     });
     exe.bundle_compiler_rt = false;
     exe.lto = .full;
+    exe.forceUndefinedSymbol("__zig_call_main_section");
+    exe.forceUndefinedSymbol("main");
     // basic-header.S and unmap-basic.S replace INPUT(basic-header.o) / INPUT(unmap-basic.o).
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/c64/basic-header.S"));
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/c64/unmap-basic.S"));
+    if (libs.crt0_obj) |obj| exe.root_module.addObject(obj);
     exe.root_module.linkLibrary(libs.crt);
     exe.root_module.linkLibrary(libs.crt0);
     exe.root_module.linkLibrary(libs.c);
+    if (libs.printf) |libprintf| exe.root_module.linkLibrary(libprintf);
+    if (libs.mem) |mem_obj| exe.root_module.addObject(mem_obj);
     if (with_printf_flt) exe.root_module.linkSystemLibrary("printf_flt", .{ .use_pkg_config = .no });
     exe.setLibCFile(libc_txt);
     exe.root_module.link_libc = true;
