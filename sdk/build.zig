@@ -787,6 +787,20 @@ fn buildLynxBll(
         .files = &.{"exit-loop.c"},
     });
 
+    // crt0.S provides .call_main (jsr main). Must be a TRUE object — section-only
+    // contribution with no exported symbol is silently skipped by ld.lld from archives.
+    const crt0_obj = b.addObject(.{
+        .name = "crt0",
+        .root_module = b.createModule(.{ .target = target, .optimize = opt }),
+    });
+    crt0_obj.root_module.addIncludePath(.{ .cwd_relative = com_asm });
+    crt0_obj.root_module.addIncludePath(.{ .cwd_relative = com_inc });
+    crt0_obj.root_module.addCSourceFiles(.{
+        .root = .{ .cwd_relative = crt0_dir },
+        .files = &.{"crt0.S"},
+    });
+    crt0_obj.lto = .none;
+
     // lynx-c has no source files — emit a tiny stub so the static archive isn't empty.
     const libc = addLib(b, "c", target, opt);
     libc.root_module.addIncludePath(.{ .cwd_relative = lynx_dir });
@@ -795,7 +809,7 @@ fn buildLynxBll(
     const stub_c = stub_wf.add("lynx_stub.c", "// lynx-c stub — no platform sources required.\nstatic int lynx_stub_marker;\n");
     libc.root_module.addCSourceFile(.{ .file = stub_c, .flags = &.{} });
 
-    return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc };
+    return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc, .crt0_obj = crt0_obj };
 }
 
 fn buildPce(
@@ -984,10 +998,12 @@ fn buildGeosCbm(
         .files = &.{ "init-stack.S", "copy-zp-data.c", "zero-bss.c" },
     });
 
+    const com_c_dir = b.fmt("{s}/../c", .{crt0_dir});
+
     const libc = addLib(b, "c", target, opt);
     libc.root_module.addIncludePath(.{ .cwd_relative = com_inc });
     libc.root_module.addCSourceFiles(.{
-        .root = .{ .cwd_relative = b.fmt("{s}/../c", .{crt0_dir}) },
+        .root = .{ .cwd_relative = com_c_dir },
         .files = &.{"mem.c"},
     });
 
@@ -1010,7 +1026,19 @@ fn buildGeosCbm(
     });
     crt0_obj.lto = .none;
 
-    return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc, .mem = mem_obj, .crt0_obj = crt0_obj };
+    // printf.cc + varint.cc must be lto=.none: C++ bitcode + LTO crashes LLVM codegen for 6502.
+    const libprintf = addLib(b, "printf", target, opt);
+    libprintf.lto = .none;
+    libprintf.root_module.addIncludePath(.{ .cwd_relative = plat_dir });
+    libprintf.root_module.addIncludePath(.{ .cwd_relative = com_c_dir });
+    libprintf.root_module.addIncludePath(.{ .cwd_relative = com_asm });
+    libprintf.root_module.addIncludePath(.{ .cwd_relative = com_inc });
+    libprintf.root_module.addCSourceFiles(.{
+        .root = .{ .cwd_relative = com_c_dir },
+        .files = &.{ "printf.cc", "varint.cc" },
+    });
+
+    return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc, .printf = libprintf, .mem = mem_obj, .crt0_obj = crt0_obj };
 }
 
 fn buildC128(

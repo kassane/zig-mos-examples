@@ -1629,6 +1629,9 @@ fn addLynxBllExe(
     exe.root_module.linkLibrary(libs.crt);
     exe.root_module.linkLibrary(libs.crt0);
     exe.root_module.linkLibrary(libs.c);
+    if (libs.crt0_obj) |obj| exe.root_module.addObject(obj);
+    exe.forceUndefinedSymbol("__zig_call_main_section");
+    exe.forceUndefinedSymbol("main");
     exe.setLinkerScript(wrapper_ld);
     exe.root_module.addImport("mos_panic", b.createModule(.{
         .root_source_file = b.path("sdk/panic.zig"),
@@ -2115,6 +2118,7 @@ fn addGeosExe(
     exe.root_module.linkLibrary(libs.crt);
     exe.root_module.linkLibrary(libs.crt0);
     exe.root_module.linkLibrary(libs.c);
+    if (libs.printf) |lib| exe.root_module.linkLibrary(lib);
     if (libs.mem) |mem_obj| exe.root_module.addObject(mem_obj);
     exe.setLibCFile(libc_txt);
     exe.root_module.link_libc = true;
