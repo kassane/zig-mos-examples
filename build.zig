@@ -810,16 +810,6 @@ pub fn build(b: *std.Build) void {
         run_bininfo.addFileArg(exe.getEmittedBin());
     }
 
-    // ---- SNES Megablast ----
-    {
-        const step = b.step("snes-megablast", "Build SNES Megablast full game port");
-        const exe = addSnesExe(b, sdk_src, sdk_libs.snes orelse @panic("snes libs not built"), optimize, "snes-megablast", "snes/megablast/megablast.zig", .{ .title = "MEGABLAST" });
-        const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "snes-megablast.sfc" });
-        step.dependOn(&install.step);
-        b.getInstallStep().dependOn(&install.step);
-        run_bininfo.addFileArg(exe.getEmittedBin());
-    }
-
     // ---- SNES pads: controller input + buttonMask demo ----
     {
         const step = b.step("snes-pads", "Build SNES joypad demo: d-pad cycles backdrop color, A+B resets");
@@ -1015,7 +1005,7 @@ fn addNesExe(
         const reset_obj_stem = if (cfg.mapper == .mmc3) "reset-banked-8" else "reset";
         const reset_obj = b.addObject(.{
             .name = reset_obj_stem,
-            .root_module = b.createModule(.{ .target = target, .optimize = opt }),
+            .root_module = b.createModule(.{ .target = target, .optimize = opt, .sanitize_c = .off }),
         });
         reset_obj.root_module.addAssemblyFile(sdk_dep.path(reset_asm));
         install_reset = b.addInstallFileWithDir(

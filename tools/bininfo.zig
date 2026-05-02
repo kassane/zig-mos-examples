@@ -307,6 +307,80 @@ fn checkElf(path: []const u8, data: []const u8) bool {
     if (printed == 0)
         std.debug.print("  (no symbols — binary may be stripped)\n", .{});
 
+    // ── MOS DWARF inventory ───────────────────────────────────────────────
+    if (e_machine == 0x1966) {
+        const dwarf_names = [_][]const u8{
+            ".debug_info",
+            ".debug_abbrev",
+            ".debug_line",
+            ".debug_str",
+            ".debug_ranges",
+            ".debug_loc",
+            ".debug_aranges",
+            ".debug_frame",
+            ".eh_frame",
+        };
+        var dwarf_offsets = [_]u32{0} ** dwarf_names.len;
+        var dwarf_sizes = [_]u32{0} ** dwarf_names.len;
+
+        for (0..e_shnum) |i| {
+            const sh = shdr.get(data, e_shoff, e_shentsize, @truncate(i));
+            if ((readU32Le(sh, 8) & SHF_ALLOC) != 0) continue; // DWARF is non-ALLOC
+            const name_off = readU32Le(sh, 0);
+            if (name_off >= shstr.len) continue;
+            var name_end = name_off;
+            while (name_end < shstr.len and shstr[name_end] != 0) name_end += 1;
+            const sec_name = shstr[name_off..name_end];
+            for (dwarf_names, 0..) |dn, di| {
+                if (std.mem.eql(u8, sec_name, dn)) {
+                    dwarf_offsets[di] = readU32Le(sh, 16);
+                    dwarf_sizes[di] = readU32Le(sh, 20);
+                    break;
+                }
+            }
+        }
+
+        var any_dwarf = false;
+        for (dwarf_sizes) |sz| {
+            if (sz > 0) {
+                any_dwarf = true;
+                break;
+            }
+        }
+
+        if (any_dwarf) {
+            // Parse .debug_info CU headers: version (bytes 4-5 of each CU header) + unit count.
+            var dwarf_ver: u16 = 0;
+            var cu_count: u32 = 0;
+            const di_off = dwarf_offsets[0];
+            const di_sz = dwarf_sizes[0];
+            if (di_sz >= 6 and di_off + di_sz <= data.len) {
+                dwarf_ver = readU16Le(data, di_off + 4);
+                var pos: usize = di_off;
+                const di_end: usize = di_off + di_sz;
+                while (pos + 4 <= di_end) {
+                    const unit_len = readU32Le(data, pos);
+                    if (unit_len == 0 or pos + 4 + unit_len > di_end) break;
+                    cu_count += 1;
+                    pos += 4 + unit_len;
+                }
+            }
+
+            std.debug.print("  -- DWARF " ++ "-" ** 45 ++ "\n", .{});
+            if (dwarf_ver > 0)
+                std.debug.print("  version=DWARFv{d}  compile-units={d}\n", .{ dwarf_ver, cu_count });
+
+            for (dwarf_names, 0..) |dn, di| {
+                const sz = dwarf_sizes[di];
+                if (sz > 0) {
+                    std.debug.print("  {s:<20} {d:>8}B\n", .{ dn, sz });
+                } else if (std.mem.eql(u8, dn, ".debug_frame")) {
+                    std.debug.print("  {s:<20}  (absent — no CFI; stack unwinding not supported on MOS)\n", .{dn});
+                }
+            }
+        }
+    }
+
     return true;
 }
 
