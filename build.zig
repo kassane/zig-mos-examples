@@ -23,6 +23,7 @@ const SdkLibs = struct {
     a2600_3e: ?sdk_mod.Libs = null,
     a8cart: ?sdk_mod.Libs = null,
     snes: ?sdk_mod.Libs = null,
+    geos_cbm: ?sdk_mod.Libs = null,
 };
 
 pub fn build(b: *std.Build) void {
@@ -64,6 +65,7 @@ pub fn build(b: *std.Build) void {
         .{ .name = "atari2600-3e", .query = .{ .cpu_arch = .mos, .os_tag = .atari2600 } },
         .{ .name = "atari8-cart-std", .query = .{ .cpu_arch = .mos, .os_tag = .atari8 } },
         .{ .name = "snes", .query = .{ .cpu_arch = .mos, .os_tag = .snes } },
+        .{ .name = "geos-cbm", .query = .{ .cpu_arch = .mos, .os_tag = .geos_cbm } },
     }) |pd| {
         const libs = sdk_mod.buildPlatform(b, sdk_src_raw, pd, optimize);
         const dest = b.fmt("mos-platform/{s}/lib", .{pd.name});
@@ -93,6 +95,7 @@ pub fn build(b: *std.Build) void {
         if (std.mem.eql(u8, pd.name, "atari2600-3e")) sdk_libs.a2600_3e = libs;
         if (std.mem.eql(u8, pd.name, "atari8-cart-std")) sdk_libs.a8cart = libs;
         if (std.mem.eql(u8, pd.name, "snes")) sdk_libs.snes = libs;
+        if (std.mem.eql(u8, pd.name, "geos-cbm")) sdk_libs.geos_cbm = libs;
     }
 
     // Translate neslib.h and nesdoug.h from the MOS SDK into Zig modules.
@@ -429,6 +432,16 @@ pub fn build(b: *std.Build) void {
         const step = b.step("c64-plasma", "Build C64 plasma effect example");
         const exe = addC64Exe(b, sdk_dep, sdk_src, sdk_libs.c64 orelse @panic("c64 libs not built"), optimize, "plasma", "c64/plasma/plasma.zig", false);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "plasma.prg" });
+        step.dependOn(&install.step);
+        b.getInstallStep().dependOn(&install.step);
+        run_bininfo.addFileArg(exe.getEmittedBin());
+    }
+
+    // ---- GEOS CBM hello ----
+    {
+        const step = b.step("geos-hello", "Build GEOS CBM hello example");
+        const exe = addGeosExe(b, sdk_src, sdk_dep, sdk_libs.geos_cbm orelse @panic("geos-cbm libs not built"), optimize, "geos-hello", "geos/hello/hello.zig");
+        const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "geos-hello.cvt" });
         step.dependOn(&install.step);
         b.getInstallStep().dependOn(&install.step);
         run_bininfo.addFileArg(exe.getEmittedBin());
@@ -2037,6 +2050,84 @@ fn simIoHeaderMod(
     tc.addIncludePath(sdk_dep.path("mos-platform/sim"));
     tc.addIncludePath(sdk_dep.path("mos-platform/common/include"));
     return tc.createModule();
+}
+
+fn geosHeaderMod(
+    b: *std.Build,
+    sdk_dep: *std.Build.Dependency,
+    target: std.Build.ResolvedTarget,
+    opt: std.builtin.OptimizeMode,
+) *std.Build.Module {
+    const tc = b.addTranslateC(.{
+        // geos_zig.h suppresses _Static_assert (struct-size checks fail during translation)
+        .root_source_file = b.path("geos/geos_zig.h"),
+        .target = target,
+        .optimize = opt,
+        .link_libc = false,
+    });
+    tc.addIncludePath(sdk_dep.path("mos-platform/geos-cbm"));
+    tc.addIncludePath(sdk_dep.path("mos-platform/common/include"));
+    return tc.createModule();
+}
+
+fn addGeosExe(
+    b: *std.Build,
+    sdk_src: []const u8,
+    sdk_dep: *std.Build.Dependency,
+    libs: sdk_mod.Libs,
+    opt: std.builtin.OptimizeMode,
+    name: []const u8,
+    root_src: []const u8,
+) *std.Build.Step.Compile {
+    const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .geos_cbm });
+
+    const wf = b.addWriteFiles();
+    const libc_txt = wf.add("libc.txt", b.fmt(
+        "include_dir={s}/mos-platform/geos-cbm\n" ++
+            "sys_include_dir={s}/mos-platform/common/include\n" ++
+            "crt_dir={s}/mos-platform/geos-cbm\n" ++
+            "msvc_lib_dir=\nkernel32_lib_dir=\ngcc_dir=\n",
+        .{ sdk_src, sdk_src, sdk_src },
+    ));
+    // vlir.ld is the GEOS VLIR linker script (produces .cvt binary via OUTPUT_FORMAT FULL blocks).
+    // It includes c.ld (common sections) and geos.ld (GEOS symbol table) via INCLUDE directives,
+    // both resolved through the SEARCH_DIRs below.
+    const wrapper_ld = wf.add("geos-cbm-wrapper.ld", b.fmt(
+        \\SEARCH_DIR("{s}/mos-platform/geos-cbm");
+        \\SEARCH_DIR("{s}/mos-platform/common/ldscripts");
+        \\INCLUDE "vlir.ld"
+    , .{ sdk_src, sdk_src }));
+
+    const exe = b.addExecutable(.{
+        .name = name,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path(root_src),
+            .target = target,
+            .optimize = opt,
+            .sanitize_c = .off,
+        }),
+    });
+    exe.bundle_compiler_rt = false;
+    exe.lto = .full;
+    exe.forceUndefinedSymbol("__zig_call_main_section");
+    exe.forceUndefinedSymbol("main");
+    if (libs.crt0_obj) |obj| exe.root_module.addObject(obj);
+    exe.root_module.linkLibrary(libs.crt);
+    exe.root_module.linkLibrary(libs.crt0);
+    exe.root_module.linkLibrary(libs.c);
+    if (libs.mem) |mem_obj| exe.root_module.addObject(mem_obj);
+    exe.setLibCFile(libc_txt);
+    exe.root_module.link_libc = true;
+    exe.setLinkerScript(wrapper_ld);
+    exe.root_module.addImport("mos_panic", b.createModule(.{
+        .root_source_file = b.path("sdk/panic.zig"),
+        .target = target,
+        .optimize = opt,
+        .sanitize_c = .off,
+    }));
+    exe.root_module.addImport("geos", geosHeaderMod(b, sdk_dep, target, opt));
+
+    return exe;
 }
 
 fn addApple2Exe(

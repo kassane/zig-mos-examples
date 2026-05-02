@@ -977,11 +977,11 @@ fn buildGeosCbm(
     libcrt0.root_module.addIncludePath(.{ .cwd_relative = com_inc });
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = plat_dir },
-        .files = &.{ "crt0.c", "geos_crt.c" },
+        .files = &.{"crt0.c"},
     });
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = crt0_dir },
-        .files = &.{ "crt0.S", "init-stack.S", "copy-zp-data.c", "zero-bss.c" },
+        .files = &.{ "init-stack.S", "copy-zp-data.c", "zero-bss.c" },
     });
 
     const libc = addLib(b, "c", target, opt);
@@ -991,7 +991,26 @@ fn buildGeosCbm(
         .files = &.{"mem.c"},
     });
 
-    return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc };
+    const mem_obj = b.addObject(.{
+        .name = "mem",
+        .root_module = b.createModule(.{ .target = target, .optimize = opt }),
+    });
+    mem_obj.root_module.addCSourceFiles(.{ .root = b.path("sdk"), .files = &.{"mem.s"} });
+    mem_obj.lto = .none;
+
+    const crt0_obj = b.addObject(.{
+        .name = "crt0",
+        .root_module = b.createModule(.{ .target = target, .optimize = opt }),
+    });
+    crt0_obj.root_module.addIncludePath(.{ .cwd_relative = com_asm });
+    crt0_obj.root_module.addIncludePath(.{ .cwd_relative = com_inc });
+    crt0_obj.root_module.addCSourceFiles(.{
+        .root = .{ .cwd_relative = crt0_dir },
+        .files = &.{"crt0.S"},
+    });
+    crt0_obj.lto = .none;
+
+    return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc, .mem = mem_obj, .crt0_obj = crt0_obj };
 }
 
 fn buildC128(
