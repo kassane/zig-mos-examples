@@ -232,11 +232,18 @@ pub fn build(b: *std.Build) void {
         .{ .name = "color-cycle", .chr = "nesdoug/color-cycle/blocks.chr" },
         .{ .name = "bat-ball", .chr = "nesdoug/bat-ball/example.chr" },
         .{ .name = "fullbg", .chr = "nesdoug/fullbg/Girl5.chr" },
+        .{ .name = "megablast", .chr = "nesdoug/megablast/megablast.chr" },
+        .{ .name = "gg-demo", .chr = "nesdoug/gg-demo/GG-8K.chr" },
+        .{ .name = "mappers-apples", .chr = "nesdoug/mappers/apples.chr" },
+        .{ .name = "mappers-balls", .chr = "nesdoug/mappers/balls.chr" },
+        .{ .name = "mappers-snake", .chr = "nesdoug/mappers/snake.chr" },
+        .{ .name = "mappers-flower", .chr = "nesdoug/mappers/flower.chr" },
     }) |cf| {
         const run = b.addRunArtifact(chr2svg);
         run.addFileArg(b.path(cf.chr));
-        const svg_out = run.addOutputFileArg(b.fmt("{s}.chr.svg", .{cf.name}));
-        const install_svg = b.addInstallBinFile(svg_out, b.fmt("{s}.chr.svg", .{cf.name}));
+        const out_name = b.fmt("{s}.chr.svg", .{cf.name});
+        const svg_out = run.addOutputFileArg(out_name);
+        const install_svg = b.addInstallBinFile(svg_out, out_name);
         gen_previews.dependOn(&install_svg.step);
         run_svgcheck.addFileArg(svg_out);
     }
@@ -947,10 +954,12 @@ fn addNesLabels(
 ) void {
     const run = b.addRunArtifact(elf2mlb);
     run.addFileArg(exe.getEmittedBin());
-    const mlb_out = run.addOutputFileArg(b.fmt("{s}.nes.mlb", .{name}));
-    const elf_out = run.addOutputFileArg(b.fmt("{s}.nes.elf", .{name}));
-    const install_mlb = b.addInstallBinFile(mlb_out, b.fmt("{s}.nes.mlb", .{name}));
-    const install_elf = b.addInstallBinFile(elf_out, b.fmt("{s}.nes.elf", .{name}));
+    const mlb_name = b.fmt("{s}.nes.mlb", .{name});
+    const elf_name = b.fmt("{s}.nes.elf", .{name});
+    const mlb_out = run.addOutputFileArg(mlb_name);
+    const elf_out = run.addOutputFileArg(elf_name);
+    const install_mlb = b.addInstallBinFile(mlb_out, mlb_name);
+    const install_elf = b.addInstallBinFile(elf_out, elf_name);
     gen_labels.dependOn(&install_mlb.step);
     gen_labels.dependOn(&install_elf.step);
 }
@@ -1187,13 +1196,7 @@ fn addC64Exe(
     const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .c64 });
 
     const wf = b.addWriteFiles();
-    const libc_txt = wf.add("libc.txt", b.fmt(
-        "include_dir={s}/mos-platform/c64\n" ++
-            "sys_include_dir={s}/mos-platform/common/include\n" ++
-            "crt_dir={s}/mos-platform/c64\n" ++
-            "msvc_lib_dir=\nkernel32_lib_dir=\ngcc_dir=\n",
-        .{ sdk_src, sdk_src, sdk_src },
-    ));
+    const libc_txt = addLibcTxt(b, wf, sdk_src, "c64");
     // Inline c64/link.ld + commodore/commodore.ld, replacing INPUT() directives with
     // addAssemblyFile calls below (lld INPUT() doesn't search -L paths for .o files).
     const wrapper_ld = wf.add("c64-wrapper.ld", b.fmt(
@@ -1263,13 +1266,7 @@ fn addMega65Exe(
     const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .mega65 });
 
     const wf = b.addWriteFiles();
-    const libc_txt = wf.add("libc.txt", b.fmt(
-        "include_dir={s}/mos-platform/mega65\n" ++
-            "sys_include_dir={s}/mos-platform/common/include\n" ++
-            "crt_dir={s}/mos-platform/mega65\n" ++
-            "msvc_lib_dir=\nkernel32_lib_dir=\ngcc_dir=\n",
-        .{ sdk_src, sdk_src, sdk_src },
-    ));
+    const libc_txt = addLibcTxt(b, wf, sdk_src, "mega65");
     // Inline mega65/link.ld + commodore/commodore.ld, replacing INPUT() directives with
     // addAssemblyFile calls below.
     const wrapper_ld = wf.add("mega65-wrapper.ld", b.fmt(
@@ -1538,13 +1535,7 @@ fn addCx16Exe(
     const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .cx16 });
 
     const wf = b.addWriteFiles();
-    const libc_txt = wf.add("libc.txt", b.fmt(
-        "include_dir={s}/mos-platform/cx16\n" ++
-            "sys_include_dir={s}/mos-platform/common/include\n" ++
-            "crt_dir={s}/mos-platform/cx16\n" ++
-            "msvc_lib_dir=\nkernel32_lib_dir=\ngcc_dir=\n",
-        .{ sdk_src, sdk_src, sdk_src },
-    ));
+    const libc_txt = addLibcTxt(b, wf, sdk_src, "cx16");
     const wrapper_ld = wf.add("cx16-wrapper.ld", b.fmt(
         \\SEARCH_DIR("{s}/mos-platform/cx16");
         \\SEARCH_DIR("{s}/mos-platform/commodore");
@@ -1829,7 +1820,7 @@ fn addSnesExe(
 
     const build_root = b.build_root.path orelse ".";
     const wf = b.addWriteFiles();
-    const ld_file = if (cfg.hirom) "hirom.ld" else if (cfg.fastrom) "fastrom.ld" else "lorom.ld";
+    const ld_file = if (cfg.fastrom) "fastrom.ld" else "lorom.ld";
     const ld_wrapper = if (cfg.hirom) "snes-hirom-wrapper.ld" else if (cfg.fastrom) "snes-fastrom-wrapper.ld" else "snes-lorom-wrapper.ld";
     const wrapper_ld = wf.add(ld_wrapper, b.fmt(
         \\SEARCH_DIR("{s}/mos-platform/common/ldscripts");
@@ -2085,13 +2076,7 @@ fn addGeosExe(
     const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .geos_cbm });
 
     const wf = b.addWriteFiles();
-    const libc_txt = wf.add("libc.txt", b.fmt(
-        "include_dir={s}/mos-platform/geos-cbm\n" ++
-            "sys_include_dir={s}/mos-platform/common/include\n" ++
-            "crt_dir={s}/mos-platform/geos-cbm\n" ++
-            "msvc_lib_dir=\nkernel32_lib_dir=\ngcc_dir=\n",
-        .{ sdk_src, sdk_src, sdk_src },
-    ));
+    const libc_txt = addLibcTxt(b, wf, sdk_src, "geos-cbm");
     // vlir.ld is the GEOS VLIR linker script (produces .cvt binary via OUTPUT_FORMAT FULL blocks).
     // It includes c.ld (common sections) and geos.ld (GEOS symbol table) via INCLUDE directives,
     // both resolved through the SEARCH_DIRs below.
@@ -2193,4 +2178,14 @@ fn addApple2Exe(
     exe.setLinkerScript(wrapper_ld);
 
     return exe;
+}
+
+fn addLibcTxt(b: *std.Build, wf: *std.Build.Step.WriteFile, sdk_src: []const u8, plat: []const u8) std.Build.LazyPath {
+    return wf.add("libc.txt", b.fmt(
+        "include_dir={s}/mos-platform/{s}\n" ++
+            "sys_include_dir={s}/mos-platform/common/include\n" ++
+            "crt_dir={s}/mos-platform/{s}\n" ++
+            "msvc_lib_dir=\nkernel32_lib_dir=\ngcc_dir=\n",
+        .{ sdk_src, plat, sdk_src, sdk_src, plat },
+    ));
 }
