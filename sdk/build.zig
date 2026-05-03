@@ -1090,12 +1090,26 @@ fn buildEater(
     });
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = crt0_dir },
-        .files = &.{ "crt0.S", "init-stack.S", "copy-data.c", "zero-bss.c" },
+        .files = &.{ "init-stack.S", "copy-data.c", "zero-bss.c" },
     });
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = b.fmt("{s}/exit", .{crt0_dir}) },
         .files = &.{"exit-loop.c"},
     });
+
+    // crt0.S provides .call_main (jsr main). Must be a TRUE object — section-only
+    // contribution with no exported symbol is silently skipped by ld.lld from archives.
+    const crt0_obj = b.addObject(.{
+        .name = "crt0",
+        .root_module = b.createModule(.{ .target = target, .optimize = opt }),
+    });
+    crt0_obj.root_module.addIncludePath(.{ .cwd_relative = com_asm });
+    crt0_obj.root_module.addIncludePath(.{ .cwd_relative = com_inc });
+    crt0_obj.root_module.addCSourceFiles(.{
+        .root = .{ .cwd_relative = crt0_dir },
+        .files = &.{"crt0.S"},
+    });
+    crt0_obj.lto = .none;
 
     const libc = addLib(b, "c", target, opt);
     libc.root_module.addIncludePath(.{ .cwd_relative = plat_dir });
@@ -1105,7 +1119,7 @@ fn buildEater(
         .files = &.{ "delay.c", "getchar.c", "lcd.c", "putchar.c" },
     });
 
-    return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc };
+    return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc, .crt0_obj = crt0_obj };
 }
 
 fn buildGeosCbm(

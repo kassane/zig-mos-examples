@@ -30,6 +30,7 @@ const SdkLibs = struct {
     atari5200: ?sdk_mod.Libs = null,
     a8megacart: ?sdk_mod.Libs = null,
     a8xegs: ?sdk_mod.Libs = null,
+    eater: ?sdk_mod.Libs = null,
 };
 
 pub fn build(b: *std.Build) void {
@@ -78,6 +79,7 @@ pub fn build(b: *std.Build) void {
         .{ .name = "atari5200-supercart", .query = .{ .cpu_arch = .mos, .os_tag = .atari5200 } },
         .{ .name = "atari8-cart-megacart", .query = .{ .cpu_arch = .mos, .os_tag = .atari8 } },
         .{ .name = "atari8-cart-xegs", .query = .{ .cpu_arch = .mos, .os_tag = .atari8 } },
+        .{ .name = "eater", .query = .{ .cpu_arch = .mos, .os_tag = .eater } },
     }) |pd| {
         const libs = sdk_mod.buildPlatform(b, sdk_src_raw, pd, optimize);
         const dest = b.fmt("mos-platform/{s}/lib", .{pd.name});
@@ -114,6 +116,7 @@ pub fn build(b: *std.Build) void {
         if (std.mem.eql(u8, pd.name, "atari5200-supercart")) sdk_libs.atari5200 = libs;
         if (std.mem.eql(u8, pd.name, "atari8-cart-megacart")) sdk_libs.a8megacart = libs;
         if (std.mem.eql(u8, pd.name, "atari8-cart-xegs")) sdk_libs.a8xegs = libs;
+        if (std.mem.eql(u8, pd.name, "eater")) sdk_libs.eater = libs;
     }
 
     // Translate neslib.h and nesdoug.h from the MOS SDK into Zig modules.
@@ -615,6 +618,16 @@ pub fn build(b: *std.Build) void {
         const exe = addLynxBllExe(b, sdk_dep, sdk_src, sdk_libs.lynxbll orelse @panic("lynx-bll libs not built"), optimize, "lynx-hello", "lynx/hello/hello.zig");
         exe.root_module.addImport("lynx", lynx_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "lynx-hello.bll" });
+        step.dependOn(&install.step);
+        b.getInstallStep().dependOn(&install.step);
+        run_bininfo.addFileArg(exe.getEmittedBin());
+    }
+
+    // ---- Ben Eater 6502 hello-lcd ----
+    {
+        const step = b.step("eater-hello-lcd", "Build Ben Eater 6502 LCD hello example");
+        const exe = addEaterExe(b, sdk_dep, sdk_src, sdk_libs.eater orelse @panic("eater libs not built"), optimize, "eater-hello-lcd", "eater/hello-lcd/hello-lcd.zig");
+        const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "eater-hello-lcd.rom" });
         step.dependOn(&install.step);
         b.getInstallStep().dependOn(&install.step);
         run_bininfo.addFileArg(exe.getEmittedBin());
@@ -1841,6 +1854,49 @@ fn addLynxBllExe(
     exe.bundle_compiler_rt = false;
     exe.lto = .full;
     exe.root_module.addIncludePath(sdk_dep.path("mos-platform/lynx"));
+    exe.root_module.addIncludePath(sdk_dep.path("mos-platform/common/include"));
+    exe.root_module.linkLibrary(libs.crt);
+    exe.root_module.linkLibrary(libs.crt0);
+    exe.root_module.linkLibrary(libs.c);
+    if (libs.crt0_obj) |obj| exe.root_module.addObject(obj);
+    exe.forceUndefinedSymbol("__zig_call_main_section");
+    exe.forceUndefinedSymbol("main");
+    exe.setLinkerScript(wrapper_ld);
+    addMosPanicImport(b, exe, target, opt);
+
+    return exe;
+}
+
+fn addEaterExe(
+    b: *std.Build,
+    sdk_dep: *std.Build.Dependency,
+    sdk_src: []const u8,
+    libs: sdk_mod.Libs,
+    opt: std.builtin.OptimizeMode,
+    name: []const u8,
+    root_src: []const u8,
+) *std.Build.Step.Compile {
+    const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .eater });
+
+    const wf = b.addWriteFiles();
+    const wrapper_ld = wf.add("eater-wrapper.ld", b.fmt(
+        \\SEARCH_DIR("{s}/mos-platform/eater");
+        \\SEARCH_DIR("{s}/mos-platform/common/ldscripts");
+        \\INCLUDE "{s}/mos-platform/eater/link.ld"
+    , .{ sdk_src, sdk_src, sdk_src }));
+
+    const exe = b.addExecutable(.{
+        .name = name,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path(root_src),
+            .target = target,
+            .optimize = opt,
+            .sanitize_c = .off,
+        }),
+    });
+    exe.bundle_compiler_rt = false;
+    exe.lto = .full;
+    exe.root_module.addIncludePath(sdk_dep.path("mos-platform/eater"));
     exe.root_module.addIncludePath(sdk_dep.path("mos-platform/common/include"));
     exe.root_module.linkLibrary(libs.crt);
     exe.root_module.linkLibrary(libs.crt0);
