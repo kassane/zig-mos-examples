@@ -2,11 +2,17 @@
 // SPDX-License-Identifier: Apache-2.0
 //! bininfo — multi-format binary inspector for mos-examples output files.
 //!
-//! Usage: bininfo <file> [file...]
+//! Usage: bininfo [flags] <file> [file...]
+//!
+//! Flags:
+//!   --xxd          Hex+ASCII dump of the file (like `xxd`)
+//!   --disasm       6502 disassembly of the code payload
+//!   --xxd-limit N  Limit --xxd output to first N bytes (default: unlimited)
 //!
 //! Detected formats (by magic bytes, then file extension):
 //!   .nes  — NES iNES / NES 2.0 ROM
-//!   .prg  — Commodore 64 / CX16 / MEGA65 program file
+//!   .fds  — Famicom Disk System disk image (FDS\x1a magic or raw)
+//!   .prg  — Commodore 64 / VIC-20 / CX16 / MEGA65 program file
 //!   .a26  — Atari 2600 cartridge ROM (2K–32K)
 //!   .xex  — Atari 8-bit DOS executable
 //!   .neo  — Neo6502 load file
@@ -14,6 +20,7 @@
 //!   .bll  — Atari Lynx Binary Load Library
 //!   .rom  — Atari 8-bit standard cartridge ROM
 //!   .sys  — Apple IIe ProDOS SYS file (raw binary, load=$0800)
+//!   .cvt  — GEOS Convert file (CBM GEOS target)
 //!   sim   — mos-sim binary (load=$0200 header + data + vectors trailer)
 //!
 //! Exit code: 0 if all files are valid, 1 if any file is missing or malformed.
@@ -646,6 +653,297 @@ fn checkAtari8Cart(path: []const u8, data: []const u8) bool {
     return true;
 }
 
+fn checkFds(path: []const u8, data: []const u8) bool {
+    if (data.len == 0) {
+        std.debug.print("{s}: [FDS] ERROR: empty file\n", .{path});
+        return false;
+    }
+    // Headered format: "FDS\x1a" + 1-byte side count + 11 reserved + 65500*sides disk data.
+    if (data.len >= 4 and std.mem.eql(u8, data[0..4], "FDS\x1a")) {
+        if (data.len < 16) {
+            std.debug.print("{s}: [FDS] ERROR: header truncated ({d} B)\n", .{ path, data.len });
+            return false;
+        }
+        const sides = data[4];
+        const expected: usize = 16 + @as(usize, sides) * 65500;
+        std.debug.print("{s}: [FDS]  sides={d}  size={d}B{s}\n", .{
+            path, sides, data.len, if (data.len == expected) "" else "  (WARN: size mismatch)",
+        });
+        return true;
+    }
+    // Raw (headerless) FDS disk data — llvm-mos-sdk FDS target produces a flat binary
+    // loaded by the FDS BIOS. Report the 6502 vectors from the end of the image.
+    if (data.len >= 6) {
+        const reset = readU16Le(data, data.len - 4);
+        const irq = readU16Le(data, data.len - 2);
+        std.debug.print("{s}: [FDS raw]  size={d}B  RESET=${x:0>4}  IRQ=${x:0>4}\n", .{
+            path, data.len, reset, irq,
+        });
+    } else {
+        std.debug.print("{s}: [FDS raw]  size={d}B\n", .{ path, data.len });
+    }
+    return true;
+}
+
+fn checkCvt(path: []const u8, data: []const u8) bool {
+    // GEOS Convert (.cvt) format: produced by llvm-mos-sdk geos-cbm target.
+    // Header starts with 0x03 0x00 0xFF followed by ASCII description.
+    if (data.len < 3 or data[0] != 0x03 or data[1] != 0x00 or data[2] != 0xFF) {
+        std.debug.print("{s}: [GEOS CVT] ERROR: unrecognised header\n", .{path});
+        return false;
+    }
+    // Description string follows at byte 3, null-terminated within the 256-byte header.
+    var desc_end: usize = 3;
+    while (desc_end < data.len and desc_end < 255 and data[desc_end] != 0) desc_end += 1;
+    const desc = data[3..desc_end];
+    std.debug.print("{s}: [GEOS CVT]  size={d}B  desc=\"{s}\"\n", .{ path, data.len, desc });
+    return true;
+}
+
+// ── flags ─────────────────────────────────────────────────────────────────────
+
+const Opts = struct {
+    xxd: bool = false,
+    xxd_limit: usize = std.math.maxInt(usize),
+    disasm: bool = false,
+};
+
+// ── 6502 disassembler ─────────────────────────────────────────────────────────
+
+const OpcodeMode = enum(u4) {
+    imp,
+    acc,
+    imm,
+    zp,
+    zpx,
+    zpy,
+    abs_,
+    absx,
+    absy,
+    ind,
+    indx,
+    indy,
+    rel,
+
+    fn size(m: OpcodeMode) usize {
+        return switch (m) {
+            .imp, .acc => 1,
+            .imm, .zp, .zpx, .zpy, .indx, .indy, .rel => 2,
+            .abs_, .absx, .absy, .ind => 3,
+        };
+    }
+};
+
+const OpcodeInfo = struct { mnem: [4]u8, mode: OpcodeMode };
+
+fn op(m: *const [3]u8, mode: OpcodeMode) OpcodeInfo {
+    return .{ .mnem = m.* ++ [1]u8{0}, .mode = mode };
+}
+
+const opcode_table: [256]OpcodeInfo = blk: {
+    const M = OpcodeMode;
+    var t = [_]OpcodeInfo{.{ .mnem = "???\x00".*, .mode = .imp }} ** 256;
+    t[0x00] = op("BRK", .imp);
+    t[0x01] = op("ORA", .indx);
+    t[0x05] = op("ORA", .zp);
+    t[0x06] = op("ASL", .zp);
+    t[0x08] = op("PHP", .imp);
+    t[0x09] = op("ORA", .imm);
+    t[0x0A] = op("ASL", .acc);
+    t[0x0D] = op("ORA", .abs_);
+    t[0x0E] = op("ASL", .abs_);
+    t[0x10] = op("BPL", .rel);
+    t[0x11] = op("ORA", .indy);
+    t[0x15] = op("ORA", .zpx);
+    t[0x16] = op("ASL", .zpx);
+    t[0x18] = op("CLC", .imp);
+    t[0x19] = op("ORA", .absy);
+    t[0x1D] = op("ORA", .absx);
+    t[0x1E] = op("ASL", .absx);
+    t[0x20] = op("JSR", .abs_);
+    t[0x21] = op("AND", .indx);
+    t[0x24] = op("BIT", .zp);
+    t[0x25] = op("AND", .zp);
+    t[0x26] = op("ROL", .zp);
+    t[0x28] = op("PLP", .imp);
+    t[0x29] = op("AND", .imm);
+    t[0x2A] = op("ROL", .acc);
+    t[0x2C] = op("BIT", .abs_);
+    t[0x2D] = op("AND", .abs_);
+    t[0x2E] = op("ROL", .abs_);
+    t[0x30] = op("BMI", .rel);
+    t[0x31] = op("AND", .indy);
+    t[0x35] = op("AND", .zpx);
+    t[0x36] = op("ROL", .zpx);
+    t[0x38] = op("SEC", .imp);
+    t[0x39] = op("AND", .absy);
+    t[0x3D] = op("AND", .absx);
+    t[0x3E] = op("ROL", .absx);
+    t[0x40] = op("RTI", .imp);
+    t[0x41] = op("EOR", .indx);
+    t[0x45] = op("EOR", .zp);
+    t[0x46] = op("LSR", .zp);
+    t[0x48] = op("PHA", .imp);
+    t[0x49] = op("EOR", .imm);
+    t[0x4A] = op("LSR", .acc);
+    t[0x4C] = op("JMP", .abs_);
+    t[0x4D] = op("EOR", .abs_);
+    t[0x4E] = op("LSR", .abs_);
+    t[0x50] = op("BVC", .rel);
+    t[0x51] = op("EOR", .indy);
+    t[0x55] = op("EOR", .zpx);
+    t[0x56] = op("LSR", .zpx);
+    t[0x58] = op("CLI", .imp);
+    t[0x59] = op("EOR", .absy);
+    t[0x5D] = op("EOR", .absx);
+    t[0x5E] = op("LSR", .absx);
+    t[0x60] = op("RTS", .imp);
+    t[0x61] = op("ADC", .indx);
+    t[0x65] = op("ADC", .zp);
+    t[0x66] = op("ROR", .zp);
+    t[0x68] = op("PLA", .imp);
+    t[0x69] = op("ADC", .imm);
+    t[0x6A] = op("ROR", .acc);
+    t[0x6C] = op("JMP", .ind);
+    t[0x6D] = op("ADC", .abs_);
+    t[0x6E] = op("ROR", .abs_);
+    t[0x70] = op("BVS", .rel);
+    t[0x71] = op("ADC", .indy);
+    t[0x75] = op("ADC", .zpx);
+    t[0x76] = op("ROR", .zpx);
+    t[0x78] = op("SEI", .imp);
+    t[0x79] = op("ADC", .absy);
+    t[0x7D] = op("ADC", .absx);
+    t[0x7E] = op("ROR", .absx);
+    t[0x81] = op("STA", .indx);
+    t[0x84] = op("STY", .zp);
+    t[0x85] = op("STA", .zp);
+    t[0x86] = op("STX", .zp);
+    t[0x88] = op("DEY", .imp);
+    t[0x8A] = op("TXA", .imp);
+    t[0x8C] = op("STY", .abs_);
+    t[0x8D] = op("STA", .abs_);
+    t[0x8E] = op("STX", .abs_);
+    t[0x90] = op("BCC", .rel);
+    t[0x91] = op("STA", .indy);
+    t[0x94] = op("STY", .zpx);
+    t[0x95] = op("STA", .zpx);
+    t[0x96] = op("STX", .zpy);
+    t[0x98] = op("TYA", .imp);
+    t[0x99] = op("STA", .absy);
+    t[0x9A] = op("TXS", .imp);
+    t[0x9D] = op("STA", .absx);
+    t[0xA0] = op("LDY", .imm);
+    t[0xA1] = op("LDA", .indx);
+    t[0xA2] = op("LDX", .imm);
+    t[0xA4] = op("LDY", .zp);
+    t[0xA5] = op("LDA", .zp);
+    t[0xA6] = op("LDX", .zp);
+    t[0xA8] = op("TAY", .imp);
+    t[0xA9] = op("LDA", .imm);
+    t[0xAA] = op("TAX", .imp);
+    t[0xAC] = op("LDY", .abs_);
+    t[0xAD] = op("LDA", .abs_);
+    t[0xAE] = op("LDX", .abs_);
+    t[0xB0] = op("BCS", .rel);
+    t[0xB1] = op("LDA", .indy);
+    t[0xB4] = op("LDY", .zpx);
+    t[0xB5] = op("LDA", .zpx);
+    t[0xB6] = op("LDX", .zpy);
+    t[0xB8] = op("CLV", .imp);
+    t[0xB9] = op("LDA", .absy);
+    t[0xBA] = op("TSX", .imp);
+    t[0xBC] = op("LDY", .absx);
+    t[0xBD] = op("LDA", .absx);
+    t[0xBE] = op("LDX", .absy);
+    t[0xC0] = op("CPY", .imm);
+    t[0xC1] = op("CMP", .indx);
+    t[0xC4] = op("CPY", .zp);
+    t[0xC5] = op("CMP", .zp);
+    t[0xC6] = op("DEC", .zp);
+    t[0xC8] = op("INY", .imp);
+    t[0xC9] = op("CMP", .imm);
+    t[0xCA] = op("DEX", .imp);
+    t[0xCC] = op("CPY", .abs_);
+    t[0xCD] = op("CMP", .abs_);
+    t[0xCE] = op("DEC", .abs_);
+    t[0xD0] = op("BNE", .rel);
+    t[0xD1] = op("CMP", .indy);
+    t[0xD5] = op("CMP", .zpx);
+    t[0xD6] = op("DEC", .zpx);
+    t[0xD8] = op("CLD", .imp);
+    t[0xD9] = op("CMP", .absy);
+    t[0xDD] = op("CMP", .absx);
+    t[0xDE] = op("DEC", .absx);
+    t[0xE0] = op("CPX", .imm);
+    t[0xE1] = op("SBC", .indx);
+    t[0xE4] = op("CPX", .zp);
+    t[0xE5] = op("SBC", .zp);
+    t[0xE6] = op("INC", .zp);
+    t[0xE8] = op("INX", .imp);
+    t[0xE9] = op("SBC", .imm);
+    t[0xEA] = op("NOP", .imp);
+    t[0xEC] = op("CPX", .abs_);
+    t[0xED] = op("SBC", .abs_);
+    t[0xEE] = op("INC", .abs_);
+    t[0xF0] = op("BEQ", .rel);
+    t[0xF1] = op("SBC", .indy);
+    t[0xF5] = op("SBC", .zpx);
+    t[0xF6] = op("INC", .zpx);
+    t[0xF8] = op("SED", .imp);
+    t[0xF9] = op("SBC", .absy);
+    t[0xFD] = op("SBC", .absx);
+    t[0xFE] = op("INC", .absx);
+    _ = M; // used via OpcodeMode literals above
+    break :blk t;
+};
+
+fn disasm6502(data: []const u8, load_addr: u16) void {
+    var i: usize = 0;
+    while (i < data.len) {
+        const byte = data[i];
+        const info = opcode_table[byte];
+        const sz = info.mode.size();
+        const addr = load_addr +% @as(u16, @truncate(i));
+        const mnem = std.mem.sliceTo(&info.mnem, 0);
+
+        if (i + sz > data.len) {
+            std.debug.print("  ${x:0>4}  {x:0>2}              ???\n", .{ addr, byte });
+            break;
+        }
+
+        // Raw bytes column (fixed-width: up to 3 bytes + padding)
+        switch (sz) {
+            1 => std.debug.print("  ${x:0>4}  {x:0>2}           ", .{ addr, byte }),
+            2 => std.debug.print("  ${x:0>4}  {x:0>2} {x:0>2}        ", .{ addr, byte, data[i + 1] }),
+            3 => std.debug.print("  ${x:0>4}  {x:0>2} {x:0>2} {x:0>2}     ", .{ addr, byte, data[i + 1], data[i + 2] }),
+            else => unreachable,
+        }
+
+        switch (info.mode) {
+            .imp => std.debug.print("{s}\n", .{mnem}),
+            .acc => std.debug.print("{s} A\n", .{mnem}),
+            .imm => std.debug.print("{s} #${x:0>2}\n", .{ mnem, data[i + 1] }),
+            .zp => std.debug.print("{s} ${x:0>2}\n", .{ mnem, data[i + 1] }),
+            .zpx => std.debug.print("{s} ${x:0>2},X\n", .{ mnem, data[i + 1] }),
+            .zpy => std.debug.print("{s} ${x:0>2},Y\n", .{ mnem, data[i + 1] }),
+            .abs_ => std.debug.print("{s} ${x:0>4}\n", .{ mnem, readU16Le(data, i + 1) }),
+            .absx => std.debug.print("{s} ${x:0>4},X\n", .{ mnem, readU16Le(data, i + 1) }),
+            .absy => std.debug.print("{s} ${x:0>4},Y\n", .{ mnem, readU16Le(data, i + 1) }),
+            .ind => std.debug.print("{s} (${x:0>4})\n", .{ mnem, readU16Le(data, i + 1) }),
+            .indx => std.debug.print("{s} (${x:0>2},X)\n", .{ mnem, data[i + 1] }),
+            .indy => std.debug.print("{s} (${x:0>2}),Y\n", .{ mnem, data[i + 1] }),
+            .rel => {
+                const off: i8 = @bitCast(data[i + 1]);
+                const target = addr +% 2 +% @as(u16, @bitCast(@as(i16, off)));
+                std.debug.print("{s} ${x:0>4}\n", .{ mnem, target });
+            },
+        }
+
+        i += sz;
+    }
+}
+
 // ── dispatch ──────────────────────────────────────────────────────────────────
 
 fn checkFile(path: []const u8, data: []const u8) bool {
@@ -654,6 +952,10 @@ fn checkFile(path: []const u8, data: []const u8) bool {
         return checkElf(path, data);
     if (data.len >= 4 and std.mem.eql(u8, data[0..4], "NES\x1a"))
         return checkNes(path, data);
+    if (data.len >= 4 and std.mem.eql(u8, data[0..4], "FDS\x1a"))
+        return checkFds(path, data);
+    if (data.len >= 3 and data[0] == 0x03 and data[1] == 0x00 and data[2] == 0xFF)
+        return checkCvt(path, data);
     if (data.len >= 4 and data[0] == 0x03 and std.mem.eql(u8, data[1..4], "NEO"))
         return checkNeo(path, data);
     if (data.len >= 2 and readU16Le(data, 0) == 0xFFFF)
@@ -676,6 +978,8 @@ fn checkFile(path: []const u8, data: []const u8) bool {
     // Detect by file extension.
     const ext = std.fs.path.extension(path);
     if (std.ascii.eqlIgnoreCase(ext, ".prg")) return checkPrg(path, data);
+    if (std.ascii.eqlIgnoreCase(ext, ".fds")) return checkFds(path, data);
+    if (std.ascii.eqlIgnoreCase(ext, ".cvt")) return checkCvt(path, data);
     if (std.ascii.eqlIgnoreCase(ext, ".a26")) return checkA26(path, data);
     if (std.ascii.eqlIgnoreCase(ext, ".pce")) return checkPce(path, data);
     if (std.ascii.eqlIgnoreCase(ext, ".bll")) return checkBll(path, data);
@@ -712,11 +1016,17 @@ fn checkFile(path: []const u8, data: []const u8) bool {
         return checkPce(path, data);
     }
 
-    // C64/MEGA65 PRG: first 2 bytes are a plausible Commodore load address.
-    // Well-known values: 0x0801 (C64 BASIC start), 0x2001 (MEGA65 BASIC start).
+    // CBM PRG: first 2 bytes are a plausible Commodore/VIC-20 load address.
+    // Well-known values:
+    //   $0401 — VIC-20 unexpanded BASIC start
+    //   $0801 — C64 BASIC start
+    //   $1001 — VIC-20 +3K expansion BASIC start
+    //   $1201 — VIC-20 +8K/+16K/+24K expansion start (used by vic20-hello)
+    //   $2001 — MEGA65 BASIC start
     if (data.len >= 3) {
         const load = readU16Le(data, 0);
-        if (load == 0x0801 or load == 0x2001)
+        if (load == 0x0401 or load == 0x0801 or
+            load == 0x1001 or load == 0x1201 or load == 0x2001)
             return checkPrg(path, data);
     }
 
@@ -736,18 +1046,62 @@ pub fn main(init: std.process.Init) !void {
     defer args_iter.deinit();
     _ = args_iter.next(); // skip argv[0]
 
+    var opts = Opts{};
     var any_arg = false;
     var all_ok = true;
 
-    while (args_iter.next()) |path| {
+    while (args_iter.next()) |arg| {
+        if (std.mem.eql(u8, arg, "--xxd")) {
+            opts.xxd = true;
+            continue;
+        }
+        if (std.mem.eql(u8, arg, "--disasm")) {
+            opts.disasm = true;
+            continue;
+        }
+        if (std.mem.eql(u8, arg, "--xxd-limit")) {
+            const val = args_iter.next() orelse {
+                std.debug.print("bininfo: --xxd-limit requires a value\n", .{});
+                std.process.exit(1);
+            };
+            opts.xxd_limit = std.fmt.parseUnsigned(usize, val, 10) catch {
+                std.debug.print("bininfo: --xxd-limit: invalid number '{s}'\n", .{val});
+                std.process.exit(1);
+            };
+            continue;
+        }
+        if (std.mem.startsWith(u8, arg, "--")) {
+            std.debug.print("bininfo: unknown flag '{s}'\n", .{arg});
+            usageExit();
+        }
+
+        // Treat as a file path.
         any_arg = true;
-        const data = cwd.readFileAlloc(io, path, alloc, .unlimited) catch |err| {
-            std.debug.print("{s}: ERROR: {s}\n", .{ path, @errorName(err) });
+        const data = cwd.readFileAlloc(io, arg, alloc, .unlimited) catch |err| {
+            std.debug.print("{s}: ERROR: {s}\n", .{ arg, @errorName(err) });
             all_ok = false;
             continue;
         };
         defer alloc.free(data);
-        if (!checkFile(path, data)) all_ok = false;
+
+        if (!checkFile(arg, data)) all_ok = false;
+
+        if (opts.xxd) {
+            std.debug.print("  -- xxd " ++ "-" ** 47 ++ "\n", .{});
+            std.debug.dumpHex(data[0..@min(data.len, opts.xxd_limit)]);
+            if (opts.xxd_limit < data.len) {
+                std.debug.print("  ... ({d} more bytes)\n", .{data.len - opts.xxd_limit});
+            }
+        }
+        if (opts.disasm) {
+            // Heuristic: for PRG files (load addr in first 2 bytes), skip header.
+            const is_prg = data.len >= 3 and
+                std.ascii.eqlIgnoreCase(std.fs.path.extension(arg), ".prg");
+            const load_addr: u16 = if (is_prg) readU16Le(data, 0) else 0;
+            const payload: []const u8 = if (is_prg) data[2..] else data;
+            std.debug.print("  -- disasm (6502) load=${x:0>4} " ++ "-" ** 24 ++ "\n", .{load_addr});
+            disasm6502(payload, load_addr);
+        }
     }
 
     if (!any_arg) usageExit();

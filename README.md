@@ -167,8 +167,11 @@ Output files land in `zig-out/bin/`.
 | `nes-mmc3-hello` | NES MMC3 | mos6502 | `.nes` |
 | `nes-gtrom-hello` | NES GTROM | mos6502 | `.nes` |
 | `nes-unrom-512-hello` | NES UNROM-512 | mos6502 | `.nes` |
+| `nes-action53-hello` | NES Action53 (mapper 28) | mos6502 | `.nes` |
+| `fds-hello` | Famicom Disk System | mos6502 | `.fds` |
 | `c64-hello`, `c64-fibonacci` | Commodore 64 | mos6502 | `.prg` |
 | `c64-plasma` | Commodore 64 | mos6502 | `.prg` |
+| `vic20-hello` | Commodore VIC-20 (24K) | mos6502 | `.prg` |
 | `cx16-hello` | Commander X16 | mosw65c02 | `.prg` |
 | `cx16-k-console-test` | Commander X16 | mosw65c02 | `.prg` |
 | `lynx-hello` | Atari Lynx | mos6502 | `.bll` |
@@ -225,6 +228,9 @@ sieve<127>: 31 primes  (6905 cycles)
 - **NES MMC3 hello** — uses translated `mapper.h`; calls `set_prg_bank(0)` to initialise MMC3 PRG bank. ROM: 512 KB PRG + 256 KB CHR ROM.
 - **NES GTROM hello** — uses translated `mapper.h`; GTROM (Codemasters) flash mapper. ROM: 512 KB PRG flash.
 - **NES UNROM-512 hello** — uses translated `mapper.h`; calls `set_prg_bank(0)` and `set_chr_bank(0)` to initialise mapper 30 registers. ROM: 512 KB PRG + 32 KB CHR RAM.
+- **NES Action53 hello** — uses translated `mapper.h`; mapper 28 (Action53 multicart). ROM: 128 KB PRG + 8 KB CHR RAM.
+- **FDS hello** — Famicom Disk System; uses raw PPU register writes via `nes/hardware.zig` (no neslib — FDS has no CHR ROM, raw PPU only). Writes dark-green backdrop (`$1A`) to palette `$3F00`.
+- **VIC-20 hello** — uses CBM KERNAL `cbm_k_chrout` to print "HELLO VIC20!", then cycles VIC chip background/border colour register (`$900F`). Targets 24K memory expansion, loads at `$1201`.
 - **C64 hello** — uses translated `c64.h` (VIC-II typed struct) via `b.addTranslateC`; cycles VIC-II border colour register.
 - **CX16 hello** — uses CBM KERNAL `cbm_k_chrout` to print "HELLO X16!", then cycles the border colour register.
 - **Lynx hello** — uses translated `_mikey.h` (MIKEY typed struct) via `b.addTranslateC`; animates all 32 palette entries.

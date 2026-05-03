@@ -67,9 +67,9 @@ pub fn buildPlatform(b: *std.Build, sdk_root: []const u8, pd: Platform, opt: std
     if (std.mem.eql(u8, pd.name, "nes"))
         return buildNes(b, target, opt, libcrt, plat_dir, null, null, false, false, crt0_dir, com_inc, com_asm);
     if (std.mem.startsWith(u8, pd.name, "nes-")) {
-        const has_mapper_s = std.mem.eql(u8, pd.name, "nes-unrom") or std.mem.eql(u8, pd.name, "nes-unrom-512") or std.mem.eql(u8, pd.name, "nes-mmc1") or std.mem.eql(u8, pd.name, "nes-mmc3") or std.mem.eql(u8, pd.name, "nes-gtrom");
+        const has_mapper_s = std.mem.eql(u8, pd.name, "nes-unrom") or std.mem.eql(u8, pd.name, "nes-unrom-512") or std.mem.eql(u8, pd.name, "nes-mmc1") or std.mem.eql(u8, pd.name, "nes-mmc3") or std.mem.eql(u8, pd.name, "nes-gtrom") or std.mem.eql(u8, pd.name, "nes-action53");
         const has_irq = std.mem.eql(u8, pd.name, "nes-mmc3");
-        const variant_define: ?[]const u8 = if (std.mem.eql(u8, pd.name, "nes-cnrom")) "__NES_CNROM__" else if (std.mem.eql(u8, pd.name, "nes-unrom")) "__NES_UNROM__" else if (std.mem.eql(u8, pd.name, "nes-unrom-512")) "__NES_UNROM_512__" else if (std.mem.eql(u8, pd.name, "nes-mmc1")) "__NES_MMC1__" else if (std.mem.eql(u8, pd.name, "nes-mmc3")) "__NES_MMC3__" else if (std.mem.eql(u8, pd.name, "nes-gtrom")) "__NES_GTROM__" else null;
+        const variant_define: ?[]const u8 = if (std.mem.eql(u8, pd.name, "nes-cnrom")) "__NES_CNROM__" else if (std.mem.eql(u8, pd.name, "nes-unrom")) "__NES_UNROM__" else if (std.mem.eql(u8, pd.name, "nes-unrom-512")) "__NES_UNROM_512__" else if (std.mem.eql(u8, pd.name, "nes-mmc1")) "__NES_MMC1__" else if (std.mem.eql(u8, pd.name, "nes-mmc3")) "__NES_MMC3__" else if (std.mem.eql(u8, pd.name, "nes-gtrom")) "__NES_GTROM__" else if (std.mem.eql(u8, pd.name, "nes-action53")) "__NES_ACTION53__" else null;
         return buildNes(b, target, opt, libcrt, b.fmt("{s}/mos-platform/nes", .{sdk_root}), b.fmt("{s}/mos-platform/{s}", .{ sdk_root, pd.name }), variant_define, has_mapper_s, has_irq, crt0_dir, com_inc, com_asm);
     }
     if (std.mem.eql(u8, pd.name, "neo6502"))
@@ -669,6 +669,28 @@ fn buildCx16(
         .flags = &.{"-D__CX16__"},
     });
 
+    // crt0.S provides .call_main (jsr main) — section-only, no exported symbol,
+    // silently skipped by ld.lld archive extraction. Must be a TRUE object.
+    const crt0_obj = b.addObject(.{
+        .name = "crt0",
+        .root_module = b.createModule(.{ .target = target, .optimize = opt }),
+    });
+    crt0_obj.root_module.addIncludePath(.{ .cwd_relative = com_asm });
+    crt0_obj.root_module.addIncludePath(.{ .cwd_relative = com_inc });
+    crt0_obj.root_module.addCSourceFiles(.{
+        .root = .{ .cwd_relative = crt0_dir },
+        .files = &.{"crt0.S"},
+    });
+    crt0_obj.lto = .none;
+
+    // sdk/mem.s — strong __memset + abort TRUE object.
+    const mem_obj = b.addObject(.{
+        .name = "mem",
+        .root_module = b.createModule(.{ .target = target, .optimize = opt }),
+    });
+    mem_obj.root_module.addCSourceFiles(.{ .root = b.path("sdk"), .files = &.{"mem.s"} });
+    mem_obj.lto = .none;
+
     const libc = addLib(b, "c", target, opt);
     libc.root_module.addIncludePath(.{ .cwd_relative = cx16_dir });
     libc.root_module.addIncludePath(.{ .cwd_relative = comm_dir });
@@ -761,7 +783,7 @@ fn buildCx16(
         .flags = &.{"-D__CX16__"},
     });
 
-    return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc };
+    return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc, .crt0_obj = crt0_obj, .mem = mem_obj };
 }
 
 fn buildLynxBll(
@@ -1149,14 +1171,38 @@ fn buildVic20(
     libcrt0.lto = .none;
     libcrt0.root_module.addIncludePath(.{ .cwd_relative = com_asm });
     libcrt0.root_module.addIncludePath(.{ .cwd_relative = com_inc });
+    // init-stack-memtop.S initialises the stack using the MEMTOP kernal variable.
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = plat_dir },
-        .files = &.{ "basic-header.S", "init-stack-memtop.S" },
+        .files = &.{"init-stack-memtop.S"},
     });
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = b.fmt("{s}/exit", .{crt0_dir}) },
         .files = &.{"exit-loop.c"},
     });
+
+    // crt0.S (.call_main) — section-only, no exported symbol; must be a TRUE object.
+    // basic-header.S (.basic_header) is NOT bundled here: commodore.ld has INPUT(basic-header.o)
+    // so addVic20Exe compiles it as a separate object installed in a SEARCH_DIR.
+    const crt0_obj = b.addObject(.{
+        .name = "crt0",
+        .root_module = b.createModule(.{ .target = target, .optimize = opt }),
+    });
+    crt0_obj.root_module.addIncludePath(.{ .cwd_relative = com_asm });
+    crt0_obj.root_module.addIncludePath(.{ .cwd_relative = com_inc });
+    crt0_obj.root_module.addCSourceFiles(.{
+        .root = .{ .cwd_relative = crt0_dir },
+        .files = &.{"crt0.S"},
+    });
+    crt0_obj.lto = .none;
+
+    // sdk/mem.s — strong __memset + abort TRUE object.
+    const mem_obj = b.addObject(.{
+        .name = "mem",
+        .root_module = b.createModule(.{ .target = target, .optimize = opt }),
+    });
+    mem_obj.root_module.addCSourceFiles(.{ .root = b.path("sdk"), .files = &.{"mem.s"} });
+    mem_obj.lto = .none;
 
     const libc = addLib(b, "c", target, opt);
     libc.root_module.addIncludePath(.{ .cwd_relative = plat_dir });
@@ -1172,7 +1218,7 @@ fn buildVic20(
         .files = &.{ "abort.c", "cbm_k_bsout.c", "cbm_k_chrout.c", "chrout.c", "char-conv.c", "getchar.c", "putchar.c" },
     });
 
-    return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc };
+    return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc, .crt0_obj = crt0_obj, .mem = mem_obj };
 }
 
 fn buildRp6502(
@@ -1426,19 +1472,37 @@ fn buildFds(
     com_inc: []const u8,
     com_asm: []const u8,
 ) Libs {
-    // FDS PARENT is nes; crt0 inherits NES crt0.S/init-stack.S + fds/reset.s.
+    // FDS PARENT is nes; crt0 inherits NES init-stack.S only.
+    // crt0.S and reset.s must be TRUE objects (section-only / INPUT(reset.o)).
     const libcrt0 = addLib(b, "crt0", target, opt);
     libcrt0.lto = .none;
     libcrt0.root_module.addIncludePath(.{ .cwd_relative = com_asm });
     libcrt0.root_module.addIncludePath(.{ .cwd_relative = com_inc });
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = crt0_dir },
-        .files = &.{ "crt0.S", "init-stack.S" },
+        .files = &.{"init-stack.S"},
     });
-    libcrt0.root_module.addCSourceFiles(.{
-        .root = .{ .cwd_relative = plat_dir },
-        .files = &.{"reset.s"},
+
+    // crt0.S — section-only .call_main; must be TRUE object.
+    const crt0_obj = b.addObject(.{
+        .name = "crt0",
+        .root_module = b.createModule(.{ .target = target, .optimize = opt }),
     });
+    crt0_obj.root_module.addIncludePath(.{ .cwd_relative = com_asm });
+    crt0_obj.root_module.addIncludePath(.{ .cwd_relative = com_inc });
+    crt0_obj.root_module.addCSourceFiles(.{
+        .root = .{ .cwd_relative = crt0_dir },
+        .files = &.{"crt0.S"},
+    });
+    crt0_obj.lto = .none;
+
+    // sdk/mem.s — strong __memset + abort TRUE object.
+    const mem_obj = b.addObject(.{
+        .name = "mem",
+        .root_module = b.createModule(.{ .target = target, .optimize = opt }),
+    });
+    mem_obj.root_module.addCSourceFiles(.{ .root = b.path("sdk"), .files = &.{"mem.s"} });
+    mem_obj.lto = .none;
 
     const libc = addLib(b, "c", target, opt);
     libc.root_module.addIncludePath(.{ .cwd_relative = plat_dir });
@@ -1491,7 +1555,7 @@ fn buildFds(
         },
     });
 
-    return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc };
+    return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc, .crt0_obj = crt0_obj, .mem = mem_obj };
 }
 
 fn buildPceCd(
@@ -1570,6 +1634,7 @@ pub fn build(b: *std.Build) void {
         .{ .name = "osi-c1p", .query = .{ .cpu_arch = .mos, .os_tag = .osi_c1p } },
         .{ .name = "cpm65", .query = .{ .cpu_arch = .mos, .os_tag = .cpm65 } },
         .{ .name = "fds", .query = .{ .cpu_arch = .mos, .os_tag = .fds } },
+        .{ .name = "nes-action53", .query = .{ .cpu_arch = .mos, .os_tag = .nes } },
         .{ .name = "pce-cd", .query = .{ .cpu_arch = .mos, .os_tag = .pce_cd } },
     }) |pd| {
         if (filter) |f| if (!std.mem.eql(u8, f, pd.name)) continue;

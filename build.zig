@@ -24,6 +24,9 @@ const SdkLibs = struct {
     a8cart: ?sdk_mod.Libs = null,
     snes: ?sdk_mod.Libs = null,
     geos_cbm: ?sdk_mod.Libs = null,
+    nes_action53: ?sdk_mod.Libs = null,
+    fds: ?sdk_mod.Libs = null,
+    vic20: ?sdk_mod.Libs = null,
 };
 
 pub fn build(b: *std.Build) void {
@@ -66,6 +69,9 @@ pub fn build(b: *std.Build) void {
         .{ .name = "atari8-cart-std", .query = .{ .cpu_arch = .mos, .os_tag = .atari8 } },
         .{ .name = "snes", .query = .{ .cpu_arch = .mos, .os_tag = .snes } },
         .{ .name = "geos-cbm", .query = .{ .cpu_arch = .mos, .os_tag = .geos_cbm } },
+        .{ .name = "nes-action53", .query = .{ .cpu_arch = .mos, .os_tag = .nes } },
+        .{ .name = "fds", .query = .{ .cpu_arch = .mos, .os_tag = .fds } },
+        .{ .name = "vic20", .query = .{ .cpu_arch = .mos, .os_tag = .vic20 } },
     }) |pd| {
         const libs = sdk_mod.buildPlatform(b, sdk_src_raw, pd, optimize);
         const dest = b.fmt("mos-platform/{s}/lib", .{pd.name});
@@ -96,6 +102,9 @@ pub fn build(b: *std.Build) void {
         if (std.mem.eql(u8, pd.name, "atari8-cart-std")) sdk_libs.a8cart = libs;
         if (std.mem.eql(u8, pd.name, "snes")) sdk_libs.snes = libs;
         if (std.mem.eql(u8, pd.name, "geos-cbm")) sdk_libs.geos_cbm = libs;
+        if (std.mem.eql(u8, pd.name, "nes-action53")) sdk_libs.nes_action53 = libs;
+        if (std.mem.eql(u8, pd.name, "fds")) sdk_libs.fds = libs;
+        if (std.mem.eql(u8, pd.name, "vic20")) sdk_libs.vic20 = libs;
     }
 
     // Translate neslib.h and nesdoug.h from the MOS SDK into Zig modules.
@@ -110,6 +119,7 @@ pub fn build(b: *std.Build) void {
     const nes_mmc3_mapper_mod = nesMapperHeaderMod(b, sdk_dep, nes_target, "nes-mmc3", optimize);
     const nes_gtrom_mapper_mod = nesMapperHeaderMod(b, sdk_dep, nes_target, "nes-gtrom", optimize);
     const nes_unrom_512_mapper_mod = nesMapperHeaderMod(b, sdk_dep, nes_target, "nes-unrom-512", optimize);
+    const nes_action53_mapper_mod = nesMapperHeaderMod(b, sdk_dep, nes_target, "nes-action53", optimize);
 
     // Translate mega65.h into a Zig module.
     const mega65_target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .mega65 });
@@ -119,6 +129,10 @@ pub fn build(b: *std.Build) void {
     const cx16_target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .cx16 });
     const cx16_mod = cx16HeaderMod(b, sdk_dep, cx16_target, optimize);
     const cbm_mod = cbmHeaderMod(b, sdk_dep, cx16_target, optimize);
+
+    // Translated headers for VIC-20 (mos6502, separate from cx16/mosw65c02).
+    const vic20_target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .vic20 });
+    const cbm_vic20_mod = vic20CbmHeaderMod(b, sdk_dep, vic20_target, optimize);
 
     // Translated headers for C64.
     const c64_build_target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .c64 });
@@ -222,22 +236,22 @@ pub fn build(b: *std.Build) void {
     gen_previews.dependOn(&run_svgcheck.step);
 
     for ([_]struct { name: []const u8, chr: []const u8 }{
-        .{ .name = "hello1", .chr = "nesdoug/hello1/Alpha.chr" },
-        .{ .name = "hello2", .chr = "nesdoug/hello2/Alpha.chr" },
-        .{ .name = "hello3", .chr = "nesdoug/hello3/Alpha.chr" },
-        .{ .name = "zig-logo", .chr = "nesdoug/zig-logo/zig-mark.chr" },
-        .{ .name = "fade", .chr = "nesdoug/fade/Girl5.chr" },
-        .{ .name = "sprites", .chr = "nesdoug/sprites/Alpha2.chr" },
-        .{ .name = "pads", .chr = "nesdoug/pads/Alpha3.chr" },
-        .{ .name = "color-cycle", .chr = "nesdoug/color-cycle/blocks.chr" },
-        .{ .name = "bat-ball", .chr = "nesdoug/bat-ball/example.chr" },
-        .{ .name = "fullbg", .chr = "nesdoug/fullbg/Girl5.chr" },
-        .{ .name = "megablast", .chr = "nesdoug/megablast/megablast.chr" },
-        .{ .name = "gg-demo", .chr = "nesdoug/gg-demo/GG-8K.chr" },
-        .{ .name = "mappers-apples", .chr = "nesdoug/mappers/apples.chr" },
-        .{ .name = "mappers-balls", .chr = "nesdoug/mappers/balls.chr" },
-        .{ .name = "mappers-snake", .chr = "nesdoug/mappers/snake.chr" },
-        .{ .name = "mappers-flower", .chr = "nesdoug/mappers/flower.chr" },
+        .{ .name = "hello1", .chr = "nes/nesdoug/hello1/Alpha.chr" },
+        .{ .name = "hello2", .chr = "nes/nesdoug/hello2/Alpha.chr" },
+        .{ .name = "hello3", .chr = "nes/nesdoug/hello3/Alpha.chr" },
+        .{ .name = "zig-logo", .chr = "nes/nesdoug/zig-logo/zig-mark.chr" },
+        .{ .name = "fade", .chr = "nes/nesdoug/fade/Girl5.chr" },
+        .{ .name = "sprites", .chr = "nes/nesdoug/sprites/Alpha2.chr" },
+        .{ .name = "pads", .chr = "nes/nesdoug/pads/Alpha3.chr" },
+        .{ .name = "color-cycle", .chr = "nes/nesdoug/color-cycle/blocks.chr" },
+        .{ .name = "bat-ball", .chr = "nes/nesdoug/bat-ball/example.chr" },
+        .{ .name = "fullbg", .chr = "nes/nesdoug/fullbg/Girl5.chr" },
+        .{ .name = "megablast", .chr = "nes/nesdoug/megablast/megablast.chr" },
+        .{ .name = "gg-demo", .chr = "nes/nesdoug/gg-demo/GG-8K.chr" },
+        .{ .name = "mappers-apples", .chr = "nes/nesdoug/mappers/apples.chr" },
+        .{ .name = "mappers-balls", .chr = "nes/nesdoug/mappers/balls.chr" },
+        .{ .name = "mappers-snake", .chr = "nes/nesdoug/mappers/snake.chr" },
+        .{ .name = "mappers-flower", .chr = "nes/nesdoug/mappers/flower.chr" },
     }) |cf| {
         const run = b.addRunArtifact(chr2svg);
         run.addFileArg(b.path(cf.chr));
@@ -253,7 +267,7 @@ pub fn build(b: *std.Build) void {
     // ---- NES hello1 ----
     {
         const step = b.step("nes-hello1", "Build NES hello1 example");
-        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "hello1", "nesdoug/hello1/hello1.zig", .{ .chr_src = "nesdoug/hello1/Alpha.chr" });
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "hello1", "nes/nesdoug/hello1/hello1.zig", .{ .chr_src = "nes/nesdoug/hello1/Alpha.chr" });
         exe.root_module.addImport("neslib", neslib_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "hello1.nes" });
         step.dependOn(&install.step);
@@ -265,7 +279,7 @@ pub fn build(b: *std.Build) void {
     // ---- NES hello2 ----
     {
         const step = b.step("nes-hello2", "Build NES hello2 example");
-        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "hello2", "nesdoug/hello2/hello2.zig", .{ .chr_src = "nesdoug/hello2/Alpha.chr" });
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "hello2", "nes/nesdoug/hello2/hello2.zig", .{ .chr_src = "nes/nesdoug/hello2/Alpha.chr" });
         exe.root_module.addImport("neslib", neslib_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "hello2.nes" });
         step.dependOn(&install.step);
@@ -277,7 +291,7 @@ pub fn build(b: *std.Build) void {
     // ---- NES hello3 ----
     {
         const step = b.step("nes-hello3", "Build NES hello3 example");
-        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "hello3", "nesdoug/hello3/hello3.zig", .{ .chr_src = "nesdoug/hello3/Alpha.chr", .with_nesdoug = true });
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "hello3", "nes/nesdoug/hello3/hello3.zig", .{ .chr_src = "nes/nesdoug/hello3/Alpha.chr", .with_nesdoug = true });
         exe.root_module.addImport("neslib", neslib_mod);
         exe.root_module.addImport("nesdoug", nesdoug_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "hello3.nes" });
@@ -290,7 +304,7 @@ pub fn build(b: *std.Build) void {
     // ---- NES zig-logo ----
     {
         const step = b.step("nes-zig-logo", "Build NES Zig logo display example");
-        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "zig-logo", "nesdoug/zig-logo/zig-logo.zig", .{ .chr_src = "nesdoug/zig-logo/zig-mark.chr" });
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "zig-logo", "nes/nesdoug/zig-logo/zig-logo.zig", .{ .chr_src = "nes/nesdoug/zig-logo/zig-mark.chr" });
         exe.root_module.addImport("neslib", neslib_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "zig-logo.nes" });
         step.dependOn(&install.step);
@@ -302,7 +316,7 @@ pub fn build(b: *std.Build) void {
     // ---- NES fade ----
     {
         const step = b.step("nes-fade", "Build NES palette fade example");
-        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "fade", "nesdoug/fade/fade.zig", .{ .chr_src = "nesdoug/fade/Girl5.chr", .with_nesdoug = true });
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "fade", "nes/nesdoug/fade/fade.zig", .{ .chr_src = "nes/nesdoug/fade/Girl5.chr", .with_nesdoug = true });
         exe.root_module.addImport("neslib", neslib_mod);
         exe.root_module.addImport("nesdoug", nesdoug_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "fade.nes" });
@@ -315,7 +329,7 @@ pub fn build(b: *std.Build) void {
     // ---- NES fullbg ----
     {
         const step = b.step("nes-fullbg", "Build NES full-screen background (RLE nametable) example");
-        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "fullbg", "nesdoug/fullbg/fullbg.zig", .{ .chr_src = "nesdoug/fullbg/Girl5.chr" });
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "fullbg", "nes/nesdoug/fullbg/fullbg.zig", .{ .chr_src = "nes/nesdoug/fullbg/Girl5.chr" });
         exe.root_module.addImport("neslib", neslib_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "fullbg.nes" });
         step.dependOn(&install.step);
@@ -327,7 +341,7 @@ pub fn build(b: *std.Build) void {
     // ---- NES sprites ----
     {
         const step = b.step("nes-sprites", "Build NES sprites example");
-        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "sprites", "nesdoug/sprites/sprites.zig", .{ .chr_src = "nesdoug/sprites/Alpha2.chr" });
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "sprites", "nes/nesdoug/sprites/sprites.zig", .{ .chr_src = "nes/nesdoug/sprites/Alpha2.chr" });
         exe.root_module.addImport("neslib", neslib_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "sprites.nes" });
         step.dependOn(&install.step);
@@ -339,7 +353,7 @@ pub fn build(b: *std.Build) void {
     // ---- NES random ----
     {
         const step = b.step("nes-random", "Build NES random sprites demo");
-        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "random", "nesdoug/random/random.zig", .{ .chr_src = "nesdoug/random/Alpha2.chr", .with_nesdoug = true });
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "random", "nes/nesdoug/random/random.zig", .{ .chr_src = "nes/nesdoug/random/Alpha2.chr", .with_nesdoug = true });
         exe.root_module.addImport("neslib", neslib_mod);
         exe.root_module.addImport("nesdoug", nesdoug_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "random.nes" });
@@ -352,7 +366,7 @@ pub fn build(b: *std.Build) void {
     // ---- NES pads ----
     {
         const step = b.step("nes-pads", "Build NES controller input example");
-        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "pads", "nesdoug/pads/pads.zig", .{ .chr_src = "nesdoug/pads/Alpha3.chr", .with_nesdoug = true });
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "pads", "nes/nesdoug/pads/pads.zig", .{ .chr_src = "nes/nesdoug/pads/Alpha3.chr", .with_nesdoug = true });
         exe.root_module.addImport("neslib", neslib_mod);
         exe.root_module.addImport("nesdoug", nesdoug_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "pads.nes" });
@@ -365,7 +379,7 @@ pub fn build(b: *std.Build) void {
     // ---- NES color-cycle ----
     {
         const step = b.step("nes-color-cycle", "Build NES palette colour-cycle example");
-        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "color-cycle", "nesdoug/color-cycle/color-cycle.zig", .{ .chr_src = "nesdoug/color-cycle/blocks.chr" });
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "color-cycle", "nes/nesdoug/color-cycle/color-cycle.zig", .{ .chr_src = "nes/nesdoug/color-cycle/blocks.chr" });
         exe.root_module.addImport("neslib", neslib_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "color-cycle.nes" });
         step.dependOn(&install.step);
@@ -377,7 +391,7 @@ pub fn build(b: *std.Build) void {
     // ---- NES bat-ball ----
     {
         const step = b.step("nes-bat-ball", "Build NES bat-ball game (CH05 port)");
-        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "bat-ball", "nesdoug/bat-ball/bat-ball.zig", .{ .chr_src = "nesdoug/bat-ball/example.chr" });
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "bat-ball", "nes/nesdoug/bat-ball/bat-ball.zig", .{ .chr_src = "nes/nesdoug/bat-ball/example.chr" });
         exe.root_module.addImport("neslib", neslib_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "bat-ball.nes" });
         step.dependOn(&install.step);
@@ -389,7 +403,7 @@ pub fn build(b: *std.Build) void {
     // ---- NES megablast ----
     {
         const step = b.step("nes-megablast", "Build NES megablast full game (CH13 port: enemies, score, lives, levels)");
-        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "megablast", "nesdoug/megablast/megablast.zig", .{ .chr_src = "nesdoug/megablast/megablast.chr", .with_nesdoug = true });
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "megablast", "nes/nesdoug/megablast/megablast.zig", .{ .chr_src = "nes/nesdoug/megablast/megablast.chr", .with_nesdoug = true });
         exe.root_module.addImport("neslib", neslib_mod);
         exe.root_module.addImport("nesdoug", nesdoug_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "megablast.nes" });
@@ -402,10 +416,10 @@ pub fn build(b: *std.Build) void {
     // ---- NES gg-demo ----
     {
         const step = b.step("nes-gg-demo", "Build NES Game Genie demo (metatile font + scrolling + player)");
-        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "gg-demo", "nesdoug/gg-demo/gg-demo.zig", .{ .chr_src = "nesdoug/gg-demo/GG-8K.chr", .with_nesdoug = true });
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "gg-demo", "nes/nesdoug/gg-demo/gg-demo.zig", .{ .chr_src = "nes/nesdoug/gg-demo/GG-8K.chr", .with_nesdoug = true });
         exe.root_module.addImport("neslib", neslib_mod);
         exe.root_module.addImport("nesdoug", nesdoug_mod);
-        exe.root_module.addAssemblyFile(b.path("nesdoug/gg-demo/nesheader.s"));
+        exe.root_module.addAssemblyFile(b.path("nes/nesdoug/gg-demo/nesheader.s"));
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "gg-demo.nes" });
         step.dependOn(&install.step);
         b.getInstallStep().dependOn(&install.step);
@@ -609,7 +623,7 @@ pub fn build(b: *std.Build) void {
     // ---- NES CNROM hello ----
     {
         const step = b.step("nes-cnrom-hello", "Build NES CNROM mapper hello example");
-        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "cnrom-hello", "nes/cnrom-hello/cnrom-hello.zig", .{ .mapper = .cnrom, .chr_src = "nesdoug/hello1/Alpha.chr" });
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "cnrom-hello", "nes/cnrom-hello/cnrom-hello.zig", .{ .mapper = .cnrom, .chr_src = "nes/nesdoug/hello1/Alpha.chr" });
         exe.root_module.addImport("neslib", neslib_mod);
         exe.root_module.addImport("mapper", nes_cnrom_mapper_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "cnrom-hello.nes" });
@@ -621,11 +635,11 @@ pub fn build(b: *std.Build) void {
     // ---- NES CNROM mappers demo (4 CHR banks) ----
     {
         const step = b.step("nes-mappers", "Build NES CNROM CHR bank-switching demo (4 banks)");
-        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "mappers", "nesdoug/mappers/mappers.zig", .{ .mapper = .cnrom, .chr_srcs = &.{
-            "nesdoug/mappers/apples.chr",
-            "nesdoug/mappers/balls.chr",
-            "nesdoug/mappers/snake.chr",
-            "nesdoug/mappers/flower.chr",
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "mappers", "nes/nesdoug/mappers/mappers.zig", .{ .mapper = .cnrom, .chr_srcs = &.{
+            "nes/nesdoug/mappers/apples.chr",
+            "nes/nesdoug/mappers/balls.chr",
+            "nes/nesdoug/mappers/snake.chr",
+            "nes/nesdoug/mappers/flower.chr",
         }, .with_nesdoug = true });
         exe.root_module.addImport("neslib", neslib_mod);
         exe.root_module.addImport("nesdoug", nesdoug_mod);
@@ -699,7 +713,7 @@ pub fn build(b: *std.Build) void {
     // ---- NES CNROM sprites ----
     {
         const step = b.step("nes-cnrom-sprites", "Build NES CNROM mapper sprites example");
-        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "cnrom-sprites", "nes/cnrom-sprites/cnrom-sprites.zig", .{ .mapper = .cnrom, .chr_src = "nesdoug/sprites/Alpha2.chr" });
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "cnrom-sprites", "nes/cnrom-sprites/cnrom-sprites.zig", .{ .mapper = .cnrom, .chr_src = "nes/nesdoug/sprites/Alpha2.chr" });
         exe.root_module.addImport("neslib", neslib_mod);
         exe.root_module.addImport("mapper", nes_cnrom_mapper_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "cnrom-sprites.nes" });
@@ -753,6 +767,39 @@ pub fn build(b: *std.Build) void {
         exe.root_module.addImport("nesdoug", nesdoug_mod);
         exe.root_module.addImport("mapper", nes_gtrom_mapper_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "gtrom-color-cycle.nes" });
+        step.dependOn(&install.step);
+        b.getInstallStep().dependOn(&install.step);
+        run_bininfo.addFileArg(exe.getEmittedBin());
+    }
+
+    // ---- NES Action53 hello ----
+    {
+        const step = b.step("nes-action53-hello", "Build NES Action53 mapper hello example");
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "action53-hello", "nes/action53-hello/action53-hello.zig", .{ .mapper = .action53 });
+        exe.root_module.addImport("neslib", neslib_mod);
+        exe.root_module.addImport("mapper", nes_action53_mapper_mod);
+        const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "action53-hello.nes" });
+        step.dependOn(&install.step);
+        b.getInstallStep().dependOn(&install.step);
+        run_bininfo.addFileArg(exe.getEmittedBin());
+    }
+
+    // ---- FDS hello ----
+    {
+        const step = b.step("fds-hello", "Build FDS (Famicom Disk System) hello example");
+        const exe = addFdsExe(b, sdk_dep, sdk_src, sdk_libs.fds orelse @panic("fds libs not built"), optimize, "fds-hello", "fds/hello/hello.zig");
+        const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "fds-hello.fds" });
+        step.dependOn(&install.step);
+        b.getInstallStep().dependOn(&install.step);
+        run_bininfo.addFileArg(exe.getEmittedBin());
+    }
+
+    // ---- VIC-20 hello ----
+    {
+        const step = b.step("vic20-hello", "Build VIC-20 hello example");
+        const exe = addVic20Exe(b, sdk_dep, sdk_src, sdk_libs.vic20 orelse @panic("vic20 libs not built"), optimize, "vic20-hello", "vic20/hello/hello.zig");
+        exe.root_module.addImport("cbm", cbm_vic20_mod);
+        const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "vic20-hello.prg" });
         step.dependOn(&install.step);
         b.getInstallStep().dependOn(&install.step);
         run_bininfo.addFileArg(exe.getEmittedBin());
@@ -972,6 +1019,7 @@ const NesMapper = enum {
     mmc1,
     mmc3,
     gtrom,
+    action53,
 };
 
 fn addNesExe(
@@ -999,6 +1047,7 @@ fn addNesExe(
         .mmc1 => sdk_libs.nes_mmc1 orelse @panic("nes-mmc1 libs not built"),
         .mmc3 => sdk_libs.nes_mmc3 orelse @panic("nes-mmc3 libs not built"),
         .gtrom => sdk_libs.nes_gtrom orelse @panic("nes-gtrom libs not built"),
+        .action53 => sdk_libs.nes_action53 orelse @panic("nes-action53 libs not built"),
     };
 
     const plat: []const u8 = switch (cfg.mapper) {
@@ -1009,12 +1058,13 @@ fn addNesExe(
         .mmc1 => "nes-mmc1",
         .mmc3 => "nes-mmc3",
         .gtrom => "nes-gtrom",
+        .action53 => "nes-action53",
     };
 
     // Mappers that require a separately-compiled reset.o TRUE object (linker INPUT directive).
     const needs_reset = switch (cfg.mapper) {
         .nrom, .cnrom => false,
-        else => true,
+        .unrom, .unrom512, .mmc1, .mmc3, .gtrom, .action53 => true,
     };
     const reset_dir = if (needs_reset) b.fmt("{s}/objs/{s}", .{ b.install_path, name }) else "";
     var install_reset: ?*std.Build.Step.InstallFile = null;
@@ -1111,6 +1161,17 @@ fn addNesExe(
             \\SEARCH_DIR("{s}/mos-platform/nes/rompoke");
             \\SEARCH_DIR("{s}/mos-platform/common/ldscripts");
             \\INCLUDE "{s}/mos-platform/nes-gtrom/link.ld"
+        , .{ reset_dir, sdk_src, sdk_src, sdk_src, sdk_src, sdk_src })),
+        .action53 => wf.add(ld_name, b.fmt(
+            \\SEARCH_DIR("{s}");
+            \\SEARCH_DIR("{s}/mos-platform/nes-action53");
+            \\SEARCH_DIR("{s}/mos-platform/nes");
+            \\SEARCH_DIR("{s}/mos-platform/nes/rompoke");
+            \\SEARCH_DIR("{s}/mos-platform/common/ldscripts");
+            \\/* Action53 uses CHR RAM; override the 8 KiB CHR ROM weak default. */
+            \\__chr_rom_size = 0;
+            \\__chr_ram_size = 8;
+            \\INCLUDE "{s}/mos-platform/nes-action53/link.ld"
         , .{ reset_dir, sdk_src, sdk_src, sdk_src, sdk_src, sdk_src })),
     };
 
@@ -1523,6 +1584,165 @@ fn addAtari8DosExe(
     return exe;
 }
 
+fn addFdsExe(
+    b: *std.Build,
+    sdk_dep: *std.Build.Dependency,
+    sdk_src: []const u8,
+    libs: sdk_mod.Libs,
+    opt: std.builtin.OptimizeMode,
+    name: []const u8,
+    root_src: []const u8,
+) *std.Build.Step.Compile {
+    const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .fds });
+
+    // reset.s → reset.o; link.ld has INPUT(reset.o) requiring SEARCH_DIR.
+    const reset_obj = b.addObject(.{
+        .name = "reset",
+        .root_module = b.createModule(.{ .target = target, .optimize = opt, .sanitize_c = .off }),
+    });
+    reset_obj.root_module.addAssemblyFile(sdk_dep.path("mos-platform/fds/reset.s"));
+    const reset_dir = b.fmt("{s}/objs/{s}", .{ b.install_path, name });
+    const install_reset = b.addInstallFileWithDir(
+        reset_obj.getEmittedBin(),
+        .{ .custom = b.fmt("objs/{s}", .{name}) },
+        "reset.o",
+    );
+
+    const wf = b.addWriteFiles();
+    const wrapper_ld = wf.add("fds-wrapper.ld", b.fmt(
+        \\SEARCH_DIR("{s}");
+        \\SEARCH_DIR("{s}/mos-platform/fds");
+        \\SEARCH_DIR("{s}/mos-platform/common/ldscripts");
+        \\INCLUDE "{s}/mos-platform/fds/link.ld"
+    , .{ reset_dir, sdk_src, sdk_src, sdk_src }));
+
+    const exe = b.addExecutable(.{
+        .name = name,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path(root_src),
+            .target = target,
+            .optimize = opt,
+            .sanitize_c = .off,
+        }),
+    });
+    exe.bundle_compiler_rt = false;
+    exe.lto = .full;
+    exe.step.dependOn(&install_reset.step);
+    exe.forceUndefinedSymbol("__zig_call_main_section");
+    exe.forceUndefinedSymbol("main");
+    if (libs.crt0_obj) |obj| exe.root_module.addObject(obj);
+    if (libs.mem) |mem_obj| exe.root_module.addObject(mem_obj);
+    exe.root_module.addIncludePath(sdk_dep.path("mos-platform/fds"));
+    exe.root_module.addIncludePath(sdk_dep.path("mos-platform/nes"));
+    exe.root_module.addIncludePath(sdk_dep.path("mos-platform/common/include"));
+    exe.root_module.linkLibrary(libs.crt);
+    exe.root_module.linkLibrary(libs.crt0);
+    exe.root_module.linkLibrary(libs.c);
+    exe.setLinkerScript(wrapper_ld);
+    exe.root_module.addImport("mos_panic", b.createModule(.{
+        .root_source_file = b.path("sdk/panic.zig"),
+        .target = target,
+        .optimize = opt,
+        .sanitize_c = .off,
+    }));
+    exe.root_module.addImport("hardware", b.createModule(.{
+        .root_source_file = b.path("fds/hardware.zig"),
+        .target = target,
+        .optimize = opt,
+        .sanitize_c = .off,
+    }));
+
+    return exe;
+}
+
+fn addVic20Exe(
+    b: *std.Build,
+    sdk_dep: *std.Build.Dependency,
+    sdk_src: []const u8,
+    libs: sdk_mod.Libs,
+    opt: std.builtin.OptimizeMode,
+    name: []const u8,
+    root_src: []const u8,
+) *std.Build.Step.Compile {
+    const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .vic20 });
+
+    // basic-header.S → basic-header.o; commodore.ld has INPUT(basic-header.o).
+    const basic_header_obj = b.addObject(.{
+        .name = "basic-header",
+        .root_module = b.createModule(.{ .target = target, .optimize = opt, .sanitize_c = .off }),
+    });
+    basic_header_obj.root_module.addIncludePath(sdk_dep.path("mos-platform/common/asminc"));
+    basic_header_obj.root_module.addIncludePath(sdk_dep.path("mos-platform/common/include"));
+    basic_header_obj.root_module.addAssemblyFile(sdk_dep.path("mos-platform/vic20/basic-header.S"));
+    basic_header_obj.lto = .none;
+    const objs_dir = b.fmt("objs/{s}", .{name});
+    const install_bh = b.addInstallFileWithDir(
+        basic_header_obj.getEmittedBin(),
+        .{ .custom = objs_dir },
+        "basic-header.o",
+    );
+
+    const wf = b.addWriteFiles();
+    const wrapper_ld = wf.add("vic20-wrapper.ld", b.fmt(
+        \\SEARCH_DIR("{s}/{s}");
+        \\SEARCH_DIR("{s}/mos-platform/vic20");
+        \\SEARCH_DIR("{s}/mos-platform/commodore");
+        \\SEARCH_DIR("{s}/mos-platform/common/ldscripts");
+        \\INCLUDE "{s}/mos-platform/vic20/link.ld"
+    , .{ b.install_path, objs_dir, sdk_src, sdk_src, sdk_src, sdk_src }));
+
+    const exe = b.addExecutable(.{
+        .name = name,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path(root_src),
+            .target = target,
+            .optimize = opt,
+            .sanitize_c = .off,
+        }),
+    });
+    exe.bundle_compiler_rt = false;
+    exe.lto = .full;
+    exe.step.dependOn(&install_bh.step);
+    exe.forceUndefinedSymbol("__zig_call_main_section");
+    exe.forceUndefinedSymbol("main");
+    if (libs.crt0_obj) |obj| exe.root_module.addObject(obj);
+    if (libs.mem) |mem_obj| exe.root_module.addObject(mem_obj);
+    exe.root_module.addIncludePath(sdk_dep.path("mos-platform/vic20"));
+    exe.root_module.addIncludePath(sdk_dep.path("mos-platform/commodore"));
+    exe.root_module.addIncludePath(sdk_dep.path("mos-platform/common/include"));
+    exe.root_module.linkLibrary(libs.crt);
+    exe.root_module.linkLibrary(libs.crt0);
+    exe.root_module.linkLibrary(libs.c);
+    exe.setLinkerScript(wrapper_ld);
+    exe.root_module.addImport("mos_panic", b.createModule(.{
+        .root_source_file = b.path("sdk/panic.zig"),
+        .target = target,
+        .optimize = opt,
+        .sanitize_c = .off,
+    }));
+
+    return exe;
+}
+
+fn vic20CbmHeaderMod(
+    b: *std.Build,
+    sdk_dep: *std.Build.Dependency,
+    target: std.Build.ResolvedTarget,
+    opt: std.builtin.OptimizeMode,
+) *std.Build.Module {
+    const tc = b.addTranslateC(.{
+        .root_source_file = sdk_dep.path("mos-platform/commodore/cbm.h"),
+        .target = target,
+        .optimize = opt,
+        .link_libc = false,
+    });
+    tc.defineCMacro("__CBM__", null);
+    tc.addIncludePath(sdk_dep.path("mos-platform/vic20"));
+    tc.addIncludePath(sdk_dep.path("mos-platform/commodore"));
+    tc.addIncludePath(sdk_dep.path("mos-platform/common/include"));
+    return tc.createModule();
+}
+
 fn addCx16Exe(
     b: *std.Build,
     sdk_dep: *std.Build.Dependency,
@@ -1565,6 +1785,10 @@ fn addCx16Exe(
     });
     exe.bundle_compiler_rt = false;
     exe.lto = .full;
+    exe.forceUndefinedSymbol("__zig_call_main_section");
+    exe.forceUndefinedSymbol("main");
+    if (libs.crt0_obj) |obj| exe.root_module.addObject(obj);
+    if (libs.mem) |mem_obj| exe.root_module.addObject(mem_obj);
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/cx16/basic-header.S"));
     exe.root_module.addIncludePath(sdk_dep.path("mos-platform/cx16"));
     exe.root_module.addIncludePath(sdk_dep.path("mos-platform/commodore"));

@@ -61,52 +61,35 @@ jobs:
         run: zig build sdk-build --summary all
 
       - name: Build NES examples and generate Mesen label files
-        run: zig build nes-hello1 nes-hello2 nes-hello3 nes-zig-logo nes-fade nes-sprites nes-random nes-pads nes-color-cycle nes-fullbg nes-mappers nes-cnrom-hello nes-unrom-hello nes-unrom-512-hello nes-mmc1-hello nes-mmc3-hello nes-gtrom-hello gen-labels --summary all
+        run: zig build nes-hello1 nes-hello2 nes-hello3 nes-zig-logo nes-fade nes-sprites nes-random nes-pads nes-color-cycle nes-fullbg nes-mappers nes-cnrom-hello nes-unrom-hello nes-unrom-512-hello nes-mmc1-hello nes-mmc3-hello nes-gtrom-hello nes-action53-hello fds-hello gen-labels --summary all
 
-      - name: Build C64 examples
-        run: zig build c64-hello c64-fibonacci c64-plasma --summary all
+      - name: Build Commodore examples (C64, VIC-20, CX16, GEOS)
+        run: zig build c64-hello c64-fibonacci c64-plasma vic20-hello cx16-hello cx16-k-console-test geos-hello --summary all
 
-      - name: Build Commander X16 examples
-        run: zig build cx16-hello cx16-k-console-test --summary all
+      - name: Build Atari examples (Lynx, 2600, 8-bit)
+        run: zig build lynx-hello atari2600-colorbar atari2600-3e-colorbar atari8dos-hello atari8-cart-hello --summary all
 
-      - name: Build Atari Lynx example
-        run: zig build lynx-hello --summary all
-
-      - name: Build Atari 2600 examples
-        run: zig build atari2600-colorbar atari2600-3e-colorbar --summary all
-
-      - name: Build Atari 8-bit examples
-        run: zig build atari8dos-hello atari8-cart-hello --summary all
-
-      - name: Build PC Engine examples
-        run: zig build pce-color-cycle pce-color-cycle-banked --summary all
-
-      - name: Build MEGA65 examples
-        run: zig build mega65-hello mega65-plasma mega65-viciv --summary all
-
-      - name: Build Neo6502 example
-        run: zig build neo6502-graphics --summary all
+      - name: Build PC Engine, MEGA65, Neo6502 examples
+        run: zig build pce-color-cycle pce-color-cycle-banked mega65-hello mega65-plasma mega65-viciv neo6502-graphics --summary all
 
       - name: Build SNES examples
         run: zig build snes-hello snes-color-cycle snes-zig-logo snes-pi-test snes-pi-fastrom snes-hirom-hello snes-pads --summary all
 
-      - name: Build Apple IIe example
-        run: zig build apple2-hello --summary all
-
-      - name: Build mos-sim from source and run sim-hello benchmark
-        run: zig build run-sim-hello --summary all
-
-      - name: Check all outputs with bininfo
-        run: zig build check-outputs --summary all
+      - name: Build Apple IIe and mos-sim examples
+        run: zig build apple2-hello run-sim-hello --summary all
 
       - name: Verify outputs
         run: |
+          zig build check-outputs --summary all
           ls -la zig-out/bin/
           for f in \
             hello1.nes hello2.nes hello3.nes zig-logo.nes fade.nes sprites.nes random.nes pads.nes color-cycle.nes \
             fullbg.nes mappers.nes cnrom-hello.nes unrom-hello.nes unrom-512-hello.nes mmc1-hello.nes mmc3-hello.nes gtrom-hello.nes \
+            action53-hello.nes fds-hello.fds \
             c64-hello.prg fibonacci.prg plasma.prg \
+            vic20-hello.prg \
             cx16-hello.prg cx16-k-console-test.prg \
+            geos-hello.cvt \
             lynx-hello.bll \
             colorbar.a26 colorbar-3e.a26 \
             atari8dos-hello.xex atari8-cart-hello.rom \
@@ -249,7 +232,7 @@ jobs:
       - name: Make emutest executable
         run: chmod +x tt/emutest/emutest
 
-      - name: NES screenshot tests (Mesen-X)
+      - name: NES and Atari 2600 screenshot tests
         run: |
           run_emutest() {
             local f=$1 core=$2 rc=0
@@ -266,18 +249,6 @@ jobs:
                    gtrom-hello.nes; do
             run_emutest "$f" mesen_libretro.so
           done
-
-      - name: Atari 2600 screenshot tests (Stella2014)
-        run: |
-          run_emutest() {
-            local f=$1 core=$2 rc=0
-            tt/emutest/emutest -T \
-              -L "tt/libretro/${core}" \
-              -r "zig-out/bin/$f" \
-              -t tools/emutest.lua || rc=$?
-            if [ $rc -eq 1 ]; then echo "FAIL: $f"; exit 1; fi
-            echo "OK: $f (rc=$rc)"
-          }
           for f in colorbar.a26 colorbar-3e.a26; do
             run_emutest "$f" stella2014_libretro.so
           done
