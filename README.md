@@ -69,6 +69,12 @@ zig build atari2600-3e-colorbar
 # Atari 8-bit
 zig build atari8dos-hello
 zig build atari8-cart-hello
+zig build atari5200-cart-hello
+zig build atari8-megacart-hello
+zig build atari8-xegs-hello
+
+# GEOS-CBM
+zig build geos-hello
 
 # PC Engine
 zig build pce-color-cycle
@@ -197,6 +203,10 @@ Output files land in `zig-out/bin/`.
 | `atari2600-3e-colorbar` | Atari 2600 (3E) | mos6502 | `.a26` |
 | `atari8dos-hello` | Atari 8-bit DOS | mos6502 | `.xex` |
 | `atari8-cart-hello` | Atari 8-bit cart | mos6502 | `.rom` |
+| `atari5200-cart-hello` | Atari 5200 cart | mos6502 | `.rom` |
+| `atari8-megacart-hello` | Atari 8-bit MegaCart | mos6502 | `.rom` |
+| `atari8-xegs-hello` | Atari 8-bit XEGS cart | mos6502 | `.rom` |
+| `geos-hello` | GEOS-CBM | mos6502 | `.cvt` |
 | `pce-color-cycle` | PC Engine | mosw65c02 | `.pce` |
 | `pce-color-cycle-banked` | PC Engine banked | mosw65c02 | `.pce` |
 | `neo6502-graphics` | Neo6502 | mosw65c02 | `.neo` |
@@ -252,7 +262,7 @@ zig-out/bin/bininfo <file> [files…] [flags]
 |------|-------|-------------|
 | `--sections` | `-S` | List ELF sections |
 | `--symbols` | `-n` | List ELF symbols |
-| `--dwarf` | `-d` | Dump DWARF section inventory |
+| `--dwarf` | `-d` | Dump DWARF section inventory, CU headers, and subprogram listing |
 | `--xxd` | `-x` | Hex+ASCII dump (xxd style) |
 | `--xxd-limit N` | | Cap xxd output at N bytes |
 | `--disasm` | `-D` | 6502 disassembly of file payload |
@@ -325,12 +335,20 @@ chr2svg zig-out/bin/chr-bank-00.bin tiles.svg --scale 3 --cols 16
 svg2chr tiles.svg chr-bank-00.bin
 ```
 
+### `svgcheck` — SVG tile validator
+
+Checks that an SVG tile file is well-formed and compatible with `svg2chr` (correct viewBox, pixel dimensions, tile count).
+
+```sh
+svgcheck tiles.svg
+```
+
 ### `elf2mlb` — Mesen label file generator
 
 Converts a MOS ELF debug binary to a Mesen `.mlb` label file for source-level symbol display in the Mesen emulator debugger.
 
 ```sh
-elf2mlb zig-out/bin/hello1.nes.elf hello1.mlb
+elf2mlb zig-out/bin/hello1.nes hello1.mlb hello1.nes.elf
 ```
 
 The `gen-labels` build step runs this automatically for all NES examples.
@@ -359,6 +377,10 @@ The `gen-labels` build step runs this automatically for all NES examples.
 - **SNES HiROM** — 64 KB bank layout with header at `$FFC0`; data bank register forced to `$00` via `lda #$00; pha; plb` in crt0 (safe for both LoROM and HiROM).
 - **Atari 8-bit DOS hello** — uses `std.c.printf` via CIO-backed libc (E: screen editor device).
 - **Atari 8-bit cart hello** — uses translated `_gtia.h` (GTIA write struct) via `b.addTranslateC`; cycles COLBK background colour, synced to ANTIC VCOUNT.
+- **Atari 5200 cart hello** — cycles GTIA COLBK register (`$C01A`) through all hues via direct `*volatile u8` write. No CIO/stdio on 5200; pure hardware register loop.
+- **Atari 8-bit MegaCart hello** — uses translated `_gtia.h`; cycles COLBK synced to ANTIC VCOUNT. MegaCart bank 0 is selected at cold start via the SDK's `tail0.s` stub before `main()` runs.
+- **Atari 8-bit XEGS hello** — same GTIA colour-cycle as MegaCart but targeting the XEGS cartridge format; XEGS `_cart_init` writes `$D500` to select bank 0 before `main()` runs.
+- **GEOS-CBM hello** — uses GEOS kernel jump-table entries (`__GraphicsString`, `__PutString`, `__UseSystemFont`, `__MainLoop`) as `extern fn` declarations resolved by `geos.ld`; passes arguments via zero-page registers `__r0` (`$0002`) and `__r11` (`$0018`). Output is a `.cvt` VLIR-formatted GEOS application file, verified by `03 00 FF` + `llvm-mos VLIR` magic at offset `$00`.
 - **sim-hello** — uses translated `sim-io.h` (typed MMIO struct) via `b.addTranslateC`; benchmarks fib(10), fib(20), and sieve of Eratosthenes for primes < 128.
 
 ## References

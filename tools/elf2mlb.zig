@@ -8,62 +8,16 @@
 //   <output.elf> - destination to copy the debug ELF
 
 const std = @import("std");
+const elf = std.elf;
 
-const STT_NOTYPE: u8 = 0;
-const STT_OBJECT: u8 = 1;
-const STT_FUNC: u8 = 2;
-const STT_SECTION: u8 = 3;
-const STT_FILE: u8 = 4;
-
-const SHN_UNDEF: u16 = 0x0000;
-const SHN_ABS: u16 = 0xfff1;
-
-const Elf32Ehdr = extern struct {
-    e_ident: [16]u8,
-    e_type: u16,
-    e_machine: u16,
-    e_version: u32,
-    e_entry: u32,
-    e_phoff: u32,
-    e_shoff: u32,
-    e_flags: u32,
-    e_ehsize: u16,
-    e_phentsize: u16,
-    e_phnum: u16,
-    e_shentsize: u16,
-    e_shnum: u16,
-    e_shstrndx: u16,
-};
-
-const Elf32Shdr = extern struct {
-    sh_name: u32,
-    sh_type: u32,
-    sh_flags: u32,
-    sh_addr: u32,
-    sh_offset: u32,
-    sh_size: u32,
-    sh_link: u32,
-    sh_info: u32,
-    sh_addralign: u32,
-    sh_entsize: u32,
-};
-
-const Elf32Sym = extern struct {
-    st_name: u32,
-    st_value: u32,
-    st_size: u32,
-    st_info: u8,
-    st_other: u8,
-    st_shndx: u16,
-};
-
-// Mesen MLb address-type prefix for the NES CPU address space.
-fn mlbPrefix(addr: u32) ?[]const u8 {
+// Mesen MLB address-type prefix + offset for the NES CPU address space.
+// Mesen expects ROM/RAM *offsets*, not CPU addresses, for P: and S: labels.
+fn mlbEntry(addr: u32) ?struct { prefix: []const u8, offset: u32 } {
     return switch (addr) {
-        0x0000...0x00ff => "G", // Zero page
-        0x0100...0x1fff => "R", // Work RAM
-        0x6000...0x7fff => "S", // Save/battery RAM
-        0x8000...0xffff => "P", // PRG ROM
+        0x0000...0x00ff => .{ .prefix = "G", .offset = addr }, // zero page: addr == offset
+        0x0100...0x1fff => .{ .prefix = "R", .offset = addr }, // work RAM:  addr == offset
+        0x6000...0x7fff => .{ .prefix = "S", .offset = addr - 0x6000 }, // SRAM offset from $6000
+        0x8000...0xffff => .{ .prefix = "P", .offset = addr - 0x8000 }, // PRG ROM offset from $8000
         else => null,
     };
 }
@@ -115,12 +69,12 @@ pub fn main(init: std.process.Init) !void {
     };
     defer alloc.free(elf_data);
 
-    if (elf_data.len < @sizeOf(Elf32Ehdr)) {
+    if (elf_data.len < @sizeOf(elf.Elf32_Ehdr)) {
         std.debug.print("elf2mlb: {s}: file too small\n", .{elf_path});
         std.process.exit(1);
     }
 
-    const ehdr = readVal(Elf32Ehdr, elf_data, 0);
+    const ehdr = readVal(elf.Elf32_Ehdr, elf_data, 0);
     if (!std.mem.eql(u8, ehdr.e_ident[0..4], "\x7fELF") or ehdr.e_ident[4] != 1) {
         std.debug.print("elf2mlb: {s}: not a 32-bit ELF\n", .{elf_path});
         std.process.exit(1);
@@ -128,7 +82,7 @@ pub fn main(init: std.process.Init) !void {
 
     // Section name string table.
     const shstrtab_off = ehdr.e_shoff + @as(u32, ehdr.e_shstrndx) * ehdr.e_shentsize;
-    const shstrtab_hdr = readVal(Elf32Shdr, elf_data, shstrtab_off);
+    const shstrtab_hdr = readVal(elf.Elf32_Shdr, elf_data, shstrtab_off);
     const shstrtab = elf_data[shstrtab_hdr.sh_offset..][0..shstrtab_hdr.sh_size];
 
     // Find .symtab and .strtab.
@@ -139,7 +93,7 @@ pub fn main(init: std.process.Init) !void {
 
     for (0..ehdr.e_shnum) |i| {
         const off = ehdr.e_shoff + @as(u32, @intCast(i)) * ehdr.e_shentsize;
-        const shdr = readVal(Elf32Shdr, elf_data, off);
+        const shdr = readVal(elf.Elf32_Shdr, elf_data, off);
         const sec_name = std.mem.sliceTo(shstrtab[shdr.sh_name..], 0);
         if (std.mem.eql(u8, sec_name, ".symtab")) {
             symtab_offset = shdr.sh_offset;
@@ -156,7 +110,7 @@ pub fn main(init: std.process.Init) !void {
     }
 
     const strtab = elf_data[strtab_offset..][0..strtab_size];
-    const sym_count = symtab_size / @sizeOf(Elf32Sym);
+    const sym_count = symtab_size / @sizeOf(elf.Elf32_Sym);
 
     // Build MLb content in an in-memory buffer.
     var mlb_buf: std.ArrayList(u8) = .empty;
@@ -164,17 +118,16 @@ pub fn main(init: std.process.Init) !void {
 
     var count: usize = 0;
     for (0..sym_count) |i| {
-        const sym = readVal(Elf32Sym, elf_data, symtab_offset + i * @sizeOf(Elf32Sym));
+        const sym = readVal(elf.Elf32_Sym, elf_data, symtab_offset + i * @sizeOf(elf.Elf32_Sym));
 
-        if (sym.st_shndx == SHN_UNDEF or sym.st_shndx == SHN_ABS) continue;
-        const stype = sym.st_info & 0xf;
-        if (stype == STT_SECTION or stype == STT_FILE) continue;
+        if (sym.st_shndx == elf.SHN_UNDEF or sym.st_shndx == elf.SHN_ABS) continue;
+        if (sym.st_type() == elf.STT_SECTION or sym.st_type() == elf.STT_FILE) continue;
 
         const name = std.mem.sliceTo(strtab[sym.st_name..], 0);
         if (isInternal(name)) continue;
 
-        const prefix = mlbPrefix(sym.st_value) orelse continue;
-        const line = try std.fmt.allocPrint(alloc, "{s}:{x:0>4}:{s}\n", .{ prefix, sym.st_value, name });
+        const entry = mlbEntry(sym.st_value) orelse continue;
+        const line = try std.fmt.allocPrint(alloc, "{s}:{x}:{s}\n", .{ entry.prefix, entry.offset, name });
         defer alloc.free(line);
         try mlb_buf.appendSlice(alloc, line);
         count += 1;

@@ -97,6 +97,14 @@ pub fn buildPlatform(b: *std.Build, sdk_root: []const u8, pd: Platform, opt: std
         const a8_common_dir = b.fmt("{s}/mos-platform/atari8-common", .{sdk_root});
         return buildAtari8CartStd(b, target, opt, libcrt, a8_common_dir, plat_dir, crt0_dir, com_inc, com_asm);
     }
+    if (std.mem.eql(u8, pd.name, "atari8-cart-megacart")) {
+        const a8_common_dir = b.fmt("{s}/mos-platform/atari8-common", .{sdk_root});
+        return buildAtari8CartMegacart(b, target, opt, libcrt, a8_common_dir, plat_dir, crt0_dir, com_inc, com_asm);
+    }
+    if (std.mem.eql(u8, pd.name, "atari8-cart-xegs")) {
+        const a8_common_dir = b.fmt("{s}/mos-platform/atari8-common", .{sdk_root});
+        return buildAtari8CartXegs(b, target, opt, libcrt, a8_common_dir, plat_dir, crt0_dir, com_inc, com_asm);
+    }
     if (std.mem.eql(u8, pd.name, "cx16"))
         return buildCx16(b, target, opt, libcrt, plat_dir, crt0_dir, com_inc, com_asm, comm_dir);
     if (std.mem.eql(u8, pd.name, "lynx-bll")) {
@@ -907,6 +915,110 @@ fn buildPce(
 }
 
 fn buildAtari8CartStd(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    opt: std.builtin.OptimizeMode,
+    libcrt: *std.Build.Step.Compile,
+    a8_common_dir: []const u8,
+    a8_cart_dir: []const u8,
+    crt0_dir: []const u8,
+    com_inc: []const u8,
+    com_asm: []const u8,
+) Libs {
+    const libcrt0 = addLib(b, "crt0", target, opt);
+    libcrt0.lto = .none;
+    libcrt0.root_module.addIncludePath(.{ .cwd_relative = com_asm });
+    libcrt0.root_module.addIncludePath(.{ .cwd_relative = com_inc });
+    libcrt0.root_module.addCSourceFiles(.{
+        .root = .{ .cwd_relative = a8_common_dir },
+        .files = &.{"init-stack.S"},
+    });
+    libcrt0.root_module.addCSourceFiles(.{
+        .root = .{ .cwd_relative = a8_cart_dir },
+        .files = &.{"syms.s"},
+    });
+    libcrt0.root_module.addCSourceFiles(.{
+        .root = .{ .cwd_relative = crt0_dir },
+        .files = &.{ "copy-data.c", "zero-bss.c" },
+    });
+    libcrt0.root_module.addCSourceFiles(.{
+        .root = .{ .cwd_relative = b.fmt("{s}/exit", .{crt0_dir}) },
+        .files = &.{"exit-loop.c"},
+    });
+
+    const libc = addLib(b, "c", target, opt);
+    libc.root_module.addIncludePath(.{ .cwd_relative = a8_common_dir });
+    libc.root_module.addIncludePath(.{ .cwd_relative = com_inc });
+    libc.root_module.addIncludePath(.{ .cwd_relative = com_asm });
+    libc.root_module.addCSourceFiles(.{
+        .root = .{ .cwd_relative = a8_common_dir },
+        .files = &.{ "putchar.c", "getchar.c" },
+    });
+    libc.root_module.addCSourceFiles(.{
+        .root = .{ .cwd_relative = a8_common_dir },
+        .files = &.{
+            "close.s",        "fdtab.s",     "fdtable.s", "fdtoiocb.s",
+            "findfreeiocb.s", "getfd.s",     "open.s",    "oserror.s",
+            "rwcommon.s",     "sysremove.s", "write.s",
+        },
+    });
+
+    return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc };
+}
+
+fn buildAtari8CartMegacart(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    opt: std.builtin.OptimizeMode,
+    libcrt: *std.Build.Step.Compile,
+    a8_common_dir: []const u8,
+    a8_cart_dir: []const u8,
+    crt0_dir: []const u8,
+    com_inc: []const u8,
+    com_asm: []const u8,
+) Libs {
+    const libcrt0 = addLib(b, "crt0", target, opt);
+    libcrt0.lto = .none;
+    libcrt0.root_module.addIncludePath(.{ .cwd_relative = com_asm });
+    libcrt0.root_module.addIncludePath(.{ .cwd_relative = com_inc });
+    libcrt0.root_module.addCSourceFiles(.{
+        .root = .{ .cwd_relative = a8_common_dir },
+        .files = &.{"init-stack.S"},
+    });
+    libcrt0.root_module.addCSourceFiles(.{
+        .root = .{ .cwd_relative = a8_cart_dir },
+        .files = &.{"syms.s"},
+    });
+    libcrt0.root_module.addCSourceFiles(.{
+        .root = .{ .cwd_relative = crt0_dir },
+        .files = &.{ "copy-data.c", "zero-bss.c" },
+    });
+    libcrt0.root_module.addCSourceFiles(.{
+        .root = .{ .cwd_relative = b.fmt("{s}/exit", .{crt0_dir}) },
+        .files = &.{"exit-loop.c"},
+    });
+
+    const libc = addLib(b, "c", target, opt);
+    libc.root_module.addIncludePath(.{ .cwd_relative = a8_common_dir });
+    libc.root_module.addIncludePath(.{ .cwd_relative = com_inc });
+    libc.root_module.addIncludePath(.{ .cwd_relative = com_asm });
+    libc.root_module.addCSourceFiles(.{
+        .root = .{ .cwd_relative = a8_common_dir },
+        .files = &.{ "putchar.c", "getchar.c" },
+    });
+    libc.root_module.addCSourceFiles(.{
+        .root = .{ .cwd_relative = a8_common_dir },
+        .files = &.{
+            "close.s",        "fdtab.s",     "fdtable.s", "fdtoiocb.s",
+            "findfreeiocb.s", "getfd.s",     "open.s",    "oserror.s",
+            "rwcommon.s",     "sysremove.s", "write.s",
+        },
+    });
+
+    return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc };
+}
+
+fn buildAtari8CartXegs(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
     opt: std.builtin.OptimizeMode,

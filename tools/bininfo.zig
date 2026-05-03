@@ -5,9 +5,9 @@
 //! Usage: bininfo [flags] <file> [file...]
 //!
 //! Flags:
-//!   -S, --sections     Show ELF section table
+//!   -S, --sections     Show all ELF sections with types
 //!   -n, --symbols      Show ELF symbol table
-//!   -d, --dwarf        Show ELF DWARF section inventory
+//!   -d, --dwarf        Show DWARF sections, CU list, subprograms, file tables
 //!   -x, --xxd          Hex+ASCII dump of the file payload
 //!       --xxd-limit N  Limit --xxd output to first N bytes (default: unlimited)
 //!   -D, --disasm       6502 disassembly of the code payload
@@ -30,6 +30,7 @@
 //! Exit code: 0 if all files are valid, 1 if any file is missing or malformed.
 
 const std = @import("std");
+const dwarf = std.dwarf;
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -108,6 +109,169 @@ fn nmTypeChar(sh_type: u32, sh_flags: u32, shndx: u16, binding: u8) u8 {
         'r'; // read-only
     if (is_weak) return if (c == 't') 'W' else 'V';
     return if (!is_local) std.ascii.toUpper(c) else c;
+}
+
+// ── DWARF / ELF extras ────────────────────────────────────────────────────────
+
+fn shtypeName(t: u32) []const u8 {
+    return switch (t) {
+        0 => "NULL",
+        1 => "PROGBITS",
+        2 => "SYMTAB",
+        3 => "STRTAB",
+        4 => "RELA",
+        5 => "HASH",
+        7 => "NOTE",
+        8 => "NOBITS",
+        9 => "REL",
+        11 => "DYNSYM",
+        else => "?",
+    };
+}
+
+fn readUleb128(data: []const u8, pos: *usize) u64 {
+    var result: u64 = 0;
+    var shift: u7 = 0;
+    while (pos.* < data.len and shift < 64) {
+        const b = data[pos.*];
+        pos.* += 1;
+        result |= @as(u64, b & 0x7F) << @truncate(shift);
+        if (b & 0x80 == 0) break;
+        shift += 7;
+    }
+    return result;
+}
+
+fn dwarfLangStr(lang: u32) []const u8 {
+    inline for (@typeInfo(dwarf.LANG).@"struct".decls) |decl| {
+        if (@as(u32, @field(dwarf.LANG, decl.name)) == lang) return decl.name;
+    }
+    return "?";
+}
+
+fn dumpDebugInfo(
+    out: anytype,
+    debug_info: []const u8,
+    debug_abbrev: []const u8,
+    debug_str: []const u8,
+    debug_ranges: []const u8,
+) void {
+    const gpa = std.heap.page_allocator;
+    const Dw = std.debug.Dwarf;
+    const Id = Dw.Section.Id;
+
+    var di = Dw{};
+    di.sections[@intFromEnum(Id.debug_info)] = .{ .data = debug_info, .owned = false };
+    di.sections[@intFromEnum(Id.debug_abbrev)] = .{ .data = debug_abbrev, .owned = false };
+    if (debug_str.len > 0)
+        di.sections[@intFromEnum(Id.debug_str)] = .{ .data = debug_str, .owned = false };
+    if (debug_ranges.len > 0)
+        di.sections[@intFromEnum(Id.debug_ranges)] = .{ .data = debug_ranges, .owned = false };
+
+    di.open(gpa, .little) catch |err| {
+        out.print("  (DWARF parse error: {})\n", .{err}) catch {};
+        di.deinit(gpa);
+        return;
+    };
+    defer di.deinit(gpa);
+
+    out.print("  -- debug_info DIEs " ++ "-" ** 35 ++ "\n", .{}) catch {};
+
+    for (di.compile_unit_list.items) |*cu| {
+        const cu_name = cu.die.getAttrString(
+            &di,
+            .little,
+            dwarf.AT.name,
+            di.section(.debug_str),
+            cu,
+        ) catch "(unknown)";
+        const cu_producer = cu.die.getAttrString(
+            &di,
+            .little,
+            dwarf.AT.producer,
+            di.section(.debug_str),
+            cu,
+        ) catch "";
+        const cu_lang: u32 = blk: {
+            for (cu.die.attrs) |attr| {
+                if (attr.id == dwarf.AT.language) break :blk switch (attr.value) {
+                    .udata => |v| @truncate(v),
+                    .sdata => |v| @truncate(@as(u64, @bitCast(v))),
+                    else => 0,
+                };
+            }
+            break :blk 0;
+        };
+        out.print("  CU: {s}  lang={s}  producer=\"{s}\"\n", .{
+            cu_name,
+            dwarfLangStr(cu_lang),
+            cu_producer[0..@min(cu_producer.len, 50)],
+        }) catch {};
+    }
+
+    // scanAllCompileUnits only sets cu.pc_range from DW_AT_high_pc; CUs that use
+    // DW_AT_ranges always get pc_range=null. List all named functions globally instead.
+    var fn_count: u32 = 0;
+    for (di.func_list.items) |func| {
+        const fn_name = func.name orelse continue;
+        if (func.pc_range) |fr| {
+            out.print("    fn {s}  ${x:0>4}–${x:0>4}\n", .{ fn_name, fr.start, fr.end }) catch {};
+        } else {
+            out.print("    fn {s}\n", .{fn_name}) catch {};
+        }
+        fn_count += 1;
+    }
+    if (fn_count == 0) out.print("    (no subprograms)\n", .{}) catch {};
+}
+
+// Parse .debug_line and display source file tables.
+fn dumpDebugLine(out: anytype, debug_line: []const u8) void {
+    out.print("  -- debug_line file tables " ++ "-" ** 27 ++ "\n", .{}) catch {};
+    var pos: usize = 0;
+    var ltu: u32 = 0;
+    while (pos + 10 <= debug_line.len) {
+        const unit_len = readU32Le(debug_line, pos);
+        pos += 4;
+        if (unit_len < 6 or pos + unit_len > debug_line.len) break;
+        const lt_end = pos + unit_len;
+        const version = readU16Le(debug_line, pos);
+        pos += 2;
+        pos += 4; // header_length
+        pos += 1; // minimum_instruction_length
+        if (version >= 4 and pos < lt_end) pos += 1; // max_ops_per_instr
+        pos += 3; // default_is_stmt, line_base, line_range
+        if (pos >= lt_end) {
+            pos = lt_end;
+            ltu += 1;
+            continue;
+        }
+        const opcode_base = debug_line[pos];
+        pos += 1;
+        if (opcode_base > 1) pos +|= @as(usize, opcode_base - 1);
+        // Skip include directories
+        while (pos < lt_end and debug_line[pos] != 0) {
+            while (pos < lt_end and debug_line[pos] != 0) pos += 1;
+            if (pos < lt_end) pos += 1;
+        }
+        if (pos < lt_end) pos += 1;
+        // File names
+        out.print("  LTU #{d}:\n", .{ltu}) catch {};
+        var fi: u32 = 1;
+        while (pos < lt_end and debug_line[pos] != 0) {
+            const ns = pos;
+            while (pos < lt_end and debug_line[pos] != 0) pos += 1;
+            const fname = debug_line[ns..pos];
+            if (pos < lt_end) pos += 1;
+            _ = readUleb128(debug_line, &pos); // dir_idx
+            _ = readUleb128(debug_line, &pos); // mod_time
+            _ = readUleb128(debug_line, &pos); // file_size
+            out.print("    {d}: {s}\n", .{ fi, fname }) catch {};
+            fi += 1;
+        }
+        if (fi == 1) out.print("    (no files)\n", .{}) catch {};
+        pos = lt_end;
+        ltu += 1;
+    }
 }
 
 // ── ELF inspector ─────────────────────────────────────────────────────────────
@@ -207,20 +371,19 @@ fn checkElf(out: anytype, path: []const u8, data: []const u8, opts: Opts) bool {
         path, elfMachName(e_machine), elfTypeName(e_type), e_entry, alloc_count, sym_count,
     }) catch {};
 
-    // ── Section table (ALLOC sections only, like objdump -h) ─────────────────
+    // ── Section table (all sections, like llvm-readelf -S) ───────────────────
     if (opts.sections) {
         out.print("  -- Sections " ++ "-" ** 42 ++ "\n", .{}) catch {};
-        out.print("  {s:<20} {s:>8}  {s:>8}  {s}\n", .{ "Name", "Size", "VMA", "Flags" }) catch {};
+        out.print("  {s:<22} {s:<10} {s:>8}  {s}\n", .{ "Name", "Type", "Size", "Flags/VMA" }) catch {};
         for (0..e_shnum) |i| {
             const sh = shdr.get(data, e_shoff, e_shentsize, @truncate(i));
+            const sh_type = readU32Le(sh, 4);
+            if (sh_type == SHT_NULL) continue;
             const sh_flags = readU32Le(sh, 8);
-            if ((sh_flags & SHF_ALLOC) == 0) continue;
-            const sh_name_off = readU32Le(sh, 0);
             const sh_addr = readU32Le(sh, 12);
             const sh_size = readU32Le(sh, 20);
-            const sh_type = readU32Le(sh, 4);
+            const sh_name_off = readU32Le(sh, 0);
 
-            // Read section name from shstrtab.
             const name: []const u8 = if (sh_name_off < shstr.len) blk: {
                 const start = sh_name_off;
                 var end = start;
@@ -228,11 +391,12 @@ fn checkElf(out: anytype, path: []const u8, data: []const u8, opts: Opts) bool {
                 break :blk shstr[start..end];
             } else "?";
 
-            // Build compact readelf-style flag string: AX, AW, AWl, etc.
             var fbuf: [12]u8 = undefined;
             var flen: usize = 0;
-            fbuf[flen] = 'A';
-            flen += 1; // always ALLOC (we skip non-ALLOC above)
+            if ((sh_flags & SHF_ALLOC) != 0) {
+                fbuf[flen] = 'A';
+                flen += 1;
+            }
             if ((sh_flags & SHF_EXECINSTR) != 0) {
                 fbuf[flen] = 'X';
                 flen += 1;
@@ -266,9 +430,15 @@ fn checkElf(out: anytype, path: []const u8, data: []const u8, opts: Opts) bool {
                 flen += 1;
             }
 
-            out.print("  {s:<20} {d:>8}B  ${x:0>4}  {s}\n", .{
-                name, sh_size, sh_addr, fbuf[0..flen],
-            }) catch {};
+            if ((sh_flags & SHF_ALLOC) != 0) {
+                out.print("  {s:<22} {s:<10} {d:>8}B  {s} @${x:0>4}\n", .{
+                    name, shtypeName(sh_type), sh_size, fbuf[0..flen], sh_addr,
+                }) catch {};
+            } else {
+                out.print("  {s:<22} {s:<10} {d:>8}B  {s}\n", .{
+                    name, shtypeName(sh_type), sh_size, fbuf[0..flen],
+                }) catch {};
+            }
         }
     }
 
@@ -394,6 +564,33 @@ fn checkElf(out: anytype, path: []const u8, data: []const u8, opts: Opts) bool {
                     out.print("  {s:<20}  (absent — no CFI; stack unwinding not supported on MOS)\n", .{dn}) catch {};
                 }
             }
+
+            // Parse .debug_info DIEs: CU list + subprogram names/PC ranges.
+            const ab_off = dwarf_offsets[1];
+            const ab_sz = dwarf_sizes[1];
+            if (di_sz > 0 and di_off + di_sz <= data.len and
+                ab_sz > 0 and ab_off + ab_sz <= data.len)
+            {
+                const str_off = dwarf_offsets[3];
+                const str_sz = dwarf_sizes[3];
+                const str_data: []const u8 = if (str_sz > 0 and str_off + str_sz <= data.len)
+                    data[str_off..][0..str_sz]
+                else
+                    &[_]u8{};
+                const rng_off = dwarf_offsets[4];
+                const rng_sz = dwarf_sizes[4];
+                const rng_data: []const u8 = if (rng_sz > 0 and rng_off + rng_sz <= data.len)
+                    data[rng_off..][0..rng_sz]
+                else
+                    &[_]u8{};
+                dumpDebugInfo(out, data[di_off..][0..di_sz], data[ab_off..][0..ab_sz], str_data, rng_data);
+            }
+
+            // Parse .debug_line file tables.
+            const dl_off = dwarf_offsets[2];
+            const dl_sz = dwarf_sizes[2];
+            if (dl_sz > 0 and dl_off + dl_sz <= data.len)
+                dumpDebugLine(out, data[dl_off..][0..dl_sz]);
         }
     }
 
@@ -404,9 +601,9 @@ const help_text =
     \\Usage: bininfo [flags] <file> [file...]
     \\
     \\Flags:
-    \\  -S, --sections     Show ELF section table
-    \\  -n, --symbols      Show ELF symbol table
-    \\  -d, --dwarf        Show ELF DWARF section inventory
+    \\  -S, --sections     Show all ELF sections with types (like llvm-readelf -S)
+    \\  -n, --symbols      Show ELF symbol table (like llvm-nm)
+    \\  -d, --dwarf        Show DWARF sections, CU list, subprograms, file tables
     \\  -x, --xxd          Hex+ASCII dump of the file payload
     \\      --xxd-limit N  Limit --xxd output to first N bytes
     \\  -D, --disasm       6502 disassembly of the code payload

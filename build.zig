@@ -27,6 +27,9 @@ const SdkLibs = struct {
     nes_action53: ?sdk_mod.Libs = null,
     fds: ?sdk_mod.Libs = null,
     vic20: ?sdk_mod.Libs = null,
+    atari5200: ?sdk_mod.Libs = null,
+    a8megacart: ?sdk_mod.Libs = null,
+    a8xegs: ?sdk_mod.Libs = null,
 };
 
 pub fn build(b: *std.Build) void {
@@ -72,6 +75,9 @@ pub fn build(b: *std.Build) void {
         .{ .name = "nes-action53", .query = .{ .cpu_arch = .mos, .os_tag = .nes } },
         .{ .name = "fds", .query = .{ .cpu_arch = .mos, .os_tag = .fds } },
         .{ .name = "vic20", .query = .{ .cpu_arch = .mos, .os_tag = .vic20 } },
+        .{ .name = "atari5200-supercart", .query = .{ .cpu_arch = .mos, .os_tag = .atari5200 } },
+        .{ .name = "atari8-cart-megacart", .query = .{ .cpu_arch = .mos, .os_tag = .atari8 } },
+        .{ .name = "atari8-cart-xegs", .query = .{ .cpu_arch = .mos, .os_tag = .atari8 } },
     }) |pd| {
         const libs = sdk_mod.buildPlatform(b, sdk_src_raw, pd, optimize);
         const dest = b.fmt("mos-platform/{s}/lib", .{pd.name});
@@ -105,6 +111,9 @@ pub fn build(b: *std.Build) void {
         if (std.mem.eql(u8, pd.name, "nes-action53")) sdk_libs.nes_action53 = libs;
         if (std.mem.eql(u8, pd.name, "fds")) sdk_libs.fds = libs;
         if (std.mem.eql(u8, pd.name, "vic20")) sdk_libs.vic20 = libs;
+        if (std.mem.eql(u8, pd.name, "atari5200-supercart")) sdk_libs.atari5200 = libs;
+        if (std.mem.eql(u8, pd.name, "atari8-cart-megacart")) sdk_libs.a8megacart = libs;
+        if (std.mem.eql(u8, pd.name, "atari8-cart-xegs")) sdk_libs.a8xegs = libs;
     }
 
     // Translate neslib.h and nesdoug.h from the MOS SDK into Zig modules.
@@ -903,12 +912,41 @@ pub fn build(b: *std.Build) void {
     // ---- Atari 8-bit cartridge hello ----
     {
         const step = b.step("atari8-cart-hello", "Build Atari 8-bit standard cartridge hello example");
-        const exe = addAtari8CartStdExe(b, sdk_dep, sdk_src, sdk_libs.a8cart orelse @panic("atari8-cart libs not built"), optimize, "atari8-cart-hello", "atari8/cart-hello/cart-hello.zig");
+        const exe = addAtari8SimpleCartExe(b, sdk_dep, sdk_src, sdk_libs.a8cart orelse @panic("atari8-cart libs not built"), optimize, "atari8-cart-hello", "atari8/cart-hello/cart-hello.zig", "atari8-cart-std");
         exe.root_module.addImport("gtia", atari8_gtia_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "atari8-cart-hello.rom" });
         step.dependOn(&install.step);
         b.getInstallStep().dependOn(&install.step);
         run_bininfo.addFileArg(exe.getEmittedBin());
+    }
+
+    // ---- Atari 5200 supercart color-cycle ----
+    {
+        const step = b.step("atari5200-cart-hello", "Build Atari 5200 supercart color-cycle demo");
+        const exe = addAtari5200Exe(b, sdk_dep, sdk_src, sdk_libs.atari5200 orelse @panic("atari5200 libs not built"), optimize, "atari5200-cart-hello", "atari5200/cart-hello/cart-hello.zig");
+        const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "atari5200-cart-hello.rom" });
+        step.dependOn(&install.step);
+        sdk_step.dependOn(&install.step);
+    }
+
+    // ---- Atari 8-bit MegaCart color-cycle ----
+    {
+        const step = b.step("atari8-megacart-hello", "Build Atari 8-bit MegaCart color-cycle demo");
+        const exe = addAtari8CartMegacartExe(b, sdk_dep, sdk_src, sdk_libs.a8megacart orelse @panic("atari8-megacart libs not built"), optimize, "atari8-megacart-hello", "atari8/cart-megacart/cart-megacart.zig");
+        exe.root_module.addImport("gtia", atari8_gtia_mod);
+        const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "atari8-megacart-hello.rom" });
+        step.dependOn(&install.step);
+        sdk_step.dependOn(&install.step);
+    }
+
+    // ---- Atari 8-bit XEGS color-cycle ----
+    {
+        const step = b.step("atari8-xegs-hello", "Build Atari 8-bit XEGS cartridge color-cycle demo");
+        const exe = addAtari8SimpleCartExe(b, sdk_dep, sdk_src, sdk_libs.a8xegs orelse @panic("atari8-xegs libs not built"), optimize, "atari8-xegs-hello", "atari8/cart-xegs/cart-xegs.zig", "atari8-cart-xegs");
+        exe.root_module.addImport("gtia", atari8_gtia_mod);
+        const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "atari8-xegs-hello.rom" });
+        step.dependOn(&install.step);
+        sdk_step.dependOn(&install.step);
     }
 }
 
@@ -1247,12 +1285,7 @@ fn addNesExe(
     if (libs.nes_c) |nc| exe.root_module.linkLibrary(nc);
     if (libs.nes_c_startup) |ncs| exe.root_module.linkLibrary(ncs);
     exe.setLinkerScript(wrapper_ld);
-    exe.root_module.addImport("mos_panic", b.createModule(.{
-        .root_source_file = b.path("sdk/panic.zig"),
-        .target = target,
-        .optimize = opt,
-        .sanitize_c = .off,
-    }));
+    addMosPanicImport(b, exe, target, opt);
 
     return exe;
 }
@@ -1317,12 +1350,7 @@ fn addC64Exe(
     exe.setLibCFile(libc_txt);
     exe.root_module.link_libc = true;
     exe.setLinkerScript(wrapper_ld);
-    exe.root_module.addImport("mos_panic", b.createModule(.{
-        .root_source_file = b.path("sdk/panic.zig"),
-        .target = target,
-        .optimize = opt,
-        .sanitize_c = .off,
-    }));
+    addMosPanicImport(b, exe, target, opt);
 
     return exe;
 }
@@ -1385,12 +1413,7 @@ fn addMega65Exe(
     exe.setLibCFile(libc_txt);
     exe.root_module.link_libc = true;
     exe.setLinkerScript(wrapper_ld);
-    exe.root_module.addImport("mos_panic", b.createModule(.{
-        .root_source_file = b.path("sdk/panic.zig"),
-        .target = target,
-        .optimize = opt,
-        .sanitize_c = .off,
-    }));
+    addMosPanicImport(b, exe, target, opt);
 
     return exe;
 }
@@ -1435,12 +1458,7 @@ fn addNeo6502Exe(
     exe.setLibCFile(libc_txt);
     exe.root_module.link_libc = true;
     exe.setLinkerScript(wrapper_ld);
-    exe.root_module.addImport("mos_panic", b.createModule(.{
-        .root_source_file = b.path("sdk/panic.zig"),
-        .target = target,
-        .optimize = opt,
-        .sanitize_c = .off,
-    }));
+    addMosPanicImport(b, exe, target, opt);
     _ = sdk_dep;
 
     return exe;
@@ -1485,12 +1503,7 @@ fn addSimExe(
     exe.root_module.linkLibrary(libs.crt0);
     exe.root_module.linkLibrary(libs.c);
     exe.setLinkerScript(wrapper_ld);
-    exe.root_module.addImport("mos_panic", b.createModule(.{
-        .root_source_file = b.path("sdk/panic.zig"),
-        .target = target,
-        .optimize = opt,
-        .sanitize_c = .off,
-    }));
+    addMosPanicImport(b, exe, target, opt);
     _ = sdk_dep;
 
     return exe;
@@ -1533,12 +1546,7 @@ fn addAtari2600Exe(
     exe.root_module.linkLibrary(libs.crt0);
     exe.root_module.linkLibrary(libs.c);
     exe.setLinkerScript(wrapper_ld);
-    exe.root_module.addImport("mos_panic", b.createModule(.{
-        .root_source_file = b.path("sdk/panic.zig"),
-        .target = target,
-        .optimize = opt,
-        .sanitize_c = .off,
-    }));
+    addMosPanicImport(b, exe, target, opt);
 
     return exe;
 }
@@ -1587,12 +1595,7 @@ fn addAtari8DosExe(
     exe.setLibCFile(libc_txt);
     exe.root_module.link_libc = true;
     exe.setLinkerScript(wrapper_ld);
-    exe.root_module.addImport("mos_panic", b.createModule(.{
-        .root_source_file = b.path("sdk/panic.zig"),
-        .target = target,
-        .optimize = opt,
-        .sanitize_c = .off,
-    }));
+    addMosPanicImport(b, exe, target, opt);
 
     return exe;
 }
@@ -1652,12 +1655,7 @@ fn addFdsExe(
     exe.root_module.linkLibrary(libs.crt0);
     exe.root_module.linkLibrary(libs.c);
     exe.setLinkerScript(wrapper_ld);
-    exe.root_module.addImport("mos_panic", b.createModule(.{
-        .root_source_file = b.path("sdk/panic.zig"),
-        .target = target,
-        .optimize = opt,
-        .sanitize_c = .off,
-    }));
+    addMosPanicImport(b, exe, target, opt);
     exe.root_module.addImport("hardware", b.createModule(.{
         .root_source_file = b.path("fds/hardware.zig"),
         .target = target,
@@ -1727,12 +1725,7 @@ fn addVic20Exe(
     exe.root_module.linkLibrary(libs.crt0);
     exe.root_module.linkLibrary(libs.c);
     exe.setLinkerScript(wrapper_ld);
-    exe.root_module.addImport("mos_panic", b.createModule(.{
-        .root_source_file = b.path("sdk/panic.zig"),
-        .target = target,
-        .optimize = opt,
-        .sanitize_c = .off,
-    }));
+    addMosPanicImport(b, exe, target, opt);
 
     return exe;
 }
@@ -1812,12 +1805,7 @@ fn addCx16Exe(
     exe.setLibCFile(libc_txt);
     exe.root_module.link_libc = true;
     exe.setLinkerScript(wrapper_ld);
-    exe.root_module.addImport("mos_panic", b.createModule(.{
-        .root_source_file = b.path("sdk/panic.zig"),
-        .target = target,
-        .optimize = opt,
-        .sanitize_c = .off,
-    }));
+    addMosPanicImport(b, exe, target, opt);
 
     return exe;
 }
@@ -1861,12 +1849,7 @@ fn addLynxBllExe(
     exe.forceUndefinedSymbol("__zig_call_main_section");
     exe.forceUndefinedSymbol("main");
     exe.setLinkerScript(wrapper_ld);
-    exe.root_module.addImport("mos_panic", b.createModule(.{
-        .root_source_file = b.path("sdk/panic.zig"),
-        .target = target,
-        .optimize = opt,
-        .sanitize_c = .off,
-    }));
+    addMosPanicImport(b, exe, target, opt);
 
     return exe;
 }
@@ -1918,12 +1901,7 @@ fn addPceExe(
     exe.root_module.linkLibrary(libs.c);
     if (libs.crt0_obj) |obj| exe.root_module.addObject(obj);
     exe.setLinkerScript(wrapper_ld);
-    exe.root_module.addImport("mos_panic", b.createModule(.{
-        .root_source_file = b.path("sdk/panic.zig"),
-        .target = target,
-        .optimize = opt,
-        .sanitize_c = .off,
-    }));
+    addMosPanicImport(b, exe, target, opt);
 
     return exe;
 }
@@ -1979,17 +1957,12 @@ fn addAtari2600_3eExe(
     exe.root_module.linkLibrary(libs.c);
     exe.setLinkerScript(wrapper_ld);
     exe.step.dependOn(&install_init.step);
-    exe.root_module.addImport("mos_panic", b.createModule(.{
-        .root_source_file = b.path("sdk/panic.zig"),
-        .target = target,
-        .optimize = opt,
-        .sanitize_c = .off,
-    }));
+    addMosPanicImport(b, exe, target, opt);
 
     return exe;
 }
 
-fn addAtari8CartStdExe(
+fn addAtari8SimpleCartExe(
     b: *std.Build,
     sdk_dep: *std.Build.Dependency,
     sdk_src: []const u8,
@@ -1997,6 +1970,7 @@ fn addAtari8CartStdExe(
     opt: std.builtin.OptimizeMode,
     name: []const u8,
     root_src: []const u8,
+    cart_plat: []const u8,
 ) *std.Build.Step.Compile {
     const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .atari8 });
 
@@ -2004,16 +1978,16 @@ fn addAtari8CartStdExe(
     const libc_txt = wf.add("libc.txt", b.fmt(
         "include_dir={s}/mos-platform/atari8-common\n" ++
             "sys_include_dir={s}/mos-platform/common/include\n" ++
-            "crt_dir={s}/mos-platform/atari8-cart-std\n" ++
+            "crt_dir={s}/mos-platform/{s}\n" ++
             "msvc_lib_dir=\nkernel32_lib_dir=\ngcc_dir=\n",
-        .{ sdk_src, sdk_src, sdk_src },
+        .{ sdk_src, sdk_src, sdk_src, cart_plat },
     ));
-    const wrapper_ld = wf.add("atari8-cart-std-wrapper.ld", b.fmt(
-        \\SEARCH_DIR("{s}/mos-platform/atari8-cart-std");
+    const wrapper_ld = wf.add(b.fmt("{s}-wrapper.ld", .{cart_plat}), b.fmt(
+        \\SEARCH_DIR("{s}/mos-platform/{s}");
         \\SEARCH_DIR("{s}/mos-platform/atari8-common");
         \\SEARCH_DIR("{s}/mos-platform/common/ldscripts");
-        \\INCLUDE "{s}/mos-platform/atari8-cart-std/link.ld"
-    , .{ sdk_src, sdk_src, sdk_src, sdk_src }));
+        \\INCLUDE "{s}/mos-platform/{s}/link.ld"
+    , .{ sdk_src, cart_plat, sdk_src, sdk_src, sdk_src, cart_plat }));
 
     const exe = b.addExecutable(.{
         .name = name,
@@ -2034,12 +2008,122 @@ fn addAtari8CartStdExe(
     exe.setLibCFile(libc_txt);
     exe.root_module.link_libc = true;
     exe.setLinkerScript(wrapper_ld);
-    exe.root_module.addImport("mos_panic", b.createModule(.{
-        .root_source_file = b.path("sdk/panic.zig"),
-        .target = target,
-        .optimize = opt,
-        .sanitize_c = .off,
-    }));
+    addMosPanicImport(b, exe, target, opt);
+
+    return exe;
+}
+
+fn addAtari5200Exe(
+    b: *std.Build,
+    sdk_dep: *std.Build.Dependency,
+    sdk_src: []const u8,
+    libs: sdk_mod.Libs,
+    opt: std.builtin.OptimizeMode,
+    name: []const u8,
+    root_src: []const u8,
+) *std.Build.Step.Compile {
+    const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .atari5200 });
+
+    const wf = b.addWriteFiles();
+    const libc_txt = wf.add("libc.txt", b.fmt(
+        "include_dir={s}/mos-platform/common/include\n" ++
+            "sys_include_dir={s}/mos-platform/common/include\n" ++
+            "crt_dir={s}/mos-platform/atari5200-supercart\n" ++
+            "msvc_lib_dir=\nkernel32_lib_dir=\ngcc_dir=\n",
+        .{ sdk_src, sdk_src, sdk_src },
+    ));
+    const wrapper_ld = wf.add("atari5200-supercart-wrapper.ld", b.fmt(
+        \\SEARCH_DIR("{s}/mos-platform/atari5200-supercart");
+        \\SEARCH_DIR("{s}/mos-platform/common/ldscripts");
+        \\INCLUDE "{s}/mos-platform/atari5200-supercart/link.ld"
+    , .{ sdk_src, sdk_src, sdk_src }));
+
+    const exe = b.addExecutable(.{
+        .name = name,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path(root_src),
+            .target = target,
+            .optimize = opt,
+            .sanitize_c = .off,
+        }),
+    });
+    exe.bundle_compiler_rt = false;
+    exe.lto = .full;
+    exe.root_module.addIncludePath(sdk_dep.path("mos-platform/common/include"));
+    exe.root_module.linkLibrary(libs.crt);
+    exe.root_module.linkLibrary(libs.crt0);
+    exe.root_module.linkLibrary(libs.c);
+    exe.setLibCFile(libc_txt);
+    exe.root_module.link_libc = true;
+    exe.setLinkerScript(wrapper_ld);
+    addMosPanicImport(b, exe, target, opt);
+
+    return exe;
+}
+
+fn addAtari8CartMegacartExe(
+    b: *std.Build,
+    sdk_dep: *std.Build.Dependency,
+    sdk_src: []const u8,
+    libs: sdk_mod.Libs,
+    opt: std.builtin.OptimizeMode,
+    name: []const u8,
+    root_src: []const u8,
+) *std.Build.Step.Compile {
+    const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .atari8 });
+
+    // tail0.s → tail0.o TRUE object; megacart link.ld has INPUT(tail0.o).
+    const tail0_obj = b.addObject(.{
+        .name = "tail0",
+        .root_module = b.createModule(.{ .target = target, .optimize = opt, .sanitize_c = .off }),
+    });
+    tail0_obj.root_module.addIncludePath(sdk_dep.path("mos-platform/common/asminc"));
+    tail0_obj.root_module.addAssemblyFile(sdk_dep.path("mos-platform/atari8-cart-megacart/tail0.s"));
+    tail0_obj.lto = .none;
+    const objs_dir = b.fmt("objs/{s}", .{name});
+    const install_tail0 = b.addInstallFileWithDir(
+        tail0_obj.getEmittedBin(),
+        .{ .custom = objs_dir },
+        "tail0.o",
+    );
+
+    const wf = b.addWriteFiles();
+    const libc_txt = wf.add("libc.txt", b.fmt(
+        "include_dir={s}/mos-platform/atari8-common\n" ++
+            "sys_include_dir={s}/mos-platform/common/include\n" ++
+            "crt_dir={s}/mos-platform/atari8-cart-megacart\n" ++
+            "msvc_lib_dir=\nkernel32_lib_dir=\ngcc_dir=\n",
+        .{ sdk_src, sdk_src, sdk_src },
+    ));
+    const wrapper_ld = wf.add("atari8-cart-megacart-wrapper.ld", b.fmt(
+        \\SEARCH_DIR("{s}/{s}");
+        \\SEARCH_DIR("{s}/mos-platform/atari8-cart-megacart");
+        \\SEARCH_DIR("{s}/mos-platform/atari8-common");
+        \\SEARCH_DIR("{s}/mos-platform/common/ldscripts");
+        \\INCLUDE "{s}/mos-platform/atari8-cart-megacart/link.ld"
+    , .{ b.install_path, objs_dir, sdk_src, sdk_src, sdk_src, sdk_src }));
+
+    const exe = b.addExecutable(.{
+        .name = name,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path(root_src),
+            .target = target,
+            .optimize = opt,
+            .sanitize_c = .off,
+        }),
+    });
+    exe.bundle_compiler_rt = false;
+    exe.lto = .full;
+    exe.step.dependOn(&install_tail0.step);
+    exe.root_module.addIncludePath(sdk_dep.path("mos-platform/atari8-common"));
+    exe.root_module.addIncludePath(sdk_dep.path("mos-platform/common/include"));
+    exe.root_module.linkLibrary(libs.crt);
+    exe.root_module.linkLibrary(libs.crt0);
+    exe.root_module.linkLibrary(libs.c);
+    exe.setLibCFile(libc_txt);
+    exe.root_module.link_libc = true;
+    exe.setLinkerScript(wrapper_ld);
+    addMosPanicImport(b, exe, target, opt);
 
     return exe;
 }
@@ -2144,12 +2228,7 @@ fn addSnesExe(
         .optimize = opt,
         .sanitize_c = .off,
     }));
-    exe.root_module.addImport("mos_panic", b.createModule(.{
-        .root_source_file = b.path("sdk/panic.zig"),
-        .target = target,
-        .optimize = opt,
-        .sanitize_c = .off,
-    }));
+    addMosPanicImport(b, exe, target, opt);
     exe.root_module.linkLibrary(libs.crt);
     exe.root_module.linkLibrary(libs.crt0);
     exe.root_module.linkLibrary(libs.c);
@@ -2345,12 +2424,7 @@ fn addGeosExe(
     exe.setLibCFile(libc_txt);
     exe.root_module.link_libc = true;
     exe.setLinkerScript(wrapper_ld);
-    exe.root_module.addImport("mos_panic", b.createModule(.{
-        .root_source_file = b.path("sdk/panic.zig"),
-        .target = target,
-        .optimize = opt,
-        .sanitize_c = .off,
-    }));
+    addMosPanicImport(b, exe, target, opt);
     exe.root_module.addImport("geos", geosHeaderMod(b, sdk_dep, target, opt));
 
     return exe;
@@ -2388,12 +2462,7 @@ fn addApple2Exe(
         .optimize = opt,
         .sanitize_c = .off,
     }));
-    exe.root_module.addImport("mos_panic", b.createModule(.{
-        .root_source_file = b.path("sdk/panic.zig"),
-        .target = target,
-        .optimize = opt,
-        .sanitize_c = .off,
-    }));
+    addMosPanicImport(b, exe, target, opt);
     exe.root_module.addIncludePath(.{ .cwd_relative = b.fmt("{s}/mos-platform/common/asminc", .{sdk_src}) });
     exe.root_module.addIncludePath(.{ .cwd_relative = b.fmt("{s}/mos-platform/common/crt", .{sdk_src}) });
     exe.root_module.addIncludePath(.{ .cwd_relative = b.fmt("{s}/mos-platform/common/include", .{sdk_src}) });
@@ -2415,6 +2484,15 @@ fn addApple2Exe(
     exe.setLinkerScript(wrapper_ld);
 
     return exe;
+}
+
+fn addMosPanicImport(b: *std.Build, exe: *std.Build.Step.Compile, target: std.Build.ResolvedTarget, opt: std.builtin.OptimizeMode) void {
+    exe.root_module.addImport("mos_panic", b.createModule(.{
+        .root_source_file = b.path("sdk/panic.zig"),
+        .target = target,
+        .optimize = opt,
+        .sanitize_c = .off,
+    }));
 }
 
 fn addLibcTxt(b: *std.Build, wf: *std.Build.Step.WriteFile, sdk_src: []const u8, plat: []const u8) std.Build.LazyPath {
