@@ -151,12 +151,12 @@ fn dwarfLangStr(lang: u32) []const u8 {
 
 fn dumpDebugInfo(
     out: anytype,
+    gpa: std.mem.Allocator,
     debug_info: []const u8,
     debug_abbrev: []const u8,
     debug_str: []const u8,
     debug_ranges: []const u8,
 ) void {
-    const gpa = std.heap.page_allocator;
     const Dw = std.debug.Dwarf;
     const Id = Dw.Section.Id;
 
@@ -276,7 +276,7 @@ fn dumpDebugLine(out: anytype, debug_line: []const u8) void {
 
 // ── ELF inspector ─────────────────────────────────────────────────────────────
 
-fn checkElf(out: anytype, path: []const u8, data: []const u8, opts: Opts) bool {
+fn checkElf(out: anytype, gpa: std.mem.Allocator, path: []const u8, data: []const u8, opts: Opts) bool {
     if (data.len < 52) {
         out.print("{s}: [ELF] ERROR: header truncated ({d} B)\n", .{ path, data.len }) catch {};
         return false;
@@ -583,7 +583,7 @@ fn checkElf(out: anytype, path: []const u8, data: []const u8, opts: Opts) bool {
                     data[rng_off..][0..rng_sz]
                 else
                     &[_]u8{};
-                dumpDebugInfo(out, data[di_off..][0..di_sz], data[ab_off..][0..ab_sz], str_data, rng_data);
+                dumpDebugInfo(out, gpa, data[di_off..][0..di_sz], data[ab_off..][0..ab_sz], str_data, rng_data);
             }
 
             // Parse .debug_line file tables.
@@ -1224,10 +1224,10 @@ fn disasm6502(out: anytype, data: []const u8, load_addr: u16) void {
 
 // ── dispatch ──────────────────────────────────────────────────────────────────
 
-fn checkFile(out: anytype, path: []const u8, data: []const u8, opts: Opts) bool {
+fn checkFile(out: anytype, gpa: std.mem.Allocator, path: []const u8, data: []const u8, opts: Opts) bool {
     // Detect by magic first.
     if (data.len >= 4 and std.mem.eql(u8, data[0..4], "\x7FELF"))
-        return checkElf(out, path, data, opts);
+        return checkElf(out, gpa, path, data, opts);
     if (data.len >= 4 and std.mem.eql(u8, data[0..4], "NES\x1a"))
         return checkNes(out, path, data);
     if (data.len >= 4 and std.mem.eql(u8, data[0..4], "FDS\x1a"))
@@ -1395,7 +1395,7 @@ pub fn main(init: std.process.Init) !void {
             };
             defer alloc.free(data);
 
-            if (!checkFile(stdout, arg, data, opts)) all_ok = false;
+            if (!checkFile(stdout, alloc, arg, data, opts)) all_ok = false;
 
             if (opts.xxd) {
                 stdout.print("  -- xxd " ++ "-" ** 47 ++ "\n", .{}) catch {};

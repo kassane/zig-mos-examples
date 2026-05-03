@@ -113,7 +113,7 @@ pub fn main(init: std.process.Init) !void {
     const sym_count = symtab_size / @sizeOf(elf.Elf32_Sym);
 
     // Build MLb content in an in-memory buffer.
-    var mlb_buf: std.ArrayList(u8) = .empty;
+    var mlb_buf: std.ArrayListUnmanaged(u8) = .empty;
     defer mlb_buf.deinit(alloc);
 
     var count: usize = 0;
