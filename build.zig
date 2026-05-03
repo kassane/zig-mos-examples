@@ -212,6 +212,19 @@ pub fn build(b: *std.Build) void {
     });
     b.installArtifact(svg2chr);
 
+    // Host tool: NES / SNES / PRG pack · unpack · disassemble.
+    const romtool = b.addExecutable(.{
+        .name = "romtool",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/romtool.zig"),
+            .target = b.graph.host,
+            .optimize = .ReleaseSafe,
+        }),
+    });
+    b.installArtifact(romtool);
+    const romtool_step = b.step("romtool", "Build romtool (NES/SNES/PRG pack·unpack·disasm)");
+    romtool_step.dependOn(&romtool.step);
+
     // Host tool: 6502 simulator built from llvm-mos-sdk source (no prebuilt binary needed).
     const mos_sim = b.addExecutable(.{
         .name = "mos-sim",

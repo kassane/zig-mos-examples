@@ -225,7 +225,6 @@ pub fn set_color_math(cgwsel: u8, cgadsub: u8) void {
     hw.CGADSUB.* = cgadsub;
 }
 
-
 /// OR multiple button constants together at comptime.
 /// Usage: `sneslib.buttonMask(.{sneslib.KEY_A, sneslib.KEY_B})`
 pub fn buttonMask(comptime btns: anytype) u16 {
