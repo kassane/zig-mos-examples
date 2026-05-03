@@ -558,21 +558,44 @@ fn checkNeo(out: anytype, path: []const u8, data: []const u8) bool {
     return true;
 }
 
-fn checkSfc(out: anytype, path: []const u8, data: []const u8) bool {
+const SnesHeader = struct {
+    hdr_off: usize,
+    vec_reset: usize,
+    vec_nmi: usize,
+};
+
+fn snesDetectHeader(data: []const u8) SnesHeader {
+    const valid_modes = [_]u8{ 0x20, 0x21, 0x23, 0x25, 0x30, 0x31 };
+    // HiROM header at $FFC0; LoROM at $7FC0. Try HiROM first when map_mode matches.
+    const candidates = [_]SnesHeader{
+        .{ .hdr_off = 0xFFC0, .vec_reset = 0xFFFC, .vec_nmi = 0xFFEA },
+        .{ .hdr_off = 0x7FC0, .vec_reset = 0x7FFC, .vec_nmi = 0x7FEA },
+    };
+    for (candidates) |c| {
+        if (data.len < c.hdr_off + 32) continue;
+        const m = data[c.hdr_off + 0x15];
+        for (valid_modes) |v| if (m == v) return c;
+    }
+    return candidates[1]; // default LoROM
+}
+
+fn checkSfc(out: anytype, path: []const u8, raw: []const u8) bool {
+    // Strip 512-byte SMC copier header if present (size % 1024 == 512).
+    const data = if (raw.len % 1024 == 512) raw[512..] else raw;
     const len = data.len;
     if (len < 32768 or (len % 32768) != 0) {
-        out.print("{s}: [SFC] ERROR: unexpected size {d}B (expected multiple of 32KB)\n", .{ path, len }) catch {};
+        out.print("{s}: [SFC] ERROR: unexpected size {d}B (expected multiple of 32KB)\n", .{ path, raw.len }) catch {};
         return false;
     }
-    // LoROM internal header sits at $7FC0 within the first 32KB bank.
-    const hdr: usize = 0x7FC0;
-    const map_mode = data[hdr + 0x15]; // $7FD5: $20=LoROM/Slow, $30=LoROM/Fast, $21=HiROM, $31=HiROM/Fast
-    const rom_sz_byte = data[hdr + 0x17]; // $7FD7: 1KB << n
-    const chksum = readU16Le(data, hdr + 0x1E); // $7FDE
-    const chksum_comp = readU16Le(data, hdr + 0x1C); // $7FDC
-    const chk_ok = (chksum +% chksum_comp) == 0xFFFF;
+    const h = snesDetectHeader(data);
+    const hdr = h.hdr_off;
+    const map_mode = data[hdr + 0x15];
+    const rom_sz_byte = data[hdr + 0x17];
+    const chksum = readU16Le(data, hdr + 0x1E);
+    const chksum_comp = readU16Le(data, hdr + 0x1C);
+    const chk_ok = (chksum ^ chksum_comp) == 0xFFFF;
 
-    // Title: 21 ASCII bytes at $7FC0, space-padded — trim trailing spaces.
+    // Title: 21 ASCII bytes at hdr, space-padded — trim trailing spaces.
     var title: [21]u8 = data[hdr..][0..21].*;
     var tlen: usize = 21;
     while (tlen > 0 and title[tlen - 1] == ' ') tlen -= 1;
@@ -587,10 +610,8 @@ fn checkSfc(out: anytype, path: []const u8, data: []const u8) bool {
         else => "unknown",
     };
 
-    // Emulation-mode RESET vector: CPU $FFFC = file offset $7FFC (LoROM).
-    const reset = readU16Le(data, 0x7FFC);
-    // Native-mode NMI vector: CPU $FFEA = file offset $7FEA (LoROM).
-    const nmi_native = readU16Le(data, 0x7FEA);
+    const reset = readU16Le(data, h.vec_reset);
+    const nmi_native = readU16Le(data, h.vec_nmi);
     const rom_kb: u32 = if (rom_sz_byte < 14) @as(u32, 1) << @truncate(rom_sz_byte) else 0;
 
     out.print(

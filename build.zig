@@ -212,7 +212,7 @@ pub fn build(b: *std.Build) void {
     });
     b.installArtifact(svg2chr);
 
-    // Host tool: NES / SNES / PRG pack · unpack · disassemble.
+    // Host tool: NES / SNES pack · unpack · disassemble.
     const romtool = b.addExecutable(.{
         .name = "romtool",
         .root_module = b.createModule(.{

@@ -83,13 +83,20 @@ const help_unpack =
 ;
 
 const help_pack =
-    \\romtool pack nes [options] -o out.nes <prg.bin> [chr.bin]
+    \\romtool pack <nes|snes> [options] -o <out> <inputs...>
     \\
-    \\NES pack options:
+    \\NES:  romtool pack nes [options] -o out.nes <prg.bin> [chr.bin]
     \\  --mapper N      Mapper number (default 0 = NROM)
     \\  --mirror h|v|4  Mirroring: h=horizontal v=vertical 4=4-screen (default h)
     \\  --battery       Set battery-backed SRAM flag
     \\  --nes2          Emit NES 2.0 header (default: iNES 1.0)
+    \\
+    \\SNES: romtool pack snes [options] -o out.sfc <bank-00.bin> [bank-01.bin ...]
+    \\  --map lorom|fastrom|hirom   Map mode (default: auto-detect from data)
+    \\  --title TITLE               21-char ROM title (overwrites header field)
+    \\  --smc                       Prepend 512-byte SMC copier header
+    \\  Inputs: one or more 32KB bank binaries (or a single flat ROM binary)
+    \\  Checksum/complement are recomputed automatically.
     \\
 ;
 
@@ -908,15 +915,34 @@ fn cmdDisasm(alloc: std.mem.Allocator, io: std.Io, args: anytype) !void {
         const hdr_size: usize = if (has_smc_header) 512 else 0;
         var payload = data[hdr_size..];
 
-        var offset: usize = offset_opt orelse 0;
-        if (offset > payload.len) offset = payload.len;
+        // Optional bank selection (32KB banks, same as unpack output).
+        const bank_size_snes: usize = 32768;
+        if (bank_opt) |b| {
+            const start = b * bank_size_snes;
+            if (start >= payload.len) {
+                std.debug.print("romtool: bank {d} out of range\n", .{b});
+                std.process.exit(1);
+            }
+            const end = @min(start + bank_size_snes, payload.len);
+            payload = payload[start..end];
+        }
+
+        const offset: usize = offset_opt orelse 0;
+        if (offset >= payload.len and offset != 0) {
+            std.debug.print("romtool: --offset 0x{x} is past end of payload ({d} bytes)\n", .{ offset, payload.len });
+            std.process.exit(1);
+        }
         payload = payload[offset..];
+        const base_addr: u32 = blk: {
+            var base: u32 = base_opt orelse 0x008000;
+            base +%= @truncate(offset);
+            break :blk base;
+        };
 
         if (length_opt) |l| {
             if (l < payload.len) payload = payload[0..l];
         }
 
-        const base_addr: u32 = base_opt orelse 0x008000;
         stdout.print("; 65816 disassembly of {s}  base=${x:0>6}\n", .{ path, base_addr }) catch {};
         disasm65816(stdout, payload, base_addr, force_m8 or true, force_x8 or true);
     } else {
@@ -955,8 +981,11 @@ fn cmdDisasm(alloc: std.mem.Allocator, io: std.Io, args: anytype) !void {
             },
         }
 
-        var offset: usize = offset_opt orelse 0;
-        if (offset > prg_data.len) offset = prg_data.len;
+        const offset: usize = offset_opt orelse 0;
+        if (offset >= prg_data.len and offset != 0) {
+            std.debug.print("romtool: --offset 0x{x} is past end of payload ({d} bytes)\n", .{ offset, prg_data.len });
+            std.process.exit(1);
+        }
         prg_data = prg_data[offset..];
         load_addr +%= @truncate(offset); // advance display address to match skipped bytes
 
@@ -1141,7 +1170,7 @@ fn unpackSnes(alloc: std.mem.Allocator, io: std.Io, out_dir: std.Io.Dir, path: [
     const rom_data = if (has_smc) data[512..] else data;
 
     // SNES header is at $7FC0 (LoROM) — read what we can
-    const hdr_off: usize = 0x7FC0;
+    var hdr_off: usize = 0x7FC0;
     var title_buf: [22]u8 = undefined;
     var title: []const u8 = "(unknown)";
     var map_mode: u8 = 0;
@@ -1150,6 +1179,19 @@ fn unpackSnes(alloc: std.mem.Allocator, io: std.Io, out_dir: std.Io.Dir, path: [
     var complement: u16 = 0;
     var reset_vec: u16 = 0;
     var nmi_vec: u16 = 0;
+
+    // Auto-detect LoROM ($7FC0) vs HiROM ($FFC0) by checking map_mode byte.
+    const valid_modes = [_]u8{ 0x20, 0x21, 0x23, 0x25, 0x30, 0x31 };
+    const hirom_off: usize = 0xFFC0;
+    if (rom_data.len >= hirom_off + 32) {
+        const m = rom_data[hirom_off + 0x15];
+        for (valid_modes) |v| {
+            if (m == v) {
+                hdr_off = hirom_off;
+                break;
+            }
+        }
+    }
 
     if (rom_data.len >= hdr_off + 0x30) {
         const h = rom_data[hdr_off..];
@@ -1167,10 +1209,12 @@ fn unpackSnes(alloc: std.mem.Allocator, io: std.Io, out_dir: std.Io.Dir, path: [
         rom_size_byte = h[23];
         complement = readU16Le(h, 28);
         checksum = readU16Le(h, 30);
-        if (rom_data.len >= 0x7FFC + 2)
-            reset_vec = readU16Le(rom_data, 0x7FFC);
-        if (rom_data.len >= 0x7FEA + 2)
-            nmi_vec = readU16Le(rom_data, 0x7FEA);
+        const vec_base: usize = if (hdr_off == hirom_off) 0xFFFC else 0x7FFC;
+        const nmi_base: usize = if (hdr_off == hirom_off) 0xFFEA else 0x7FEA;
+        if (rom_data.len >= vec_base + 2)
+            reset_vec = readU16Le(rom_data, vec_base);
+        if (rom_data.len >= nmi_base + 2)
+            nmi_vec = readU16Le(rom_data, nmi_base);
     }
 
     const checksum_ok = (checksum ^ complement) == 0xFFFF;
@@ -1225,15 +1269,17 @@ fn writeFile(io: std.Io, dir: std.Io.Dir, name: []const u8, content: []const u8)
 
 fn cmdPack(alloc: std.mem.Allocator, io: std.Io, args: anytype) !void {
     const sub = args.next() orelse {
-        std.debug.print("romtool: pack: subcommand required (nes)\n", .{});
+        std.debug.print("romtool: pack: subcommand required (nes, snes)\n", .{});
         std.debug.print("{s}", .{help_pack});
         std.process.exit(1);
     };
 
     if (std.mem.eql(u8, sub, "nes")) {
         return cmdPackNes(alloc, io, args);
+    } else if (std.mem.eql(u8, sub, "snes")) {
+        return cmdPackSnes(alloc, io, args);
     } else {
-        std.debug.print("romtool: pack: unknown subcommand '{s}' (use: nes)\n", .{sub});
+        std.debug.print("romtool: pack: unknown subcommand '{s}' (use: nes, snes)\n", .{sub});
         std.debug.print("{s}", .{help_pack});
         std.process.exit(1);
     }
@@ -1369,6 +1415,176 @@ fn cmdPackNes(alloc: std.mem.Allocator, io: std.Io, args: anytype) !void {
     });
 }
 
+fn nextPow2(n: usize) usize {
+    if (n == 0) return 1;
+    var p: usize = 1;
+    while (p < n) p <<= 1;
+    return p;
+}
+
+fn cmdPackSnes(alloc: std.mem.Allocator, io: std.Io, args: anytype) !void {
+    var out_path: ?[]const u8 = null;
+    var map_opt: ?[]const u8 = null;
+    var title_opt: ?[]const u8 = null;
+    var add_smc = false;
+    var bank_paths: std.ArrayListUnmanaged([]const u8) = .empty;
+    defer bank_paths.deinit(alloc);
+
+    while (args.next()) |arg| {
+        if (std.mem.eql(u8, arg, "-o")) {
+            out_path = args.next() orelse {
+                std.debug.print("romtool: -o requires a value\n", .{});
+                std.process.exit(1);
+            };
+        } else if (std.mem.eql(u8, arg, "--map")) {
+            map_opt = args.next() orelse {
+                std.debug.print("romtool: --map requires a value\n", .{});
+                std.process.exit(1);
+            };
+        } else if (std.mem.eql(u8, arg, "--title")) {
+            title_opt = args.next() orelse {
+                std.debug.print("romtool: --title requires a value\n", .{});
+                std.process.exit(1);
+            };
+        } else if (std.mem.eql(u8, arg, "--smc")) {
+            add_smc = true;
+        } else if (std.mem.startsWith(u8, arg, "-")) {
+            std.debug.print("romtool: pack snes: unknown option '{s}'\n", .{arg});
+            std.debug.print("{s}", .{help_pack});
+            std.process.exit(1);
+        } else {
+            try bank_paths.append(alloc, arg);
+        }
+    }
+
+    if (bank_paths.items.len == 0) {
+        std.debug.print("romtool: pack snes: no input files specified\n", .{});
+        std.debug.print("{s}", .{help_pack});
+        std.process.exit(1);
+    }
+    const out_file = out_path orelse {
+        std.debug.print("romtool: pack snes: -o <out.sfc> required\n", .{});
+        std.process.exit(1);
+    };
+
+    const cwd = std.Io.Dir.cwd();
+
+    // Read and concatenate all bank files
+    var rom_buf: std.ArrayListUnmanaged(u8) = .empty;
+    defer rom_buf.deinit(alloc);
+    for (bank_paths.items) |bp| {
+        const bdata = cwd.readFileAlloc(io, bp, alloc, .unlimited) catch |err| {
+            std.debug.print("romtool: {s}: {s}\n", .{ bp, @errorName(err) });
+            std.process.exit(1);
+        };
+        defer alloc.free(bdata);
+        try rom_buf.appendSlice(alloc, bdata);
+    }
+
+    if (rom_buf.items.len < 32768) {
+        std.debug.print("romtool: pack snes: ROM too small ({d}B, minimum 32KB)\n", .{rom_buf.items.len});
+        std.process.exit(1);
+    }
+
+    // Pad to next power of 2
+    const padded_size = nextPow2(rom_buf.items.len);
+    while (rom_buf.items.len < padded_size) {
+        try rom_buf.append(alloc, 0xFF);
+    }
+    const rom = rom_buf.items;
+
+    // Determine map mode byte
+    const valid_modes = [_]u8{ 0x20, 0x21, 0x23, 0x25, 0x30, 0x31 };
+    const map_byte: u8 = if (map_opt) |m| blk: {
+        if (std.mem.eql(u8, m, "lorom")) break :blk 0x20;
+        if (std.mem.eql(u8, m, "fastrom")) break :blk 0x30;
+        if (std.mem.eql(u8, m, "hirom")) break :blk 0x21;
+        std.debug.print("romtool: --map: use lorom|fastrom|hirom\n", .{});
+        std.process.exit(1);
+    } else blk: {
+        // Auto-detect: try HiROM offset first, then LoROM
+        const hirom_off: usize = 0xFFC0;
+        if (rom.len >= hirom_off + 32) {
+            const m = rom[hirom_off + 0x15];
+            for (valid_modes) |v| if (m == v) break :blk m;
+        }
+        if (rom.len >= 0x7FC0 + 32) {
+            const m = rom[0x7FC0 + 0x15];
+            for (valid_modes) |v| if (m == v) break :blk m;
+        }
+        break :blk @as(u8, 0x20); // default LoROM
+    };
+
+    const is_hirom = (map_byte & 0x01) != 0;
+    const hdr_off: usize = if (is_hirom and rom.len >= 0xFFC0 + 32) 0xFFC0 else 0x7FC0;
+
+    if (rom.len < hdr_off + 32) {
+        std.debug.print("romtool: pack snes: ROM too small for header at ${x:0>4}\n", .{hdr_off});
+        std.process.exit(1);
+    }
+
+    // Write map mode
+    rom[hdr_off + 0x15] = map_byte;
+
+    // Write ROM size byte (log2(size_bytes) - 10)
+    const log2_size: usize = @ctz(padded_size);
+    rom[hdr_off + 0x17] = @intCast(log2_size - 10);
+
+    // Write title if provided
+    if (title_opt) |t| {
+        var title_bytes = [_]u8{0x20} ** 21;
+        const copy_len = @min(t.len, 21);
+        @memcpy(title_bytes[0..copy_len], t[0..copy_len]);
+        @memcpy(rom[hdr_off..][0..21], &title_bytes);
+    }
+
+    // Compute SNES checksum: zero the 4 header bytes, sum all, then fill
+    const chk_off = hdr_off + 28; // complement at +28, checksum at +30
+    rom[chk_off + 0] = 0x00;
+    rom[chk_off + 1] = 0x00;
+    rom[chk_off + 2] = 0x00;
+    rom[chk_off + 3] = 0x00;
+
+    var sum: u32 = 0;
+    for (rom) |b| sum += b;
+    const checksum: u16 = @truncate(sum);
+    const complement: u16 = checksum ^ 0xFFFF;
+
+    rom[chk_off + 0] = @truncate(complement);
+    rom[chk_off + 1] = @truncate(complement >> 8);
+    rom[chk_off + 2] = @truncate(checksum);
+    rom[chk_off + 3] = @truncate(checksum >> 8);
+
+    // Write output
+    var out_f = cwd.createFile(io, out_file, .{ .truncate = true }) catch |err| {
+        std.debug.print("romtool: {s}: {s}\n", .{ out_file, @errorName(err) });
+        std.process.exit(1);
+    };
+    defer out_f.close(io);
+
+    if (add_smc) {
+        const smc_hdr = [_]u8{0x00} ** 512;
+        try out_f.writeStreamingAll(io, &smc_hdr);
+    }
+    try out_f.writeStreamingAll(io, rom);
+
+    const map_name = switch (map_byte) {
+        0x20 => "LoROM",
+        0x21 => "HiROM",
+        0x30 => "FastROM",
+        0x31 => "HiROM/Fast",
+        else => "custom",
+    };
+    std.debug.print("pack: wrote {s}  {s}  {d}KB  chk=0x{x:0>4}  cpl=0x{x:0>4}{s}\n", .{
+        out_file,
+        map_name,
+        padded_size / 1024,
+        checksum,
+        complement,
+        if (add_smc) "  +SMC" else "",
+    });
+}
+
 // ── entry point ───────────────────────────────────────────────────────────────
 
 pub fn main(init: std.process.Init) !void {
@@ -1384,5 +1600,6 @@ pub fn main(init: std.process.Init) !void {
     if (std.mem.eql(u8, cmd, "unpack")) return cmdUnpack(alloc, io, &args);
     if (std.mem.eql(u8, cmd, "pack")) return cmdPack(alloc, io, &args);
     std.debug.print("romtool: unknown command '{s}'\n", .{cmd});
-    helpExit();
+    std.debug.print("{s}", .{help_main});
+    std.process.exit(1);
 }
