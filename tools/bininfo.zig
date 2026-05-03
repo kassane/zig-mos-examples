@@ -31,6 +31,7 @@
 
 const std = @import("std");
 const dwarf = std.dwarf;
+const elf = std.elf;
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -45,34 +46,15 @@ fn readU32Le(data: []const u8, off: usize) u32 {
         (@as(u32, data[off + 3]) << 24);
 }
 
-// ── ELF constants ─────────────────────────────────────────────────────────────
+fn readVal(comptime T: type, data: []const u8, offset: usize) T {
+    var v: T = undefined;
+    @memcpy(std.mem.asBytes(&v), data[offset..][0..@sizeOf(T)]);
+    return v;
+}
 
-const SHT_NULL: u32 = 0;
-const SHT_SYMTAB: u32 = 2;
-const SHT_STRTAB: u32 = 3;
-const SHT_NOBITS: u32 = 8;
-const SHT_DYNSYM: u32 = 11;
-
-const SHF_WRITE: u32 = 0x1;
-const SHF_ALLOC: u32 = 0x2;
-const SHF_EXECINSTR: u32 = 0x4;
-const SHF_MERGE: u32 = 0x10;
-const SHF_STRINGS: u32 = 0x20;
-const SHF_LINK_ORDER: u32 = 0x80;
-const SHF_GROUP: u32 = 0x200;
-const SHF_TLS: u32 = 0x400;
-
-const SHN_UNDEF: u16 = 0;
-const SHN_ABS: u16 = 0xFFF1;
-const SHN_COMMON: u16 = 0xFFF2;
-
-const STB_LOCAL: u8 = 0;
-const STB_GLOBAL: u8 = 1;
-const STB_WEAK: u8 = 2;
-
-fn elfMachName(m: u16) []const u8 {
-    return switch (m) {
-        0x1966 => "MOS6502", // EM_MOS (llvm-mos)
+fn elfMachName(m: elf.EM) []const u8 {
+    return switch (@intFromEnum(m)) {
+        0x1966 => "MOS6502",
         3 => "x86",
         0x3E => "x86-64",
         0xB7 => "AArch64",
@@ -81,29 +63,29 @@ fn elfMachName(m: u16) []const u8 {
     };
 }
 
-fn elfTypeName(t: u16) []const u8 {
+fn elfTypeName(t: elf.ET) []const u8 {
     return switch (t) {
-        0 => "NONE",
-        1 => "REL",
-        2 => "EXEC",
-        3 => "DYN",
-        4 => "CORE",
+        .NONE => "NONE",
+        .REL => "REL",
+        .EXEC => "EXEC",
+        .DYN => "DYN",
+        .CORE => "CORE",
         else => "?",
     };
 }
 
 // nm-style type character derived from section attributes and symbol binding.
 fn nmTypeChar(sh_type: u32, sh_flags: u32, shndx: u16, binding: u8) u8 {
-    const is_local = binding == STB_LOCAL;
-    const is_weak = binding == STB_WEAK;
-    if (shndx == SHN_UNDEF) return if (is_weak) 'w' else 'U';
-    if (shndx == SHN_ABS) return if (is_local) 'a' else 'A';
-    if (shndx == SHN_COMMON) return 'C';
-    const c: u8 = if (sh_type == SHT_NOBITS and (sh_flags & SHF_ALLOC) != 0)
+    const is_local = binding == elf.STB_LOCAL;
+    const is_weak = binding == elf.STB_WEAK;
+    if (shndx == elf.SHN_UNDEF) return if (is_weak) 'w' else 'U';
+    if (shndx == elf.SHN_ABS) return if (is_local) 'a' else 'A';
+    if (shndx == elf.SHN_COMMON) return 'C';
+    const c: u8 = if (sh_type == elf.SHT_NOBITS and (sh_flags & elf.SHF_ALLOC) != 0)
         'b' // BSS
-    else if ((sh_flags & SHF_EXECINSTR) != 0)
+    else if ((sh_flags & elf.SHF_EXECINSTR) != 0)
         't' // text
-    else if ((sh_flags & SHF_WRITE) != 0)
+    else if ((sh_flags & elf.SHF_WRITE) != 0)
         'd' // data
     else
         'r'; // read-only
@@ -277,7 +259,7 @@ fn dumpDebugLine(out: anytype, debug_line: []const u8) void {
 // ── ELF inspector ─────────────────────────────────────────────────────────────
 
 fn checkElf(out: anytype, gpa: std.mem.Allocator, path: []const u8, data: []const u8, opts: Opts) bool {
-    if (data.len < 52) {
+    if (data.len < @sizeOf(elf.Elf32_Ehdr)) {
         out.print("{s}: [ELF] ERROR: header truncated ({d} B)\n", .{ path, data.len }) catch {};
         return false;
     }
@@ -292,13 +274,14 @@ fn checkElf(out: anytype, gpa: std.mem.Allocator, path: []const u8, data: []cons
         return true;
     }
 
-    const e_type = readU16Le(data, 16);
-    const e_machine = readU16Le(data, 18);
-    const e_entry = readU32Le(data, 24);
-    const e_shoff = readU32Le(data, 32);
-    const e_shentsize = readU16Le(data, 46);
-    const e_shnum = readU16Le(data, 48);
-    const e_shstrndx = readU16Le(data, 50);
+    const ehdr = readVal(elf.Elf32_Ehdr, data, 0);
+    const e_type = ehdr.e_type; // elf.ET
+    const e_machine = ehdr.e_machine; // elf.EM
+    const e_entry = ehdr.e_entry;
+    const e_shoff = ehdr.e_shoff;
+    const e_shentsize = ehdr.e_shentsize;
+    const e_shnum = ehdr.e_shnum;
+    const e_shstrndx = ehdr.e_shstrndx;
 
     if (e_shoff == 0 or e_shentsize < 40 or
         @as(usize, e_shoff) + @as(usize, e_shnum) * e_shentsize > data.len)
@@ -309,18 +292,10 @@ fn checkElf(out: anytype, gpa: std.mem.Allocator, path: []const u8, data: []cons
         return true;
     }
 
-    // Build a helper: return a slice of a section header's bytes.
-    const shdr = struct {
-        fn get(d: []const u8, shoff: u32, shentsz: u16, idx: u16) []const u8 {
-            const off: usize = shoff + @as(usize, idx) * shentsz;
-            return d[off .. off + shentsz];
-        }
-    };
-
     // Locate shstrtab for section name lookup.
-    const shstr_hdr = shdr.get(data, e_shoff, e_shentsize, e_shstrndx);
-    const shstr_off = readU32Le(shstr_hdr, 16);
-    const shstr_size = readU32Le(shstr_hdr, 20);
+    const shstr_hdr = readVal(elf.Elf32_Shdr, data, @as(usize, e_shoff) + @as(usize, e_shstrndx) * e_shentsize);
+    const shstr_off = shstr_hdr.sh_offset;
+    const shstr_size = shstr_hdr.sh_size;
     const shstr: []const u8 = if (shstr_off + shstr_size <= data.len)
         data[shstr_off .. shstr_off + shstr_size]
     else
@@ -329,8 +304,8 @@ fn checkElf(out: anytype, gpa: std.mem.Allocator, path: []const u8, data: []cons
     // Count allocatable sections (for the summary).
     var alloc_count: u16 = 0;
     for (0..e_shnum) |i| {
-        const sh = shdr.get(data, e_shoff, e_shentsize, @truncate(i));
-        if ((readU32Le(sh, 8) & SHF_ALLOC) != 0) alloc_count += 1;
+        const sh = readVal(elf.Elf32_Shdr, data, @as(usize, e_shoff) + i * e_shentsize);
+        if ((sh.sh_flags & elf.SHF_ALLOC) != 0) alloc_count += 1;
     }
 
     // Find .symtab; fall back to .dynsym for stripped binaries.
@@ -340,14 +315,14 @@ fn checkElf(out: anytype, gpa: std.mem.Allocator, path: []const u8, data: []cons
     var sym_local_end: u32 = 0;
     var found_symtab = false;
     for (0..e_shnum) |i| {
-        const sh = shdr.get(data, e_shoff, e_shentsize, @truncate(i));
-        const sht = readU32Le(sh, 4);
-        if (sht == SHT_SYMTAB or (sht == SHT_DYNSYM and !found_symtab)) {
-            symtab_off = readU32Le(sh, 16);
-            symtab_size = readU32Le(sh, 20);
-            symtab_stridx = readU32Le(sh, 24);
-            sym_local_end = readU32Le(sh, 28); // sh_info = one past last LOCAL
-            if (sht == SHT_SYMTAB) {
+        const sh = readVal(elf.Elf32_Shdr, data, @as(usize, e_shoff) + i * e_shentsize);
+        const sht = sh.sh_type;
+        if (sht == elf.SHT_SYMTAB or (sht == elf.SHT_DYNSYM and !found_symtab)) {
+            symtab_off = sh.sh_offset;
+            symtab_size = sh.sh_size;
+            symtab_stridx = sh.sh_link;
+            sym_local_end = sh.sh_info; // sh_info = one past last LOCAL
+            if (sht == elf.SHT_SYMTAB) {
                 found_symtab = true;
                 break;
             }
@@ -357,14 +332,14 @@ fn checkElf(out: anytype, gpa: std.mem.Allocator, path: []const u8, data: []cons
     // Locate symbol string table.
     var strtab_data: []const u8 = &[_]u8{};
     if (symtab_stridx < e_shnum) {
-        const sh = shdr.get(data, e_shoff, e_shentsize, @truncate(symtab_stridx));
-        const st_off = readU32Le(sh, 16);
-        const st_sz = readU32Le(sh, 20);
+        const sh = readVal(elf.Elf32_Shdr, data, @as(usize, e_shoff) + @as(usize, symtab_stridx) * e_shentsize);
+        const st_off = sh.sh_offset;
+        const st_sz = sh.sh_size;
         if (st_off + st_sz <= data.len)
             strtab_data = data[st_off .. st_off + st_sz];
     }
 
-    const sym_count = if (symtab_size >= 16) symtab_size / 16 else 0;
+    const sym_count = if (symtab_size >= @sizeOf(elf.Elf32_Sym)) symtab_size / @sizeOf(elf.Elf32_Sym) else 0;
 
     // One-line summary — always printed.
     out.print("{s}: [ELF32 {s}]  type={s}  entry=${x:0>4}  alloc-sections={d}  symbols={d}\n", .{
@@ -376,13 +351,13 @@ fn checkElf(out: anytype, gpa: std.mem.Allocator, path: []const u8, data: []cons
         out.print("  -- Sections " ++ "-" ** 42 ++ "\n", .{}) catch {};
         out.print("  {s:<22} {s:<10} {s:>8}  {s}\n", .{ "Name", "Type", "Size", "Flags/VMA" }) catch {};
         for (0..e_shnum) |i| {
-            const sh = shdr.get(data, e_shoff, e_shentsize, @truncate(i));
-            const sh_type = readU32Le(sh, 4);
-            if (sh_type == SHT_NULL) continue;
-            const sh_flags = readU32Le(sh, 8);
-            const sh_addr = readU32Le(sh, 12);
-            const sh_size = readU32Le(sh, 20);
-            const sh_name_off = readU32Le(sh, 0);
+            const sh = readVal(elf.Elf32_Shdr, data, @as(usize, e_shoff) + i * e_shentsize);
+            const sh_type = sh.sh_type;
+            if (sh_type == elf.SHT_NULL) continue;
+            const sh_flags = sh.sh_flags;
+            const sh_addr = sh.sh_addr;
+            const sh_size = sh.sh_size;
+            const sh_name_off = sh.sh_name;
 
             const name: []const u8 = if (sh_name_off < shstr.len) blk: {
                 const start = sh_name_off;
@@ -393,44 +368,44 @@ fn checkElf(out: anytype, gpa: std.mem.Allocator, path: []const u8, data: []cons
 
             var fbuf: [12]u8 = undefined;
             var flen: usize = 0;
-            if ((sh_flags & SHF_ALLOC) != 0) {
+            if ((sh_flags & elf.SHF_ALLOC) != 0) {
                 fbuf[flen] = 'A';
                 flen += 1;
             }
-            if ((sh_flags & SHF_EXECINSTR) != 0) {
+            if ((sh_flags & elf.SHF_EXECINSTR) != 0) {
                 fbuf[flen] = 'X';
                 flen += 1;
             }
-            if ((sh_flags & SHF_WRITE) != 0) {
+            if ((sh_flags & elf.SHF_WRITE) != 0) {
                 fbuf[flen] = 'W';
                 flen += 1;
             }
-            if (sh_type == SHT_NOBITS) {
+            if (sh_type == elf.SHT_NOBITS) {
                 fbuf[flen] = 'B';
                 flen += 1;
             }
-            if ((sh_flags & SHF_MERGE) != 0) {
+            if ((sh_flags & elf.SHF_MERGE) != 0) {
                 fbuf[flen] = 'M';
                 flen += 1;
             }
-            if ((sh_flags & SHF_STRINGS) != 0) {
+            if ((sh_flags & elf.SHF_STRINGS) != 0) {
                 fbuf[flen] = 'S';
                 flen += 1;
             }
-            if ((sh_flags & SHF_TLS) != 0) {
+            if ((sh_flags & elf.SHF_TLS) != 0) {
                 fbuf[flen] = 'T';
                 flen += 1;
             }
-            if ((sh_flags & SHF_GROUP) != 0) {
+            if ((sh_flags & elf.SHF_GROUP) != 0) {
                 fbuf[flen] = 'G';
                 flen += 1;
             }
-            if ((sh_flags & SHF_LINK_ORDER) != 0) {
+            if ((sh_flags & elf.SHF_LINK_ORDER) != 0) {
                 fbuf[flen] = 'l';
                 flen += 1;
             }
 
-            if ((sh_flags & SHF_ALLOC) != 0) {
+            if ((sh_flags & elf.SHF_ALLOC) != 0) {
                 out.print("  {s:<22} {s:<10} {d:>8}B  {s} @${x:0>4}\n", .{
                     name, shtypeName(sh_type), sh_size, fbuf[0..flen], sh_addr,
                 }) catch {};
@@ -455,38 +430,33 @@ fn checkElf(out: anytype, gpa: std.mem.Allocator, path: []const u8, data: []cons
         var printed: usize = 0;
 
         for (0..sym_count) |si| {
-            const sym = data[sym_base + si * 16 .. sym_base + si * 16 + 16];
-            const st_name = readU32Le(sym, 0);
-            const st_value = readU32Le(sym, 4);
-            const st_info = sym[12];
-            const st_shndx: u16 = readU16Le(sym, 14);
-            const binding: u8 = st_info >> 4;
-            const stype: u8 = st_info & 0xF;
+            const sym = readVal(elf.Elf32_Sym, data, sym_base + si * @sizeOf(elf.Elf32_Sym));
+            if (sym.st_type() == elf.STT_SECTION or sym.st_type() == elf.STT_FILE) continue;
+            const binding: u8 = @as(u8, sym.st_bind());
 
-            // Skip FILE/SECTION symbols and empty names.
-            if (stype == 3 or stype == 4) continue;
-            if (!show_locals and binding == STB_LOCAL) continue;
+            // Skip local symbols unless object is small.
+            if (!show_locals and binding == elf.STB_LOCAL) continue;
 
-            const name: []const u8 = if (st_name < strtab_data.len) blk: {
-                var end = st_name;
+            const name: []const u8 = if (sym.st_name < strtab_data.len) blk: {
+                var end = sym.st_name;
                 while (end < strtab_data.len and strtab_data[end] != 0) end += 1;
-                if (end == st_name) continue; // empty name
-                break :blk strtab_data[st_name..end];
+                if (end == sym.st_name) continue; // empty name
+                break :blk strtab_data[sym.st_name..end];
             } else continue;
 
             // Look up the section's type and flags for this symbol.
             var sh_type_for_sym: u32 = 0;
             var sh_flags_for_sym: u32 = 0;
-            if (st_shndx != SHN_UNDEF and st_shndx != SHN_ABS and st_shndx != SHN_COMMON and
-                st_shndx < e_shnum)
+            if (sym.st_shndx != elf.SHN_UNDEF and sym.st_shndx != elf.SHN_ABS and sym.st_shndx != elf.SHN_COMMON and
+                sym.st_shndx < e_shnum)
             {
-                const sym_sh = shdr.get(data, e_shoff, e_shentsize, st_shndx);
-                sh_type_for_sym = readU32Le(sym_sh, 4);
-                sh_flags_for_sym = readU32Le(sym_sh, 8);
+                const sym_sh = readVal(elf.Elf32_Shdr, data, @as(usize, e_shoff) + @as(usize, sym.st_shndx) * e_shentsize);
+                sh_type_for_sym = sym_sh.sh_type;
+                sh_flags_for_sym = sym_sh.sh_flags;
             }
 
-            const tc = nmTypeChar(sh_type_for_sym, sh_flags_for_sym, st_shndx, binding);
-            out.print("  ${x:0>4} {c}  {s}\n", .{ st_value, tc, name }) catch {};
+            const tc = nmTypeChar(sh_type_for_sym, sh_flags_for_sym, sym.st_shndx, binding);
+            out.print("  ${x:0>4} {c}  {s}\n", .{ sym.st_value, tc, name }) catch {};
             printed += 1;
         }
         if (printed == 0)
@@ -494,7 +464,7 @@ fn checkElf(out: anytype, gpa: std.mem.Allocator, path: []const u8, data: []cons
     }
 
     // ── MOS DWARF inventory ───────────────────────────────────────────────
-    if (opts.dwarf and e_machine == 0x1966) {
+    if (opts.dwarf and @intFromEnum(e_machine) == 0x1966) {
         const dwarf_names = [_][]const u8{
             ".debug_info",
             ".debug_abbrev",
@@ -510,17 +480,17 @@ fn checkElf(out: anytype, gpa: std.mem.Allocator, path: []const u8, data: []cons
         var dwarf_sizes = [_]u32{0} ** dwarf_names.len;
 
         for (0..e_shnum) |i| {
-            const sh = shdr.get(data, e_shoff, e_shentsize, @truncate(i));
-            if ((readU32Le(sh, 8) & SHF_ALLOC) != 0) continue; // DWARF is non-ALLOC
-            const name_off = readU32Le(sh, 0);
+            const sh = readVal(elf.Elf32_Shdr, data, @as(usize, e_shoff) + i * e_shentsize);
+            if ((sh.sh_flags & elf.SHF_ALLOC) != 0) continue; // DWARF is non-ALLOC
+            const name_off = sh.sh_name;
             if (name_off >= shstr.len) continue;
             var name_end = name_off;
             while (name_end < shstr.len and shstr[name_end] != 0) name_end += 1;
             const sec_name = shstr[name_off..name_end];
             for (dwarf_names, 0..) |dn, di| {
                 if (std.mem.eql(u8, sec_name, dn)) {
-                    dwarf_offsets[di] = readU32Le(sh, 16);
-                    dwarf_sizes[di] = readU32Le(sh, 20);
+                    dwarf_offsets[di] = sh.sh_offset;
+                    dwarf_sizes[di] = sh.sh_size;
                     break;
                 }
             }
