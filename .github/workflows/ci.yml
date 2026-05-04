@@ -63,8 +63,11 @@ jobs:
       - name: Build NES examples and generate Mesen label files
         run: zig build nes-hello1 nes-hello2 nes-hello3 nes-zig-logo nes-fade nes-sprites nes-random nes-pads nes-color-cycle nes-fullbg nes-mappers nes-bat-ball nes-megablast nes-gg-demo nes-cnrom-hello nes-cnrom-sprites nes-unrom-hello nes-unrom-512-hello nes-unrom-color-cycle nes-mmc1-hello nes-mmc1-sprites nes-mmc3-hello nes-mmc3-pads nes-gtrom-hello nes-gtrom-color-cycle nes-action53-hello fds-hello gen-labels --summary all
 
-      - name: Build Commodore examples (C64, VIC-20, CX16, GEOS)
-        run: zig build c64-hello c64-fibonacci c64-plasma vic20-hello cx16-hello cx16-k-console-test geos-hello --summary all
+      - name: Build Commodore examples (C64, VIC-20, C128, PET, CX16, GEOS)
+        run: zig build c64-hello c64-fibonacci c64-plasma vic20-hello c128-hello pet-hello cx16-hello cx16-k-console-test geos-hello --summary all
+
+      - name: Build Supervision and Dodo examples
+        run: zig build supervision-hello dodo-hello --summary all
 
       - name: Build Atari examples (Lynx, 2600, 8-bit, 5200)
         run: zig build lynx-hello atari2600-colorbar atari2600-3e-colorbar atari8dos-hello atari8-cart-hello atari8-megacart-hello atari8-xegs-hello atari5200-cart-hello --summary all
@@ -74,6 +77,9 @@ jobs:
 
       - name: Build SNES examples
         run: zig build snes-hello snes-color-cycle snes-zig-logo snes-pi-test snes-pi-fastrom snes-hirom-hello snes-pads --summary all
+
+      - name: Build Ben Eater 6502 examples
+        run: zig build eater-hello-lcd eater-asm-clobber --summary all
 
       - name: Build Apple IIe and mos-sim examples
         run: zig build apple2-hello run-sim-hello --summary all
@@ -93,12 +99,15 @@ jobs:
             action53-hello.nes fds-hello.fds \
             c64-hello.prg fibonacci.prg plasma.prg \
             vic20-hello.prg \
+            c128-hello.prg pet-hello.prg \
             cx16-hello.prg cx16-k-console-test.prg \
             geos-hello.cvt \
+            supervision-hello.sv dodo-hello \
             lynx-hello.bll \
             colorbar.a26 colorbar-3e.a26 \
             atari8dos-hello.xex atari8-cart-hello.rom atari8-megacart-hello.rom atari8-xegs-hello.rom atari5200-cart-hello.rom \
             pce-color-cycle.pce pce-color-cycle-banked.pce \
+            eater-hello-lcd.rom eater-asm-clobber.rom \
             mega65-hello.prg viciv.prg \
             graphics.neo \
             snes-hello.sfc snes-color-cycle.sfc snes-zig-logo.sfc snes-pi-test.sfc snes-pi-fastrom.sfc snes-hirom-hello.sfc snes-pads.sfc \

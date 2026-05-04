@@ -54,6 +54,18 @@ zig build c64-hello
 zig build c64-fibonacci
 zig build c64-plasma
 
+# Commodore 128
+zig build c128-hello
+
+# Commodore PET
+zig build pet-hello
+
+# Supervision
+zig build supervision-hello
+
+# Dodo
+zig build dodo-hello
+
 # Commander X16
 zig build cx16-hello
 zig build cx16-k-console-test
@@ -99,6 +111,10 @@ zig build sim-hello
 Optional platforms:
 
 ```sh
+# Ben Eater 6502
+zig build eater-hello-lcd
+zig build eater-asm-clobber
+
 # MEGA65 — mega65-libc fetched automatically via build.zig.zon
 zig build mega65-hello
 zig build mega65-plasma
@@ -196,6 +212,10 @@ Output files land in `zig-out/bin/`.
 | `c64-hello`, `c64-fibonacci` | Commodore 64 | mos6502 | `.prg` |
 | `c64-plasma` | Commodore 64 | mos6502 | `.prg` |
 | `vic20-hello` | Commodore VIC-20 (24K) | mos6502 | `.prg` |
+| `c128-hello` | Commodore 128 | mos6502 | `.prg` |
+| `pet-hello` | Commodore PET | mos6502 | `.prg` |
+| `supervision-hello` | Watara Supervision | mos65c02 | `.sv` |
+| `dodo-hello` | Dodo | mos65c02 | (raw) |
 | `cx16-hello` | Commander X16 | mosw65c02 | `.prg` |
 | `cx16-k-console-test` | Commander X16 | mosw65c02 | `.prg` |
 | `lynx-hello` | Atari Lynx | mos6502 | `.bll` |
@@ -218,6 +238,8 @@ Output files land in `zig-out/bin/`.
 | `snes-hirom-hello` | SNES HiROM | mosw65816 | `.sfc` |
 | `snes-pads` | SNES LoROM | mosw65816 | `.sfc` |
 | `sim-hello` | mos-sim (6502 simulator) | mos6502 | binary |
+| `eater-hello-lcd` | Ben Eater 6502 LCD | mosw65c02 | `.rom` |
+| `eater-asm-clobber` | Ben Eater 6502 asm clobber test | mosw65c02 | `.rom` |
 | `mega65-hello`, `mega65-plasma` | MEGA65 | mos45gs02 | `.prg` |
 | `mega65-viciv` | MEGA65 VICIV | mos45gs02 | `.prg` |
 | `apple2-hello` | Apple IIe ProDOS | mos6502 | `.sys` |
@@ -269,7 +291,7 @@ zig-out/bin/bininfo <file> [files…] [flags]
 
 Flags may appear before or after filenames.
 
-Detected formats: iNES 1.0/2.0 (`.nes`), SNES SFC/SMC (`.sfc`/`.smc` — SMC 512-byte copier header auto-stripped), FDS raw (`.fds`), GEOS CVT (`.cvt`), CBM PRG (`.prg`), Atari 2600 (`.a26`), Atari 8-bit cart (`.rom`), Atari XEX (`.xex`), Lynx BLL (`.bll`), PC Engine (`.pce`), Neo6502 (`.neo`), Apple IIe ProDOS (`.sys`), mos-sim binary, ELF. HiROM vs LoROM is auto-detected from map-mode byte.
+Detected formats: iNES 1.0/2.0 (`.nes`), SNES SFC/SMC (`.sfc`/`.smc` — SMC 512-byte copier header auto-stripped), FDS raw (`.fds`), GEOS CVT (`.cvt`), CBM PRG (`.prg`), Atari 2600 (`.a26`), Atari 8-bit cart (`.rom`), Atari XEX (`.xex`), Lynx BLL (`.bll`), PC Engine (`.pce`), Watara Supervision (`.sv`), Neo6502 (`.neo`), Apple IIe ProDOS (`.sys`), mos-sim binary, ELF. HiROM vs LoROM is auto-detected from map-mode byte.
 
 ```sh
 # Inspect a built NES ROM

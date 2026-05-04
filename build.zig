@@ -31,6 +31,10 @@ const SdkLibs = struct {
     a8megacart: ?sdk_mod.Libs = null,
     a8xegs: ?sdk_mod.Libs = null,
     eater: ?sdk_mod.Libs = null,
+    c128: ?sdk_mod.Libs = null,
+    pet: ?sdk_mod.Libs = null,
+    supervision: ?sdk_mod.Libs = null,
+    dodo: ?sdk_mod.Libs = null,
 };
 
 pub fn build(b: *std.Build) void {
@@ -80,6 +84,10 @@ pub fn build(b: *std.Build) void {
         .{ .name = "atari8-cart-megacart", .query = .{ .cpu_arch = .mos, .os_tag = .atari8 } },
         .{ .name = "atari8-cart-xegs", .query = .{ .cpu_arch = .mos, .os_tag = .atari8 } },
         .{ .name = "eater", .query = .{ .cpu_arch = .mos, .os_tag = .eater } },
+        .{ .name = "c128", .query = .{ .cpu_arch = .mos, .os_tag = .c128 } },
+        .{ .name = "pet", .query = .{ .cpu_arch = .mos, .os_tag = .pet } },
+        .{ .name = "supervision", .query = .{ .cpu_arch = .mos, .os_tag = .supervision } },
+        .{ .name = "dodo", .query = .{ .cpu_arch = .mos, .os_tag = .dodo, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos65c02 } } },
     }) |pd| {
         const libs = sdk_mod.buildPlatform(b, sdk_src_raw, pd, optimize);
         const dest = b.fmt("mos-platform/{s}/lib", .{pd.name});
@@ -117,6 +125,10 @@ pub fn build(b: *std.Build) void {
         if (std.mem.eql(u8, pd.name, "atari8-cart-megacart")) sdk_libs.a8megacart = libs;
         if (std.mem.eql(u8, pd.name, "atari8-cart-xegs")) sdk_libs.a8xegs = libs;
         if (std.mem.eql(u8, pd.name, "eater")) sdk_libs.eater = libs;
+        if (std.mem.eql(u8, pd.name, "c128")) sdk_libs.c128 = libs;
+        if (std.mem.eql(u8, pd.name, "pet")) sdk_libs.pet = libs;
+        if (std.mem.eql(u8, pd.name, "supervision")) sdk_libs.supervision = libs;
+        if (std.mem.eql(u8, pd.name, "dodo")) sdk_libs.dodo = libs;
     }
 
     // Translate neslib.h and nesdoug.h from the MOS SDK into Zig modules.
@@ -145,6 +157,18 @@ pub fn build(b: *std.Build) void {
     // Translated headers for VIC-20 (mos6502, separate from cx16/mosw65c02).
     const vic20_target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .vic20 });
     const cbm_vic20_mod = vic20CbmHeaderMod(b, sdk_dep, vic20_target, optimize);
+
+    // Translated headers for C128.
+    const c128_target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .c128 });
+    const cbm_c128_mod = c128CbmHeaderMod(b, sdk_dep, c128_target, optimize);
+
+    // Translated headers for PET.
+    const pet_target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .pet });
+    const cbm_pet_mod = petCbmHeaderMod(b, sdk_dep, pet_target, optimize);
+
+    // Translated Dodo API headers.
+    const dodo_target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .dodo, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos65c02 } });
+    const dodo_api_mod = dodoApiMod(b, sdk_dep, dodo_target, optimize);
 
     // Translated headers for C64.
     const c64_build_target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .c64 });
@@ -849,6 +873,49 @@ pub fn build(b: *std.Build) void {
         run_bininfo.addFileArg(exe.getEmittedBin());
     }
 
+    // ---- C128 hello ----
+    {
+        const step = b.step("c128-hello", "Build Commodore 128 hello example");
+        const exe = addC128Exe(b, sdk_dep, sdk_src, sdk_libs.c128 orelse @panic("c128 libs not built"), optimize, "c128-hello", "c128/hello/hello.zig");
+        exe.root_module.addImport("cbm", cbm_c128_mod);
+        const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "c128-hello.prg" });
+        step.dependOn(&install.step);
+        b.getInstallStep().dependOn(&install.step);
+        run_bininfo.addFileArg(exe.getEmittedBin());
+    }
+
+    // ---- PET hello ----
+    {
+        const step = b.step("pet-hello", "Build Commodore PET hello example");
+        const exe = addPetExe(b, sdk_dep, sdk_src, sdk_libs.pet orelse @panic("pet libs not built"), optimize, "pet-hello", "pet/hello/hello.zig");
+        exe.root_module.addImport("cbm", cbm_pet_mod);
+        const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "pet-hello.prg" });
+        step.dependOn(&install.step);
+        b.getInstallStep().dependOn(&install.step);
+        run_bininfo.addFileArg(exe.getEmittedBin());
+    }
+
+    // ---- Supervision hello ----
+    {
+        const step = b.step("supervision-hello", "Build Watara Supervision hello example");
+        const exe = addSupervisionExe(b, sdk_dep, sdk_src, sdk_libs.supervision orelse @panic("supervision libs not built"), optimize, "supervision-hello", "supervision/hello/hello.zig");
+        const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "supervision-hello.sv" });
+        step.dependOn(&install.step);
+        b.getInstallStep().dependOn(&install.step);
+        run_bininfo.addFileArg(exe.getEmittedBin());
+    }
+
+    // ---- Dodo hello ----
+    {
+        const step = b.step("dodo-hello", "Build Dodo hello example");
+        const exe = addDodoExe(b, sdk_dep, sdk_src, sdk_libs.dodo orelse @panic("dodo libs not built"), optimize, "dodo-hello", "dodo/hello/hello.zig");
+        exe.root_module.addImport("dodo", dodo_api_mod);
+        const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "dodo-hello" });
+        step.dependOn(&install.step);
+        b.getInstallStep().dependOn(&install.step);
+        run_bininfo.addFileArg(exe.getEmittedBin());
+    }
+
     // ---- Atari 2600 3E colorbar ----
     {
         const atari2600_target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .atari2600 });
@@ -1480,6 +1547,10 @@ fn addNeo6502Exe(
     exe.setLibCFile(libc_txt);
     exe.root_module.link_libc = true;
     exe.setLinkerScript(wrapper_ld);
+    exe.forceUndefinedSymbol("__zig_call_main_section");
+    exe.forceUndefinedSymbol("main");
+    if (libs.crt0_obj) |obj| exe.root_module.addObject(obj);
+    if (libs.mem) |obj| exe.root_module.addObject(obj);
     addMosPanicImport(b, exe, target, opt);
     _ = sdk_dep;
 
@@ -1750,6 +1821,291 @@ fn addVic20Exe(
     addMosPanicImport(b, exe, target, opt);
 
     return exe;
+}
+
+fn addC128Exe(
+    b: *std.Build,
+    sdk_dep: *std.Build.Dependency,
+    sdk_src: []const u8,
+    libs: sdk_mod.Libs,
+    opt: std.builtin.OptimizeMode,
+    name: []const u8,
+    root_src: []const u8,
+) *std.Build.Step.Compile {
+    const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .c128 });
+
+    // basic-header.S and init-mmu.S: section-only TRUE objects installed for INPUT() resolution.
+    const basic_header_obj = b.addObject(.{
+        .name = "basic-header",
+        .root_module = b.createModule(.{ .target = target, .optimize = opt, .sanitize_c = .off }),
+    });
+    basic_header_obj.root_module.addIncludePath(sdk_dep.path("mos-platform/common/asminc"));
+    basic_header_obj.root_module.addIncludePath(sdk_dep.path("mos-platform/common/include"));
+    basic_header_obj.root_module.addAssemblyFile(sdk_dep.path("mos-platform/c128/basic-header.S"));
+    basic_header_obj.lto = .none;
+
+    const init_mmu_obj = b.addObject(.{
+        .name = "init-mmu",
+        .root_module = b.createModule(.{ .target = target, .optimize = opt, .sanitize_c = .off }),
+    });
+    init_mmu_obj.root_module.addIncludePath(sdk_dep.path("mos-platform/c128"));
+    init_mmu_obj.root_module.addIncludePath(sdk_dep.path("mos-platform/common/asminc"));
+    init_mmu_obj.root_module.addIncludePath(sdk_dep.path("mos-platform/common/include"));
+    init_mmu_obj.root_module.addAssemblyFile(sdk_dep.path("mos-platform/c128/init-mmu.S"));
+    init_mmu_obj.lto = .none;
+
+    const objs_dir = b.fmt("objs/{s}", .{name});
+    const install_bh = b.addInstallFileWithDir(basic_header_obj.getEmittedBin(), .{ .custom = objs_dir }, "basic-header.o");
+    const install_mmu = b.addInstallFileWithDir(init_mmu_obj.getEmittedBin(), .{ .custom = objs_dir }, "init-mmu.o");
+
+    const wf = b.addWriteFiles();
+    const wrapper_ld = wf.add("c128-wrapper.ld", b.fmt(
+        \\SEARCH_DIR("{s}/{s}");
+        \\SEARCH_DIR("{s}/mos-platform/c128");
+        \\SEARCH_DIR("{s}/mos-platform/commodore");
+        \\SEARCH_DIR("{s}/mos-platform/common/ldscripts");
+        \\INCLUDE "{s}/mos-platform/c128/link.ld"
+    , .{ b.install_path, objs_dir, sdk_src, sdk_src, sdk_src, sdk_src }));
+
+    const exe = b.addExecutable(.{
+        .name = name,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path(root_src),
+            .target = target,
+            .optimize = opt,
+            .sanitize_c = .off,
+        }),
+    });
+    exe.bundle_compiler_rt = false;
+    exe.lto = .full;
+    exe.step.dependOn(&install_bh.step);
+    exe.step.dependOn(&install_mmu.step);
+    exe.forceUndefinedSymbol("__zig_call_main_section");
+    exe.forceUndefinedSymbol("main");
+    if (libs.crt0_obj) |obj| exe.root_module.addObject(obj);
+    if (libs.mem) |mem_obj| exe.root_module.addObject(mem_obj);
+    exe.root_module.addIncludePath(sdk_dep.path("mos-platform/c128"));
+    exe.root_module.addIncludePath(sdk_dep.path("mos-platform/c64"));
+    exe.root_module.addIncludePath(sdk_dep.path("mos-platform/commodore"));
+    exe.root_module.addIncludePath(sdk_dep.path("mos-platform/common/include"));
+    exe.root_module.linkLibrary(libs.crt);
+    exe.root_module.linkLibrary(libs.crt0);
+    exe.root_module.linkLibrary(libs.c);
+    if (libs.printf) |libprintf| exe.root_module.linkLibrary(libprintf);
+    exe.setLinkerScript(wrapper_ld);
+    addMosPanicImport(b, exe, target, opt);
+
+    return exe;
+}
+
+fn addPetExe(
+    b: *std.Build,
+    sdk_dep: *std.Build.Dependency,
+    sdk_src: []const u8,
+    libs: sdk_mod.Libs,
+    opt: std.builtin.OptimizeMode,
+    name: []const u8,
+    root_src: []const u8,
+) *std.Build.Step.Compile {
+    const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .pet });
+
+    // basic-header.S: section-only TRUE object installed for commodore.ld INPUT(basic-header.o).
+    const basic_header_obj = b.addObject(.{
+        .name = "basic-header",
+        .root_module = b.createModule(.{ .target = target, .optimize = opt, .sanitize_c = .off }),
+    });
+    basic_header_obj.root_module.addIncludePath(sdk_dep.path("mos-platform/common/asminc"));
+    basic_header_obj.root_module.addIncludePath(sdk_dep.path("mos-platform/common/include"));
+    basic_header_obj.root_module.addAssemblyFile(sdk_dep.path("mos-platform/pet/basic-header.S"));
+    basic_header_obj.lto = .none;
+
+    const objs_dir = b.fmt("objs/{s}", .{name});
+    const install_bh = b.addInstallFileWithDir(basic_header_obj.getEmittedBin(), .{ .custom = objs_dir }, "basic-header.o");
+
+    const wf = b.addWriteFiles();
+    const wrapper_ld = wf.add("pet-wrapper.ld", b.fmt(
+        \\SEARCH_DIR("{s}/{s}");
+        \\SEARCH_DIR("{s}/mos-platform/pet");
+        \\SEARCH_DIR("{s}/mos-platform/commodore");
+        \\SEARCH_DIR("{s}/mos-platform/common/ldscripts");
+        \\INCLUDE "{s}/mos-platform/pet/link.ld"
+    , .{ b.install_path, objs_dir, sdk_src, sdk_src, sdk_src, sdk_src }));
+
+    const exe = b.addExecutable(.{
+        .name = name,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path(root_src),
+            .target = target,
+            .optimize = opt,
+            .sanitize_c = .off,
+        }),
+    });
+    exe.bundle_compiler_rt = false;
+    exe.lto = .full;
+    exe.step.dependOn(&install_bh.step);
+    exe.forceUndefinedSymbol("__zig_call_main_section");
+    exe.forceUndefinedSymbol("main");
+    if (libs.crt0_obj) |obj| exe.root_module.addObject(obj);
+    if (libs.mem) |mem_obj| exe.root_module.addObject(mem_obj);
+    exe.root_module.addIncludePath(sdk_dep.path("mos-platform/pet"));
+    exe.root_module.addIncludePath(sdk_dep.path("mos-platform/commodore"));
+    exe.root_module.addIncludePath(sdk_dep.path("mos-platform/common/include"));
+    exe.root_module.linkLibrary(libs.crt);
+    exe.root_module.linkLibrary(libs.crt0);
+    exe.root_module.linkLibrary(libs.c);
+    if (libs.printf) |libprintf| exe.root_module.linkLibrary(libprintf);
+    exe.setLinkerScript(wrapper_ld);
+    addMosPanicImport(b, exe, target, opt);
+
+    return exe;
+}
+
+fn addSupervisionExe(
+    b: *std.Build,
+    sdk_dep: *std.Build.Dependency,
+    sdk_src: []const u8,
+    libs: sdk_mod.Libs,
+    opt: std.builtin.OptimizeMode,
+    name: []const u8,
+    root_src: []const u8,
+) *std.Build.Step.Compile {
+    const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .supervision });
+
+    const wf = b.addWriteFiles();
+    const wrapper_ld = wf.add("supervision-wrapper.ld", b.fmt(
+        \\SEARCH_DIR("{s}/mos-platform/supervision");
+        \\SEARCH_DIR("{s}/mos-platform/common/ldscripts");
+        \\INCLUDE "{s}/mos-platform/supervision/link.ld"
+    , .{ sdk_src, sdk_src, sdk_src }));
+
+    const exe = b.addExecutable(.{
+        .name = name,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path(root_src),
+            .target = target,
+            .optimize = opt,
+            .sanitize_c = .off,
+        }),
+    });
+    exe.bundle_compiler_rt = false;
+    exe.lto = .full;
+    exe.forceUndefinedSymbol("__zig_call_main_section");
+    exe.forceUndefinedSymbol("main");
+    if (libs.crt0_obj) |obj| exe.root_module.addObject(obj);
+    if (libs.crt0_obj2) |obj| exe.root_module.addObject(obj);
+    if (libs.mem) |mem_obj| exe.root_module.addObject(mem_obj);
+    exe.root_module.addIncludePath(sdk_dep.path("mos-platform/supervision"));
+    exe.root_module.addIncludePath(sdk_dep.path("mos-platform/common/include"));
+    exe.root_module.linkLibrary(libs.crt);
+    exe.root_module.linkLibrary(libs.crt0);
+    exe.root_module.linkLibrary(libs.c);
+    exe.setLinkerScript(wrapper_ld);
+    addMosPanicImport(b, exe, target, opt);
+
+    return exe;
+}
+
+fn addDodoExe(
+    b: *std.Build,
+    sdk_dep: *std.Build.Dependency,
+    sdk_src: []const u8,
+    libs: sdk_mod.Libs,
+    opt: std.builtin.OptimizeMode,
+    name: []const u8,
+    root_src: []const u8,
+) *std.Build.Step.Compile {
+    const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .dodo, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos65c02 } });
+
+    const wf = b.addWriteFiles();
+    const wrapper_ld = wf.add("dodo-wrapper.ld", b.fmt(
+        \\SEARCH_DIR("{s}/mos-platform/dodo");
+        \\SEARCH_DIR("{s}/mos-platform/common/ldscripts");
+        \\INCLUDE "{s}/mos-platform/dodo/link.ld"
+    , .{ sdk_src, sdk_src, sdk_src }));
+
+    const exe = b.addExecutable(.{
+        .name = name,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path(root_src),
+            .target = target,
+            .optimize = opt,
+            .sanitize_c = .off,
+        }),
+    });
+    exe.bundle_compiler_rt = false;
+    exe.lto = .full;
+    exe.forceUndefinedSymbol("__zig_call_main_section");
+    exe.forceUndefinedSymbol("main");
+    if (libs.crt0_obj) |obj| exe.root_module.addObject(obj);
+    if (libs.crt0_obj2) |obj| exe.root_module.addObject(obj);
+    if (libs.mem) |mem_obj| exe.root_module.addObject(mem_obj);
+    exe.root_module.addIncludePath(sdk_dep.path("mos-platform/dodo"));
+    exe.root_module.addIncludePath(sdk_dep.path("mos-platform/common/include"));
+    exe.root_module.linkLibrary(libs.crt);
+    exe.root_module.linkLibrary(libs.crt0);
+    exe.root_module.linkLibrary(libs.c);
+    exe.setLinkerScript(wrapper_ld);
+    addMosPanicImport(b, exe, target, opt);
+
+    return exe;
+}
+
+fn c128CbmHeaderMod(
+    b: *std.Build,
+    sdk_dep: *std.Build.Dependency,
+    target: std.Build.ResolvedTarget,
+    opt: std.builtin.OptimizeMode,
+) *std.Build.Module {
+    const tc = b.addTranslateC(.{
+        .root_source_file = sdk_dep.path("mos-platform/commodore/cbm.h"),
+        .target = target,
+        .optimize = opt,
+        .link_libc = false,
+    });
+    tc.defineCMacro("__CBM__", null);
+    tc.defineCMacro("__C128__", null);
+    tc.addIncludePath(sdk_dep.path("mos-platform/c128"));
+    tc.addIncludePath(sdk_dep.path("mos-platform/c64"));
+    tc.addIncludePath(sdk_dep.path("mos-platform/commodore"));
+    tc.addIncludePath(sdk_dep.path("mos-platform/common/include"));
+    return tc.createModule();
+}
+
+fn petCbmHeaderMod(
+    b: *std.Build,
+    sdk_dep: *std.Build.Dependency,
+    target: std.Build.ResolvedTarget,
+    opt: std.builtin.OptimizeMode,
+) *std.Build.Module {
+    const tc = b.addTranslateC(.{
+        .root_source_file = sdk_dep.path("mos-platform/commodore/cbm.h"),
+        .target = target,
+        .optimize = opt,
+        .link_libc = false,
+    });
+    tc.defineCMacro("__CBM__", null);
+    tc.defineCMacro("__PET__", null);
+    tc.addIncludePath(sdk_dep.path("mos-platform/pet"));
+    tc.addIncludePath(sdk_dep.path("mos-platform/commodore"));
+    tc.addIncludePath(sdk_dep.path("mos-platform/common/include"));
+    return tc.createModule();
+}
+
+fn dodoApiMod(
+    b: *std.Build,
+    sdk_dep: *std.Build.Dependency,
+    target: std.Build.ResolvedTarget,
+    opt: std.builtin.OptimizeMode,
+) *std.Build.Module {
+    const tc = b.addTranslateC(.{
+        .root_source_file = sdk_dep.path("mos-platform/dodo/api.h"),
+        .target = target,
+        .optimize = opt,
+        .link_libc = false,
+    });
+    tc.addIncludePath(sdk_dep.path("mos-platform/dodo"));
+    tc.addIncludePath(sdk_dep.path("mos-platform/common/include"));
+    return tc.createModule();
 }
 
 fn vic20CbmHeaderMod(

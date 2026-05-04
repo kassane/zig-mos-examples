@@ -23,6 +23,7 @@
 //!   .pce  — PC Engine cartridge ROM (raw, multiples of 8KB)
 //!   .bll  — Atari Lynx Binary Load Library
 //!   .rom  — Atari 8-bit standard cartridge ROM
+//!   .sv   — Watara Supervision cartridge ROM (32KB, W65C02 vectors)
 //!   .sys  — Apple IIe ProDOS SYS file (raw binary, load=$0800)
 //!   .cvt  — GEOS Convert file (CBM GEOS target)
 //!   sim   — mos-sim binary (load=$0200 header + data + vectors trailer)
@@ -706,6 +707,29 @@ fn checkXex(out: anytype, path: []const u8, data: []const u8) bool {
     return true;
 }
 
+fn checkSv(out: anytype, path: []const u8, data: []const u8) bool {
+    // Watara Supervision: 32KB raw ROM, W65C02 vectors at end.
+    // RESET at data[0x7FFC], NMI at data[0x7FFA], IRQ at data[0x7FFE].
+    if (data.len != 32768) {
+        out.print("{s}: [SV] ERROR: expected 32768 B, got {d}\n", .{ path, data.len }) catch {};
+        return false;
+    }
+    const nmi = readU16Le(data, 0x7FFA);
+    const reset = readU16Le(data, 0x7FFC);
+    const irq = readU16Le(data, 0x7FFE);
+    out.print("{s}: [Supervision]  size=32KB  RESET=${x:0>4}  NMI=${x:0>4}  IRQ=${x:0>4}\n", .{
+        path, reset, nmi, irq,
+    }) catch {};
+    return true;
+}
+
+fn checkDodo(out: anytype, path: []const u8) bool {
+    // Dodo game binary: 8KB FULL(fram) dump, $5800–$79FF.
+    // OS jumps to $5900, so first $100 bytes are zero padding; no 6502 vectors at end.
+    out.print("{s}: [Dodo]  size=8KB  entry=$5900\n", .{path}) catch {};
+    return true;
+}
+
 fn checkNeo(out: anytype, path: []const u8, data: []const u8) bool {
     // .neo header: 03 'N' 'E' 'O' maj min exec_lo exec_hi ctrl load_lo load_hi sz_lo sz_hi nul
     if (data.len < 14 or
@@ -1231,8 +1255,22 @@ fn checkFile(out: anytype, gpa: std.mem.Allocator, path: []const u8, data: []con
     if (std.ascii.eqlIgnoreCase(ext, ".a26")) return checkA26(out, path, data);
     if (std.ascii.eqlIgnoreCase(ext, ".pce")) return checkPce(out, path, data);
     if (std.ascii.eqlIgnoreCase(ext, ".bll")) return checkBll(out, path, data);
-    if (std.ascii.eqlIgnoreCase(ext, ".rom")) return checkAtari8Cart(out, path, data);
+    // .rom: Atari 8-bit carts (RESET < $8000, ≤ 64KB) or larger banked carts (megacart/XEGS/5200)
+    //        or Ben Eater 6502 32KB ROMs (RESET $8000–$DFFF).
+    if (std.ascii.eqlIgnoreCase(ext, ".rom")) {
+        if (data.len >= 8192 and data.len % 8192 == 0 and data.len <= 524288) {
+            const reset = readU16Le(data, data.len - 4);
+            if (reset != 0 and reset < 0x8000 and data.len <= 65536)
+                return checkAtari8Cart(out, path, data);
+            if (reset >= 0x8000 and reset < 0xE000 and data.len == 32768)
+                return checkSv(out, path, data);
+        }
+        // Large banked Atari 8-bit / 5200 cart or other raw ROM.
+        out.print("{s}: [ROM]  size={d}KB\n", .{ path, data.len / 1024 }) catch {};
+        return true;
+    }
     if (std.ascii.eqlIgnoreCase(ext, ".sys")) return checkSys(out, path, data);
+    if (std.ascii.eqlIgnoreCase(ext, ".sv")) return checkSv(out, path, data);
     if (std.ascii.eqlIgnoreCase(ext, ".sfc") or std.ascii.eqlIgnoreCase(ext, ".smc"))
         return checkSfc(out, path, data);
 
@@ -1266,6 +1304,22 @@ fn checkFile(out: anytype, gpa: std.mem.Allocator, path: []const u8, data: []con
                 map == 0x25 or map == 0x30 or map == 0x31)
                 return checkSfc(out, path, data);
         }
+        // Supervision: 32KB ROM with RESET in $8000–$DFFF.
+        // PCE last-bank vectors always point to $E000+; Supervision RESET is $8000–$DFFF.
+        if (data.len == 32768 and reset >= 0x8000 and reset < 0xE000)
+            return checkSv(out, path, data);
+        // Dodo: 8KB FULL(fram) dump; first $100 bytes are zero padding ($5800-$58FF gap),
+        // code starts at $5900 (offset $100), no 6502 vectors at end (all zero).
+        if (data.len == 8192 and nmi == 0 and reset == 0 and irq == 0 and
+            data[0x100] != 0)
+        {
+            var all_zero = true;
+            for (data[0..0x100]) |b| if (b != 0) {
+                all_zero = false;
+                break;
+            };
+            if (all_zero) return checkDodo(out, path);
+        }
         // PCE (including banked ROMs where the upper bank is zero-padded).
         return checkPce(out, path, data);
     }
@@ -1276,11 +1330,13 @@ fn checkFile(out: anytype, gpa: std.mem.Allocator, path: []const u8, data: []con
     //   $0801 — C64 BASIC start
     //   $1001 — VIC-20 +3K expansion BASIC start
     //   $1201 — VIC-20 +8K/+16K/+24K expansion start (used by vic20-hello)
+    //   $1C01 — C128 BASIC start (bank-switched BASIC at $1C00)
     //   $2001 — MEGA65 BASIC start
     if (data.len >= 3) {
         const load = readU16Le(data, 0);
         if (load == 0x0401 or load == 0x0801 or
-            load == 0x1001 or load == 0x1201 or load == 0x2001)
+            load == 0x1001 or load == 0x1201 or
+            load == 0x1C01 or load == 0x2001)
             return checkPrg(out, path, data);
     }
 

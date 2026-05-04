@@ -33,6 +33,9 @@ pub const Libs = struct {
     // Without this, .call_main (jsr main) is a section-only archive member with no
     // exported symbol, so ld.lld never extracts it → main is never called.
     crt0_obj: ?*std.Build.Step.Compile = null,
+    // Supervision/Dodo: platform crt0.c/crt0.s provides .init.NN section-only init
+    // with no exported symbol → must be a second TRUE object alongside common crt0.S.
+    crt0_obj2: ?*std.Build.Step.Compile = null,
 };
 
 /// Build platform libraries for `pd` from the SDK source tree at `sdk_root`.
@@ -431,14 +434,28 @@ fn buildNeo6502(
     com_inc: []const u8,
     com_asm: []const u8,
 ) Libs {
-    // libcrt0 — common startup + copy-zp-data + exit-loop.
+    // crt0.S is section-only (.call_main: jsr main) — no exported symbol, so ld.lld
+    // will not extract it from an archive. Build it as a TRUE object (Hard Rule #5).
+    const crt0_obj = b.addObject(.{
+        .name = "crt0",
+        .root_module = b.createModule(.{ .target = target, .optimize = opt }),
+    });
+    crt0_obj.root_module.addIncludePath(.{ .cwd_relative = com_asm });
+    crt0_obj.root_module.addIncludePath(.{ .cwd_relative = com_inc });
+    crt0_obj.root_module.addCSourceFiles(.{
+        .root = .{ .cwd_relative = crt0_dir },
+        .files = &.{"crt0.S"},
+    });
+    crt0_obj.lto = .none;
+
+    // libcrt0 — startup helpers (init-stack, copy-zp-data, exit-loop).
     const libcrt0 = addLib(b, "crt0", target, opt);
     libcrt0.lto = .none;
     libcrt0.root_module.addIncludePath(.{ .cwd_relative = com_asm });
     libcrt0.root_module.addIncludePath(.{ .cwd_relative = com_inc });
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = crt0_dir },
-        .files = &.{ "crt0.S", "init-stack.S" },
+        .files = &.{"init-stack.S"},
     });
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = crt0_dir },
@@ -466,8 +483,20 @@ fn buildNeo6502(
         .root = .{ .cwd_relative = neo_dir },
         .files = &.{ "char-conv.c", "clock.c", "getchar.c", "putchar.c" },
     });
+    libc.root_module.addCSourceFiles(.{
+        .root = .{ .cwd_relative = b.fmt("{s}/../c", .{crt0_dir}) },
+        .files = &.{ "mem.c", "string.c" },
+    });
 
-    return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc };
+    // sdk/mem.s — strong __memset + abort (TRUE object, lto = .none).
+    const mem_obj = b.addObject(.{
+        .name = "mem",
+        .root_module = b.createModule(.{ .target = target, .optimize = opt }),
+    });
+    mem_obj.root_module.addCSourceFiles(.{ .root = b.path("sdk"), .files = &.{"mem.s"} });
+    mem_obj.lto = .none;
+
+    return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc, .crt0_obj = crt0_obj, .mem = mem_obj };
 }
 
 fn buildSnes(
@@ -1201,15 +1230,14 @@ fn buildC128(
     com_asm: []const u8,
 ) Libs {
     const c64_dir = b.fmt("{s}/../c64", .{plat_dir});
+    const com_c_dir = b.fmt("{s}/../c", .{crt0_dir});
+
     const libcrt0 = addLib(b, "crt0", target, opt);
     libcrt0.lto = .none;
-    libcrt0.root_module.addIncludePath(.{ .cwd_relative = plat_dir });
     libcrt0.root_module.addIncludePath(.{ .cwd_relative = com_asm });
     libcrt0.root_module.addIncludePath(.{ .cwd_relative = com_inc });
-    libcrt0.root_module.addCSourceFiles(.{
-        .root = .{ .cwd_relative = plat_dir },
-        .files = &.{ "basic-header.S", "init-mmu.S" },
-    });
+    // basic-header.S and init-mmu.S are section-only (no .globl) — NOT archive members.
+    // They are compiled per-exe as TRUE objects and installed for INPUT() resolution.
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = crt0_dir },
         .files = &.{"init-stack.S"},
@@ -1217,6 +1245,41 @@ fn buildC128(
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = b.fmt("{s}/exit", .{crt0_dir}) },
         .files = &.{"exit-loop.c"},
+    });
+
+    // crt0.S (.call_main: jsr main) — section-only, must be a TRUE object.
+    const crt0_obj = b.addObject(.{
+        .name = "crt0",
+        .root_module = b.createModule(.{ .target = target, .optimize = opt }),
+    });
+    crt0_obj.root_module.addIncludePath(.{ .cwd_relative = com_asm });
+    crt0_obj.root_module.addIncludePath(.{ .cwd_relative = com_inc });
+    crt0_obj.root_module.addCSourceFiles(.{
+        .root = .{ .cwd_relative = crt0_dir },
+        .files = &.{"crt0.S"},
+    });
+    crt0_obj.lto = .none;
+
+    // sdk/mem.s — strong __memset + abort.
+    const mem_obj = b.addObject(.{
+        .name = "mem",
+        .root_module = b.createModule(.{ .target = target, .optimize = opt }),
+    });
+    mem_obj.root_module.addCSourceFiles(.{ .root = b.path("sdk"), .files = &.{"mem.s"} });
+    mem_obj.lto = .none;
+
+    // printf.cc + varint.cc: C++ bitcode + LTO crashes LLVM codegen for 6502.
+    const libprintf = addLib(b, "printf", target, opt);
+    libprintf.lto = .none;
+    libprintf.root_module.addIncludePath(.{ .cwd_relative = plat_dir });
+    libprintf.root_module.addIncludePath(.{ .cwd_relative = c64_dir });
+    libprintf.root_module.addIncludePath(.{ .cwd_relative = comm_dir });
+    libprintf.root_module.addIncludePath(.{ .cwd_relative = com_c_dir });
+    libprintf.root_module.addIncludePath(.{ .cwd_relative = com_asm });
+    libprintf.root_module.addIncludePath(.{ .cwd_relative = com_inc });
+    libprintf.root_module.addCSourceFiles(.{
+        .root = .{ .cwd_relative = com_c_dir },
+        .files = &.{ "printf.cc", "varint.cc" },
     });
 
     const libc = addLib(b, "c", target, opt);
@@ -1234,7 +1297,7 @@ fn buildC128(
         .files = &.{ "abort.c", "cbm_k_bsout.c", "cbm_k_chrout.c", "chrout.c", "char-conv.c", "getchar.c", "putchar.c" },
     });
 
-    return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc };
+    return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc, .printf = libprintf, .crt0_obj = crt0_obj, .mem = mem_obj };
 }
 
 fn buildPet(
@@ -1248,14 +1311,14 @@ fn buildPet(
     com_inc: []const u8,
     com_asm: []const u8,
 ) Libs {
+    const com_c_dir = b.fmt("{s}/../c", .{crt0_dir});
+
     const libcrt0 = addLib(b, "crt0", target, opt);
     libcrt0.lto = .none;
     libcrt0.root_module.addIncludePath(.{ .cwd_relative = com_asm });
     libcrt0.root_module.addIncludePath(.{ .cwd_relative = com_inc });
-    libcrt0.root_module.addCSourceFiles(.{
-        .root = .{ .cwd_relative = plat_dir },
-        .files = &.{"basic-header.S"},
-    });
+    // basic-header.S is section-only (no .globl) — NOT an archive member.
+    // It is compiled per-exe as a TRUE object and installed for INPUT() resolution.
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = crt0_dir },
         .files = &.{"init-stack.S"},
@@ -1263,6 +1326,40 @@ fn buildPet(
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = b.fmt("{s}/exit", .{crt0_dir}) },
         .files = &.{"exit-loop.c"},
+    });
+
+    // crt0.S (.call_main: jsr main) — section-only, must be a TRUE object.
+    const crt0_obj = b.addObject(.{
+        .name = "crt0",
+        .root_module = b.createModule(.{ .target = target, .optimize = opt }),
+    });
+    crt0_obj.root_module.addIncludePath(.{ .cwd_relative = com_asm });
+    crt0_obj.root_module.addIncludePath(.{ .cwd_relative = com_inc });
+    crt0_obj.root_module.addCSourceFiles(.{
+        .root = .{ .cwd_relative = crt0_dir },
+        .files = &.{"crt0.S"},
+    });
+    crt0_obj.lto = .none;
+
+    // sdk/mem.s — strong __memset + abort.
+    const mem_obj = b.addObject(.{
+        .name = "mem",
+        .root_module = b.createModule(.{ .target = target, .optimize = opt }),
+    });
+    mem_obj.root_module.addCSourceFiles(.{ .root = b.path("sdk"), .files = &.{"mem.s"} });
+    mem_obj.lto = .none;
+
+    // printf.cc + varint.cc: C++ bitcode + LTO crashes LLVM codegen for 6502.
+    const libprintf = addLib(b, "printf", target, opt);
+    libprintf.lto = .none;
+    libprintf.root_module.addIncludePath(.{ .cwd_relative = plat_dir });
+    libprintf.root_module.addIncludePath(.{ .cwd_relative = comm_dir });
+    libprintf.root_module.addIncludePath(.{ .cwd_relative = com_c_dir });
+    libprintf.root_module.addIncludePath(.{ .cwd_relative = com_asm });
+    libprintf.root_module.addIncludePath(.{ .cwd_relative = com_inc });
+    libprintf.root_module.addCSourceFiles(.{
+        .root = .{ .cwd_relative = com_c_dir },
+        .files = &.{ "printf.cc", "varint.cc" },
     });
 
     const libc = addLib(b, "c", target, opt);
@@ -1279,7 +1376,7 @@ fn buildPet(
         .files = &.{ "abort.c", "cbm_k_bsout.c", "cbm_k_chrout.c", "chrout.c", "char-conv.c", "getchar.c", "putchar.c" },
     });
 
-    return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc };
+    return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc, .printf = libprintf, .crt0_obj = crt0_obj, .mem = mem_obj };
 }
 
 fn buildVic20(
@@ -1454,10 +1551,7 @@ fn buildSupervision(
     libcrt0.root_module.addIncludePath(.{ .cwd_relative = plat_dir });
     libcrt0.root_module.addIncludePath(.{ .cwd_relative = com_asm });
     libcrt0.root_module.addIncludePath(.{ .cwd_relative = com_inc });
-    libcrt0.root_module.addCSourceFiles(.{
-        .root = .{ .cwd_relative = plat_dir },
-        .files = &.{"crt0.c"},
-    });
+    // crt0.c removed: it only provides .init.50 (no .globl) — must be TRUE object.
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = crt0_dir },
         .files = &.{ "copy-data.c", "init-stack.S", "zero-bss.c" },
@@ -1466,6 +1560,41 @@ fn buildSupervision(
         .root = .{ .cwd_relative = b.fmt("{s}/exit", .{crt0_dir}) },
         .files = &.{"exit-loop.c"},
     });
+
+    // common crt0.S (.call_main: jsr main) — section-only, must be a TRUE object.
+    const crt0_obj = b.addObject(.{
+        .name = "crt0",
+        .root_module = b.createModule(.{ .target = target, .optimize = opt }),
+    });
+    crt0_obj.root_module.addIncludePath(.{ .cwd_relative = com_asm });
+    crt0_obj.root_module.addIncludePath(.{ .cwd_relative = com_inc });
+    crt0_obj.root_module.addCSourceFiles(.{
+        .root = .{ .cwd_relative = crt0_dir },
+        .files = &.{"crt0.S"},
+    });
+    crt0_obj.lto = .none;
+
+    // supervision/crt0.c provides .init.50 hardware init — section-only, TRUE object.
+    const crt0_obj2 = b.addObject(.{
+        .name = "crt0_plat",
+        .root_module = b.createModule(.{ .target = target, .optimize = opt }),
+    });
+    crt0_obj2.root_module.addIncludePath(.{ .cwd_relative = plat_dir });
+    crt0_obj2.root_module.addIncludePath(.{ .cwd_relative = com_asm });
+    crt0_obj2.root_module.addIncludePath(.{ .cwd_relative = com_inc });
+    crt0_obj2.root_module.addCSourceFiles(.{
+        .root = .{ .cwd_relative = plat_dir },
+        .files = &.{"crt0.c"},
+    });
+    crt0_obj2.lto = .none;
+
+    // sdk/mem.s — strong __memset + abort.
+    const mem_obj = b.addObject(.{
+        .name = "mem",
+        .root_module = b.createModule(.{ .target = target, .optimize = opt }),
+    });
+    mem_obj.root_module.addCSourceFiles(.{ .root = b.path("sdk"), .files = &.{"mem.s"} });
+    mem_obj.lto = .none;
 
     const libc = addLib(b, "c", target, opt);
     libc.root_module.addIncludePath(.{ .cwd_relative = plat_dir });
@@ -1476,7 +1605,7 @@ fn buildSupervision(
         .files = &.{ "supervision.c", "supervision.s" },
     });
 
-    return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc };
+    return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc, .crt0_obj = crt0_obj, .crt0_obj2 = crt0_obj2, .mem = mem_obj };
 }
 
 fn buildDodo(
@@ -1493,10 +1622,7 @@ fn buildDodo(
     libcrt0.lto = .none;
     libcrt0.root_module.addIncludePath(.{ .cwd_relative = com_asm });
     libcrt0.root_module.addIncludePath(.{ .cwd_relative = com_inc });
-    libcrt0.root_module.addCSourceFiles(.{
-        .root = .{ .cwd_relative = plat_dir },
-        .files = &.{"crt0.s"},
-    });
+    // crt0.s removed: it only provides .init.400 (no .globl) — must be TRUE object.
     libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = crt0_dir },
         .files = &.{ "copy-zp-data.c", "zero-bss.c", "init-stack.S" },
@@ -1505,6 +1631,40 @@ fn buildDodo(
         .root = .{ .cwd_relative = b.fmt("{s}/exit", .{crt0_dir}) },
         .files = &.{"exit-loop.c"},
     });
+
+    // common crt0.S (.call_main: jsr main) — section-only, must be a TRUE object.
+    const crt0_obj = b.addObject(.{
+        .name = "crt0",
+        .root_module = b.createModule(.{ .target = target, .optimize = opt }),
+    });
+    crt0_obj.root_module.addIncludePath(.{ .cwd_relative = com_asm });
+    crt0_obj.root_module.addIncludePath(.{ .cwd_relative = com_inc });
+    crt0_obj.root_module.addCSourceFiles(.{
+        .root = .{ .cwd_relative = crt0_dir },
+        .files = &.{"crt0.S"},
+    });
+    crt0_obj.lto = .none;
+
+    // dodo/crt0.s provides .init.400 stack/ZP init — section-only, TRUE object.
+    const crt0_obj2 = b.addObject(.{
+        .name = "crt0_plat",
+        .root_module = b.createModule(.{ .target = target, .optimize = opt }),
+    });
+    crt0_obj2.root_module.addIncludePath(.{ .cwd_relative = com_asm });
+    crt0_obj2.root_module.addIncludePath(.{ .cwd_relative = com_inc });
+    crt0_obj2.root_module.addCSourceFiles(.{
+        .root = .{ .cwd_relative = plat_dir },
+        .files = &.{"crt0.s"},
+    });
+    crt0_obj2.lto = .none;
+
+    // sdk/mem.s — strong __memset + abort.
+    const mem_obj = b.addObject(.{
+        .name = "mem",
+        .root_module = b.createModule(.{ .target = target, .optimize = opt }),
+    });
+    mem_obj.root_module.addCSourceFiles(.{ .root = b.path("sdk"), .files = &.{"mem.s"} });
+    mem_obj.lto = .none;
 
     const libc = addLib(b, "c", target, opt);
     libc.root_module.addIncludePath(.{ .cwd_relative = plat_dir });
@@ -1515,7 +1675,7 @@ fn buildDodo(
         .files = &.{"api.s"},
     });
 
-    return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc };
+    return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc, .crt0_obj = crt0_obj, .crt0_obj2 = crt0_obj2, .mem = mem_obj };
 }
 
 fn buildOsiC1p(
@@ -1756,7 +1916,7 @@ pub fn build(b: *std.Build) void {
         .{ .name = "rp6502", .query = .{ .cpu_arch = .mos, .os_tag = .rp6502 } },
         .{ .name = "rpc8e", .query = .{ .cpu_arch = .mos, .os_tag = .rpc8e } },
         .{ .name = "supervision", .query = .{ .cpu_arch = .mos, .os_tag = .supervision } },
-        .{ .name = "dodo", .query = .{ .cpu_arch = .mos, .os_tag = .dodo } },
+        .{ .name = "dodo", .query = .{ .cpu_arch = .mos, .os_tag = .dodo, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos65c02 } } },
         .{ .name = "osi-c1p", .query = .{ .cpu_arch = .mos, .os_tag = .osi_c1p } },
         .{ .name = "cpm65", .query = .{ .cpu_arch = .mos, .os_tag = .cpm65 } },
         .{ .name = "fds", .query = .{ .cpu_arch = .mos, .os_tag = .fds } },
