@@ -990,6 +990,7 @@ pub fn build(b: *std.Build) void {
         const exe = addSnesExe(b, sdk_src, sdk_libs.snes orelse @panic("snes libs not built"), optimize, "snes-pi-fastrom", "snes/pi-snes/pi-snes.zig", .{ .fastrom = true, .title = "ZIG PI FASTROM" });
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "snes-pi-fastrom.sfc" });
         step.dependOn(&install.step);
+        b.getInstallStep().dependOn(&install.step);
         run_bininfo.addFileArg(exe.getEmittedBin());
     }
 
