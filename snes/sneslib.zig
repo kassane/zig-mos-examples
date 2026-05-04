@@ -88,7 +88,7 @@ pub fn ppu_init() void {
 pub fn wait_vblank() void {
     hw.NMITIMEN.* = 0x81; // NMI enable + joypad auto-read
     vblank_flag = 0;
-    asm volatile ("wai");
+    asm volatile ("wai" ::: .{ .memory = true });
 }
 
 /// Set VRAM word address for subsequent VMDATAL/VMDATAH writes.

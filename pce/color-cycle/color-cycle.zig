@@ -50,7 +50,7 @@ export fn main() void {
     pce.pce_vdc_set_resolution(256, 240, 0);
     pce.pce_vdc_irq_vblank_enable();
     pce.pce_irq_enable(IRQ_VDC);
-    asm volatile ("cli"); // enable CPU IRQs (pce_cpu_irq_enable inline asm not translated)
+    asm volatile ("cli" ::: .{ .p = true }); // enable CPU IRQs (pce_cpu_irq_enable inline asm not translated)
     const tp: *volatile u16 = &ticks;
     while (true) {
         IO_VCE_COLOR_INDEX.* = 0x100;

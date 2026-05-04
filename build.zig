@@ -632,6 +632,15 @@ pub fn build(b: *std.Build) void {
         b.getInstallStep().dependOn(&install.step);
         run_bininfo.addFileArg(exe.getEmittedBin());
     }
+    // ---- Ben Eater 6502 asm-clobber smoke-test ----
+    {
+        const step = b.step("eater-asm-clobber", "Smoke-test MOS inline-asm clobber declarations (a,x,y,c,v,p,memory)");
+        const exe = addEaterExe(b, sdk_dep, sdk_src, sdk_libs.eater orelse @panic("eater libs not built"), optimize, "eater-asm-clobber", "eater/asm-clobber/asm-clobber.zig");
+        const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "eater-asm-clobber.rom" });
+        step.dependOn(&install.step);
+        b.getInstallStep().dependOn(&install.step);
+        run_bininfo.addFileArg(exe.getEmittedBin());
+    }
 
     // ---- PC Engine color-cycle ----
     {

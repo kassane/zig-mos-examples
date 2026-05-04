@@ -25,7 +25,7 @@ fn pceRomBank1Map() void {
     asm volatile (
         \\lda #__rom_bank1_bank
         \\tam #64
-    );
+        ::: .{ .a = true, .memory = true });
 }
 
 var color: u16 = 0;
