@@ -580,6 +580,21 @@ pub fn build(b: *std.Build) void {
         run_sim_hello.dependOn(&run_cmd.step);
     }
 
+    // ---- sim addrspace-test ----
+    {
+        const step = b.step("sim-addrspace-test", "Build addrSpace(.zp) + ptrABIAlign feature test (sim target)");
+        const exe = addSimExe(b, sdk_dep, sdk_src, sdk_libs.sim orelse @panic("sim libs not built"), optimize, "sim-addrspace-test", "sim/addrspace-test/addrspace-test.zig");
+        exe.root_module.addImport("sim_io", sim_io_mod);
+        const install = b.addInstallArtifact(exe, .{});
+        step.dependOn(&install.step);
+        run_bininfo.addFileArg(exe.getEmittedBin());
+
+        const run_step = b.step("run-sim-addrspace-test", "Build and run addrspace test through mos-sim");
+        const run_cmd = b.addRunArtifact(mos_sim);
+        run_cmd.addFileArg(exe.getEmittedBin());
+        run_step.dependOn(&run_cmd.step);
+    }
+
     // ---- Atari 2600 colorbar ----
     {
         const atari2600_target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .atari2600 });

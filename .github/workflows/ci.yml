@@ -60,29 +60,16 @@ jobs:
       - name: Build SDK platform libs from source
         run: zig build sdk-build --summary all
 
-      - name: Build NES examples and generate Mesen label files
-        run: zig build nes-hello1 nes-hello2 nes-hello3 nes-zig-logo nes-fade nes-sprites nes-random nes-pads nes-color-cycle nes-fullbg nes-mappers nes-bat-ball nes-megablast nes-gg-demo nes-cnrom-hello nes-cnrom-sprites nes-unrom-hello nes-unrom-512-hello nes-unrom-color-cycle nes-mmc1-hello nes-mmc1-sprites nes-mmc3-hello nes-mmc3-pads nes-gtrom-hello nes-gtrom-color-cycle nes-action53-hello fds-hello gen-labels --summary all
+      - name: Build all
+        run: zig build --summary all
 
-      - name: Build Commodore examples (C64, VIC-20, C128, PET, CX16, GEOS)
-        run: zig build c64-hello c64-fibonacci c64-plasma vic20-hello c128-hello pet-hello cx16-hello cx16-k-console-test geos-hello --summary all
+      - name: Build NES gen-labals
+        run: zig build gen-labels --summary all
 
-      - name: Build Supervision and Dodo examples
-        run: zig build supervision-hello dodo-hello --summary all
-
-      - name: Build Atari examples (Lynx, 2600, 8-bit, 5200)
-        run: zig build lynx-hello atari2600-colorbar atari2600-3e-colorbar atari8dos-hello atari8-cart-hello atari8-megacart-hello atari8-xegs-hello atari5200-cart-hello --summary all
-
-      - name: Build PC Engine, MEGA65, Neo6502 examples
-        run: zig build pce-color-cycle pce-color-cycle-banked mega65-hello mega65-plasma mega65-viciv neo6502-graphics --summary all
-
-      - name: Build SNES examples
-        run: zig build snes-hello snes-color-cycle snes-zig-logo snes-pi-test snes-pi-fastrom snes-hirom-hello snes-pads --summary all
-
-      - name: Build Ben Eater 6502 examples
-        run: zig build eater-hello-lcd eater-asm-clobber --summary all
-
-      - name: Build Apple IIe and mos-sim examples
-        run: zig build apple2-hello run-sim-hello --summary all
+      - name: Run MOS-SIM tests
+        run: |
+            zig build run-sim-hello
+            zig build run-sim-addrspace-test
 
       - name: Verify outputs
         run: |
