@@ -35,6 +35,8 @@ const SdkLibs = struct {
     pet: ?sdk_mod.Libs = null,
     supervision: ?sdk_mod.Libs = null,
     dodo: ?sdk_mod.Libs = null,
+    osi_c1p: ?sdk_mod.Libs = null,
+    cpm65: ?sdk_mod.Libs = null,
 };
 
 pub fn build(b: *std.Build) void {
@@ -87,6 +89,8 @@ pub fn build(b: *std.Build) void {
         .{ .name = "pet", .query = .{ .cpu_arch = .mos, .os_tag = .pet } },
         .{ .name = "supervision", .query = .{ .cpu_arch = .mos, .os_tag = .supervision } },
         .{ .name = "dodo", .query = .{ .cpu_arch = .mos, .os_tag = .dodo, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos65c02 } } },
+        .{ .name = "osi-c1p", .query = .{ .cpu_arch = .mos, .os_tag = .osi_c1p } },
+        .{ .name = "cpm65", .query = .{ .cpu_arch = .mos, .os_tag = .cpm65 } },
     }) |pd| {
         const libs = sdk_mod.buildPlatform(b, sdk_src_raw, pd, optimize);
         const dest = b.fmt("mos-platform/{s}/lib", .{pd.name});
@@ -128,6 +132,8 @@ pub fn build(b: *std.Build) void {
         if (std.mem.eql(u8, pd.name, "pet")) sdk_libs.pet = libs;
         if (std.mem.eql(u8, pd.name, "supervision")) sdk_libs.supervision = libs;
         if (std.mem.eql(u8, pd.name, "dodo")) sdk_libs.dodo = libs;
+        if (std.mem.eql(u8, pd.name, "osi-c1p")) sdk_libs.osi_c1p = libs;
+        if (std.mem.eql(u8, pd.name, "cpm65")) sdk_libs.cpm65 = libs;
     }
 
     // Translate neslib.h and nesdoug.h from the MOS SDK into Zig modules.
@@ -168,6 +174,10 @@ pub fn build(b: *std.Build) void {
     // Translated Dodo API headers.
     const dodo_target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .dodo, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos65c02 } });
     const dodo_api_mod = dodoApiMod(b, sdk_dep, dodo_target, optimize);
+
+    // Translated CP/M-65 API headers.
+    const cpm65_target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .cpm65 });
+    const cpm65_api_mod = cpm65ApiMod(b, sdk_dep, cpm65_target, optimize);
 
     // Translated headers for C64.
     const c64_build_target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .c64 });
@@ -277,6 +287,22 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(mos_sim);
     const build_mos_sim_step = b.step("build-mos-sim", "Build mos-sim 6502 simulator from source");
     build_mos_sim_step.dependOn(&b.addInstallArtifact(mos_sim, .{}).step);
+
+    // Host tool: elftocpm65 — converts CP/M-65 ELF output to relocatable .com binary.
+    const elftocpm65 = b.addExecutable(.{
+        .name = "elftocpm65",
+        .root_module = b.createModule(.{
+            .target = b.graph.host,
+            .optimize = .ReleaseSafe,
+            .link_libc = true,
+            .link_libcpp = true,
+            .sanitize_c = .off,
+        }),
+    });
+    elftocpm65.root_module.addCSourceFiles(.{
+        .root = sdk_dep.path("utils/elftocpm65"),
+        .files = &.{"elftocpm65.cc"},
+    });
 
     // gen-previews: convert each NES example's CHR ROM to an SVG tile sheet.
     const gen_previews = b.step("gen-previews", "Render NES CHR tile data to SVG previews (zig-out/bin/*.chr.svg)");
@@ -975,6 +1001,31 @@ pub fn build(b: *std.Build) void {
         const exe = addDodoExe(b, sdk_dep, sdk_src, sdk_libs.dodo orelse @panic("dodo libs not built"), optimize, "dodo-hello", "dodo/hello/hello.zig");
         exe.root_module.addImport("dodo", dodo_api_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "dodo-hello" });
+        step.dependOn(&install.step);
+        b.getInstallStep().dependOn(&install.step);
+        run_bininfo.addFileArg(exe.getEmittedBin());
+    }
+
+    // ---- OSI Challenger 1P hello ----
+    {
+        const step = b.step("osi-c1p-hello", "Build OSI Challenger 1P hello example");
+        const exe = addOsiC1pExe(b, sdk_dep, sdk_src, sdk_libs.osi_c1p orelse @panic("osi-c1p libs not built"), optimize, "osi-c1p-hello", "osi-c1p/hello/hello.zig");
+        const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "osi-c1p-hello" });
+        step.dependOn(&install.step);
+        b.getInstallStep().dependOn(&install.step);
+        run_bininfo.addFileArg(exe.getEmittedBin());
+    }
+
+    // ---- CP/M-65 hello ----
+    {
+        const step = b.step("cpm65-hello", "Build CP/M-65 hello example");
+        const exe = addCpm65Exe(b, sdk_dep, sdk_src, sdk_libs.cpm65 orelse @panic("cpm65 libs not built"), optimize, "hello", "cpm65/hello/hello.zig");
+        exe.root_module.addImport("cpm", cpm65_api_mod);
+        // elftocpm65 converts the ELF output into a CP/M-65 relocatable .com binary.
+        const run_elf = b.addRunArtifact(elftocpm65);
+        run_elf.addFileArg(exe.getEmittedBin());
+        const com_file = run_elf.addOutputFileArg("hello.com");
+        const install = b.addInstallFile(com_file, "bin/hello.com");
         step.dependOn(&install.step);
         b.getInstallStep().dependOn(&install.step);
         run_bininfo.addFileArg(exe.getEmittedBin());
@@ -2178,6 +2229,161 @@ fn dodoApiMod(
     tc.addIncludePath(sdk_dep.path("mos-platform/dodo"));
     tc.addIncludePath(sdk_dep.path("mos-platform/common/include"));
     return tc.createModule();
+}
+
+fn cpm65ApiMod(
+    b: *std.Build,
+    sdk_dep: *std.Build.Dependency,
+    target: std.Build.ResolvedTarget,
+    opt: std.builtin.OptimizeMode,
+) *std.Build.Module {
+    const tc = b.addTranslateC(.{
+        .root_source_file = sdk_dep.path("mos-platform/cpm65/cpm.h"),
+        .target = target,
+        .optimize = opt,
+        .link_libc = false,
+    });
+    tc.addIncludePath(sdk_dep.path("mos-platform/cpm65"));
+    tc.addIncludePath(sdk_dep.path("mos-platform/common/include"));
+    return tc.createModule();
+}
+
+fn addOsiC1pExe(
+    b: *std.Build,
+    sdk_dep: *std.Build.Dependency,
+    sdk_src: []const u8,
+    libs: sdk_mod.Libs,
+    opt: std.builtin.OptimizeMode,
+    name: []const u8,
+    root_src: []const u8,
+) *std.Build.Step.Compile {
+    const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .osi_c1p });
+
+    const wf = b.addWriteFiles();
+    const wrapper_ld = wf.add("osi-c1p-wrapper.ld", b.fmt(
+        \\SEARCH_DIR("{s}/mos-platform/osi-c1p");
+        \\SEARCH_DIR("{s}/mos-platform/common/ldscripts");
+        \\INCLUDE "{s}/mos-platform/osi-c1p/link.ld"
+    , .{ sdk_src, sdk_src, sdk_src }));
+
+    const exe = b.addExecutable(.{
+        .name = name,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path(root_src),
+            .target = target,
+            .optimize = opt,
+            .sanitize_c = .off,
+        }),
+    });
+    exe.bundle_compiler_rt = false;
+    exe.lto = .full;
+    exe.forceUndefinedSymbol("__zig_call_main_section");
+    exe.forceUndefinedSymbol("main");
+    if (libs.crt0_obj) |obj| exe.root_module.addObject(obj);
+    if (libs.crt0_obj2) |obj| exe.root_module.addObject(obj);
+    if (libs.mem) |mem_obj| exe.root_module.addObject(mem_obj);
+    exe.root_module.addIncludePath(sdk_dep.path("mos-platform/osi-c1p"));
+    exe.root_module.addIncludePath(sdk_dep.path("mos-platform/common/include"));
+    exe.root_module.linkLibrary(libs.crt);
+    exe.root_module.linkLibrary(libs.crt0);
+    exe.root_module.linkLibrary(libs.c);
+    if (libs.printf) |printf_lib| exe.root_module.linkLibrary(printf_lib);
+    exe.setLinkerScript(wrapper_ld);
+    addMosPanicImport(b, exe, target, opt);
+
+    return exe;
+}
+
+fn addCpm65Exe(
+    b: *std.Build,
+    sdk_dep: *std.Build.Dependency,
+    sdk_src: []const u8,
+    libs: sdk_mod.Libs,
+    opt: std.builtin.OptimizeMode,
+    name: []const u8,
+    root_src: []const u8,
+) *std.Build.Step.Compile {
+    const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .cpm65 });
+
+    const wf = b.addWriteFiles();
+    // link.ld ends with OUTPUT_FORMAT { TRIM(ram) } which makes lld emit a raw binary.
+    // elftocpm65 needs the ELF, so we inline link.ld content without that block.
+    const wrapper_ld = wf.add("cpm65-wrapper.ld", b.fmt(
+        \\SEARCH_DIR("{s}/mos-platform/cpm65");
+        \\SEARCH_DIR("{s}/mos-platform/common/ldscripts");
+        \\MEMORY {{
+        \\    zp : ORIGIN = 0, LENGTH = 0x70
+        \\    ram (rw) : ORIGIN = 0x200, LENGTH = 0xfe00
+        \\}}
+        \\PHDRS {{
+        \\    load PT_LOAD;
+        \\    init PT_LOAD;
+        \\    relo PT_NULL;
+        \\    symtab PT_NULL;
+        \\}}
+        \\REGION_ALIAS("c_readonly", ram)
+        \\REGION_ALIAS("c_writeable", ram)
+        \\SECTIONS {{
+        \\    .zp.bss (NOLOAD) : {{ INCLUDE zp-bss-sections.ld }} >zp :NONE
+        \\    INCLUDE zp-bss-symbols.ld
+        \\    .text : {{
+        \\        cpm_header = .;
+        \\        BYTE (SIZEOF(.zp))
+        \\        BYTE ((__heap_start + 255) / 256)
+        \\        SHORT (_pblock)
+        \\        KEEP _pblock;
+        \\        BDOS = .;
+        \\        BYTE (0x4c)
+        \\        SHORT (0)
+        \\    }} >ram :load
+        \\    INCLUDE text.ld
+        \\    INCLUDE rodata.ld
+        \\    INCLUDE data.ld
+        \\    .zp.data : {{
+        \\        __zp_data_start = .;
+        \\        *(.zp.data .zp.data.*)
+        \\        *(.zp.rodata .zp.rodata.*)
+        \\    }} >zp AT>ram :init
+        \\    INCLUDE zp-data-symbols.ld
+        \\    .pblock (NOLOAD) : {{
+        \\        _pblock = .;
+        \\        *(.pblock)
+        \\    }} >ram :NONE
+        \\    INCLUDE bss.ld
+        \\    INCLUDE noinit.ld
+        \\    INCLUDE zp-noinit.ld
+        \\    .rela.text : {{}} :relo
+        \\    .rela.data : {{}} :relo
+        \\    .rela.rodata : {{}} :relo
+        \\    .symtab : {{}} :symtab
+        \\    PROVIDE (cpm_ram = __heap_start);
+        \\}}
+    , .{ sdk_src, sdk_src }));
+
+    const exe = b.addExecutable(.{
+        .name = name,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path(root_src),
+            .target = target,
+            .optimize = opt,
+            .sanitize_c = .off,
+        }),
+    });
+    exe.bundle_compiler_rt = false;
+    exe.lto = .full;
+    exe.forceUndefinedSymbol("__zig_call_main_section");
+    exe.forceUndefinedSymbol("main");
+    if (libs.crt0_obj) |obj| exe.root_module.addObject(obj);
+    if (libs.mem) |mem_obj| exe.root_module.addObject(mem_obj);
+    exe.root_module.addIncludePath(sdk_dep.path("mos-platform/cpm65"));
+    exe.root_module.addIncludePath(sdk_dep.path("mos-platform/common/include"));
+    exe.root_module.linkLibrary(libs.crt);
+    exe.root_module.linkLibrary(libs.crt0);
+    exe.root_module.linkLibrary(libs.c);
+    exe.setLinkerScript(wrapper_ld);
+    addMosPanicImport(b, exe, target, opt);
+
+    return exe;
 }
 
 fn vic20CbmHeaderMod(

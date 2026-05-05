@@ -68,6 +68,12 @@ zig build supervision-hello
 # Dodo
 zig build dodo-hello
 
+# OSI Challenger 1P
+zig build osi-c1p-hello
+
+# CP/M-65
+zig build cpm65-hello
+
 # Commander X16
 zig build cx16-hello
 zig build cx16-k-console-test
@@ -222,6 +228,8 @@ Output files land in `zig-out/bin/`.
 | `pet-hello` | Commodore PET | mos6502 | `.prg` |
 | `supervision-hello` | Watara Supervision | mos65c02 | `.sv` |
 | `dodo-hello` | Dodo | mos65c02 | (raw) |
+| `osi-c1p-hello` | OSI Challenger 1P | mos6502 | (raw) |
+| `cpm65-hello` | CP/M-65 | mos6502 | `.com` |
 | `cx16-hello` | Commander X16 | mosw65c02 | `.prg` |
 | `cx16-k-console-test` | Commander X16 | mosw65c02 | `.prg` |
 | `lynx-hello` | Atari Lynx | mos6502 | `.bll` |
@@ -297,7 +305,7 @@ zig-out/bin/bininfo <file> [files…] [flags]
 
 Flags may appear before or after filenames.
 
-Detected formats: iNES 1.0/2.0 (`.nes`), SNES SFC/SMC (`.sfc`/`.smc` — SMC 512-byte copier header auto-stripped), FDS raw (`.fds`), GEOS CVT (`.cvt`), CBM PRG (`.prg`), Atari 2600 (`.a26`), Atari 8-bit cart (`.rom`), Atari XEX (`.xex`), Lynx BLL (`.bll`), PC Engine (`.pce`), Watara Supervision (`.sv`), Neo6502 (`.neo`), Apple IIe ProDOS (`.sys`), mos-sim binary, ELF. HiROM vs LoROM is auto-detected from map-mode byte.
+Detected formats: iNES 1.0/2.0 (`.nes`), SNES SFC/SMC (`.sfc`/`.smc` — SMC 512-byte copier header auto-stripped), FDS raw (`.fds`), GEOS CVT (`.cvt`), CP/M-65 relocatable (`.com`), CBM PRG (`.prg`), Atari 2600 (`.a26`), Atari 8-bit cart (`.rom`), Atari XEX (`.xex`), Lynx BLL (`.bll`), PC Engine (`.pce`), Watara Supervision (`.sv`), Neo6502 (`.neo`), Apple IIe ProDOS (`.sys`), OSI Challenger 1P raw binary (detected by filename), mos-sim binary, ELF. HiROM vs LoROM is auto-detected from map-mode byte.
 
 ```sh
 # Inspect a built NES ROM
@@ -396,7 +404,7 @@ The `gen-labels` build step runs this automatically for all NES examples.
 - **NES GTROM colour-cycle** — GTROM PRG bank cycling with LED toggle via `$5000` write.
 - **NES UNROM-512 hello** — uses translated `mapper.h`; calls `set_prg_bank(0)` and `set_chr_bank(0)` to initialise mapper 30 registers. ROM: 512 KB PRG + 32 KB CHR RAM.
 - **NES Action53 hello** — uses translated `mapper.h`; mapper 28 (Action53 multicart). ROM: 64 KB PRG + 8 KB CHR RAM.
-- **NES nesdoug MMC3** — MMC3 demo ported from Doug Fraker's nesdoug-llvm tutorial (chapter 33); exercises `banked_call`, FamiTone2 music playback, mid-screen IRQ colour splits, and WRAM read/write. Includes a Mesen2 testRunner script (`mmc3.lua`) that verifies NMI running, sprite position, and VRAM writes within 120 frames.
+- **NES nesdoug MMC3** — MMC3 demo ported from Doug Fraker's nesdoug-llvm tutorial (chapter 33); exercises `banked_call`, FamiTone2 music playback, mid-screen IRQ colour splits, and WRAM read/write.
 - **NES full-game** — scrolling platformer (chapter 26 port); player movement, enemies, coins, collectibles, score display, and 3 levels. MMC3 mapper with FamiTone2 music; uses nesdoug VRAM buffer for HUD updates.
 - **FDS hello** — Famicom Disk System; uses raw PPU register writes via `nes/hardware.zig` (no neslib — FDS has no CHR ROM, raw PPU only). Writes dark-green backdrop (`$1A`) to palette `$3F00`.
 - **VIC-20 hello** — uses CBM KERNAL `cbm_k_chrout` to print "HELLO VIC20!", then cycles VIC chip background/border colour register (`$900F`). Targets 24K memory expansion, loads at `$1201`.
@@ -411,6 +419,8 @@ The `gen-labels` build step runs this automatically for all NES examples.
 - **Atari 8-bit MegaCart hello** — uses translated `_gtia.h`; cycles COLBK synced to ANTIC VCOUNT. MegaCart bank 0 is selected at cold start via the SDK's `tail0.s` stub before `main()` runs.
 - **Atari 8-bit XEGS hello** — same GTIA colour-cycle as MegaCart but targeting the XEGS cartridge format; XEGS `_cart_init` writes `$D500` to select bank 0 before `main()` runs.
 - **GEOS-CBM hello** — uses GEOS kernel jump-table entries (`__GraphicsString`, `__PutString`, `__UseSystemFont`, `__MainLoop`) as `extern fn` declarations resolved by `geos.ld`; passes arguments via zero-page registers `__r0` (`$0002`) and `__r11` (`$0018`). Output is a `.cvt` VLIR-formatted GEOS application file, verified by `03 00 FF` + `llvm-mos VLIR` magic at offset `$00`.
+- **OSI Challenger 1P hello** — uses `printf` via the platform's hosted libc (linked from `mos-platform/common/c/`); outputs a raw `TRIM(ram)` binary with load address `$0200`, no file header. Detected by `bininfo` from the filename prefix.
+- **CP/M-65 hello** — uses `cpm_printstring` via the CP/M-65 BDOS call wrapper; the ELF is post-processed by `elftocpm65` to produce a 4-byte-header relocatable `.com` file (ZP size, memory pages, pblock address, `0x4C` BDOS stub).
 - **sim-hello** — uses translated `sim-io.h` (typed MMIO struct) via `b.addTranslateC`; benchmarks fib(10), fib(20), and sieve of Eratosthenes for primes < 128.
 
 ## References

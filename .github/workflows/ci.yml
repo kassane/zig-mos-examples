@@ -91,6 +91,7 @@ jobs:
             cx16-hello.prg cx16-k-console-test.prg \
             geos-hello.cvt \
             supervision-hello.sv dodo-hello \
+            osi-c1p-hello hello.com \
             lynx-hello.bll \
             colorbar.a26 colorbar-3e.a26 \
             atari8dos-hello.xex atari8-cart-hello.rom atari8-megacart-hello.rom atari8-xegs-hello.rom atari5200-cart-hello.rom \

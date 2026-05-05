@@ -26,7 +26,9 @@
 //!   .sv   — Watara Supervision cartridge ROM (32KB, W65C02 vectors)
 //!   .sys  — Apple IIe ProDOS SYS file (raw binary, load=$0800)
 //!   .cvt  — GEOS Convert file (CBM GEOS target)
+//!   .com  — CP/M-65 relocatable executable (elftocpm65 output)
 //!   sim   — mos-sim binary (load=$0200 header + data + vectors trailer)
+//!   osi-c1p-* — OSI Challenger 1P raw binary (TRIM(ram), load=$0200)
 //!
 //! Exit code: 0 if all files are valid, 1 if any file is missing or malformed.
 
@@ -940,6 +942,33 @@ fn checkCvt(out: anytype, path: []const u8, data: []const u8) bool {
     return true;
 }
 
+fn checkCpm65(out: anytype, path: []const u8, data: []const u8) bool {
+    // CP/M-65 relocatable .com produced by elftocpm65.
+    //   [0]    ZP size in bytes
+    //   [1]    total memory size in 256-byte pages
+    //   [2:3]  pblock address (LE u16)
+    //   [4]    0x4C (JMP opcode for BDOS stub)
+    if (data.len < 8 or data[4] != 0x4C) {
+        out.print("{s}: [CP/M-65 .com] ERROR: unexpected header\n", .{path}) catch {};
+        return false;
+    }
+    const zp_size = data[0];
+    const mem_pages = data[1];
+    const pblock = readU16Le(data, 2);
+    out.print("{s}: [CP/M-65 .com]  size={d}B  zp={d}B  mem={d}pages  pblock=${x:0>4}\n", .{
+        path, data.len, zp_size, mem_pages, pblock,
+    }) catch {};
+    return true;
+}
+
+fn checkOsiC1p(out: anytype, path: []const u8, data: []const u8) bool {
+    // OSI Challenger 1P: raw TRIM(ram) binary, load=$0200, no file header.
+    out.print("{s}: [OSI C1P]  load=$0200  size={d}B  end=${x:0>4}\n", .{
+        path, data.len, 0x0200 + data.len - 1,
+    }) catch {};
+    return true;
+}
+
 // ── flags ─────────────────────────────────────────────────────────────────────
 
 const Opts = struct {
@@ -1252,6 +1281,7 @@ fn checkFile(out: anytype, gpa: std.mem.Allocator, path: []const u8, data: []con
     if (std.ascii.eqlIgnoreCase(ext, ".prg")) return checkPrg(out, path, data);
     if (std.ascii.eqlIgnoreCase(ext, ".fds")) return checkFds(out, path, data);
     if (std.ascii.eqlIgnoreCase(ext, ".cvt")) return checkCvt(out, path, data);
+    if (std.ascii.eqlIgnoreCase(ext, ".com")) return checkCpm65(out, path, data);
     if (std.ascii.eqlIgnoreCase(ext, ".a26")) return checkA26(out, path, data);
     if (std.ascii.eqlIgnoreCase(ext, ".pce")) return checkPce(out, path, data);
     if (std.ascii.eqlIgnoreCase(ext, ".bll")) return checkBll(out, path, data);
@@ -1339,6 +1369,11 @@ fn checkFile(out: anytype, gpa: std.mem.Allocator, path: []const u8, data: []con
             load == 0x1C01 or load == 0x2001)
             return checkPrg(out, path, data);
     }
+
+    // OSI Challenger 1P: extensionless raw binary, detected by basename containing "osi-c1p".
+    const basename = std.fs.path.basename(path);
+    if (std.mem.indexOf(u8, basename, "osi-c1p") != null)
+        return checkOsiC1p(out, path, data);
 
     // Unknown format — report size but do not fail the build step.
     out.print("{s}: [raw]  {d}B (format not recognised)\n", .{ path, data.len }) catch {};

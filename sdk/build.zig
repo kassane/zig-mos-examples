@@ -1729,10 +1729,6 @@ fn buildOsiC1p(
     libcrt0.root_module.addIncludePath(.{ .cwd_relative = com_asm });
     libcrt0.root_module.addIncludePath(.{ .cwd_relative = com_inc });
     libcrt0.root_module.addCSourceFiles(.{
-        .root = .{ .cwd_relative = plat_dir },
-        .files = &.{"crt0.s"},
-    });
-    libcrt0.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = crt0_dir },
         .files = &.{ "copy-data.c", "init-stack.S", "zero-bss.c" },
     });
@@ -1741,15 +1737,57 @@ fn buildOsiC1p(
         .files = &.{"exit-loop.c"},
     });
 
+    // osi-c1p/crt0.s provides .init.400 (calls __clrscr) — section-only, TRUE object.
+    const crt0_obj = b.addObject(.{
+        .name = "crt0_plat",
+        .root_module = b.createModule(.{ .target = target, .optimize = opt }),
+    });
+    crt0_obj.root_module.addIncludePath(.{ .cwd_relative = com_asm });
+    crt0_obj.root_module.addIncludePath(.{ .cwd_relative = com_inc });
+    crt0_obj.root_module.addCSourceFiles(.{
+        .root = .{ .cwd_relative = plat_dir },
+        .files = &.{"crt0.s"},
+    });
+    crt0_obj.lto = .none;
+
+    // putchar.cc + printf.cc + varint.cc: C++ bitcode crashes LLVM LTO codegen for 6502.
+    const com_c_dir = b.fmt("{s}/../c", .{crt0_dir});
+    const libputchar = addLib(b, "putchar", target, opt);
+    libputchar.lto = .none;
+    libputchar.root_module.addIncludePath(.{ .cwd_relative = plat_dir });
+    libputchar.root_module.addIncludePath(.{ .cwd_relative = com_c_dir });
+    libputchar.root_module.addIncludePath(.{ .cwd_relative = com_inc });
+    libputchar.root_module.addCSourceFiles(.{
+        .root = .{ .cwd_relative = plat_dir },
+        .files = &.{"putchar.cc"},
+    });
+    libputchar.root_module.addCSourceFiles(.{
+        .root = .{ .cwd_relative = com_c_dir },
+        .files = &.{ "printf.cc", "varint.cc" },
+    });
+
     const libc = addLib(b, "c", target, opt);
     libc.root_module.addIncludePath(.{ .cwd_relative = plat_dir });
+    libc.root_module.addIncludePath(.{ .cwd_relative = com_c_dir });
     libc.root_module.addIncludePath(.{ .cwd_relative = com_inc });
     libc.root_module.addCSourceFiles(.{
         .root = .{ .cwd_relative = plat_dir },
-        .files = &.{ "abort.c", "putchar.cc", "getchar.c", "kbhit.s" },
+        .files = &.{ "abort.c", "getchar.c", "kbhit.s" },
+    });
+    // stdio-minimal.c provides stdout (needed by printf.cc); mem/util/string are common hosted deps.
+    libc.root_module.addCSourceFiles(.{
+        .root = .{ .cwd_relative = com_c_dir },
+        .files = &.{ "stdio-minimal.c", "mem.c", "util.c", "string.c" },
     });
 
-    return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc };
+    const mem_obj = b.addObject(.{
+        .name = "mem",
+        .root_module = b.createModule(.{ .target = target, .optimize = opt }),
+    });
+    mem_obj.root_module.addCSourceFiles(.{ .root = b.path("sdk"), .files = &.{"mem.s"} });
+    mem_obj.lto = .none;
+
+    return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc, .crt0_obj = crt0_obj, .printf = libputchar, .mem = mem_obj };
 }
 
 fn buildCpm65(
@@ -1780,7 +1818,14 @@ fn buildCpm65(
         .files = &.{ "cpm.S", "cpm-wrappers.c", "bios.S", "pblock.S", "putchar.c", "stack.S", "registers.S" },
     });
 
-    return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc };
+    const mem_obj = b.addObject(.{
+        .name = "mem",
+        .root_module = b.createModule(.{ .target = target, .optimize = opt }),
+    });
+    mem_obj.root_module.addCSourceFiles(.{ .root = b.path("sdk"), .files = &.{"mem.s"} });
+    mem_obj.lto = .none;
+
+    return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc, .mem = mem_obj };
 }
 
 fn buildFds(
