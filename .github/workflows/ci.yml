@@ -83,6 +83,7 @@ jobs:
             mmc1-hello.nes mmc1-sprites.nes \
             mmc3-hello.nes mmc3-pads.nes \
             gtrom-hello.nes gtrom-color-cycle.nes \
+            nesdoug-mmc3.nes full-game.nes \
             action53-hello.nes fds-hello.fds \
             c64-hello.prg fibonacci.prg plasma.prg \
             vic20-hello.prg \
@@ -151,7 +152,8 @@ jobs:
                    cnrom-hello.nes cnrom-sprites.nes \
                    unrom-hello.nes unrom-512-hello.nes unrom-color-cycle.nes \
                    mmc1-hello.nes mmc1-sprites.nes \
-                   mmc3-hello.nes mmc3-pads.nes; do
+                   mmc3-hello.nes mmc3-pads.nes \
+                   nesdoug-mmc3.nes full-game.nes; do
             smoke "$f"
           done
           # Note: gtrom-hello.nes / gtrom-color-cycle.nes (mapper 111) are NOT tested here —
@@ -255,6 +257,7 @@ jobs:
                    unrom-hello.nes unrom-512-hello.nes unrom-color-cycle.nes \
                    mmc1-hello.nes mmc1-sprites.nes \
                    mmc3-hello.nes mmc3-pads.nes \
+                   nesdoug-mmc3.nes full-game.nes \
                    gtrom-hello.nes gtrom-color-cycle.nes; do
             run_emutest "$f" mesen_libretro.so
           done

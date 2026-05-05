@@ -48,6 +48,8 @@ zig build nes-gtrom-color-cycle
 zig build nes-unrom-512-hello
 zig build nes-action53-hello
 zig build fds-hello
+zig build nes-nesdoug-mmc3
+zig build nes-full-game
 
 # Commodore 64
 zig build c64-hello
@@ -159,6 +161,8 @@ Output files land in `zig-out/bin/`.
 | `nes-unrom-512-hello` — UNROM-512 mapper (mapper 30) | |
 | `nes-action53-hello` — Action53 multicart (mapper 28) | |
 | `fds-hello` — Famicom Disk System backdrop hello | |
+| `nes-nesdoug-mmc3` — MMC3 demo: banked_call, FamiTone2 music, mid-screen IRQ splits, WRAM | ![](.github/nesdoug-mmc3.gif) |
+| `nes-full-game` — scrolling platformer (MMC3): player, enemies, coins, collectibles, 3 levels | ![](.github/full-game.gif) |
 
 ### SNES
 
@@ -209,6 +213,8 @@ Output files land in `zig-out/bin/`.
 | `nes-unrom-512-hello` | NES UNROM-512 | mos6502 | `.nes` |
 | `nes-action53-hello` | NES Action53 (mapper 28) | mos6502 | `.nes` |
 | `fds-hello` | Famicom Disk System | mos6502 | `.fds` |
+| `nes-nesdoug-mmc3` | NES MMC3 (nesdoug demo) | mos6502 | `.nes` |
+| `nes-full-game` | NES MMC3 scrolling platformer | mos6502 | `.nes` |
 | `c64-hello`, `c64-fibonacci` | Commodore 64 | mos6502 | `.prg` |
 | `c64-plasma` | Commodore 64 | mos6502 | `.prg` |
 | `vic20-hello` | Commodore VIC-20 (24K) | mos6502 | `.prg` |
@@ -390,6 +396,8 @@ The `gen-labels` build step runs this automatically for all NES examples.
 - **NES GTROM colour-cycle** — GTROM PRG bank cycling with LED toggle via `$5000` write.
 - **NES UNROM-512 hello** — uses translated `mapper.h`; calls `set_prg_bank(0)` and `set_chr_bank(0)` to initialise mapper 30 registers. ROM: 512 KB PRG + 32 KB CHR RAM.
 - **NES Action53 hello** — uses translated `mapper.h`; mapper 28 (Action53 multicart). ROM: 64 KB PRG + 8 KB CHR RAM.
+- **NES nesdoug MMC3** — MMC3 demo ported from Doug Fraker's nesdoug-llvm tutorial (chapter 33); exercises `banked_call`, FamiTone2 music playback, mid-screen IRQ colour splits, and WRAM read/write. Includes a Mesen2 testRunner script (`mmc3.lua`) that verifies NMI running, sprite position, and VRAM writes within 120 frames.
+- **NES full-game** — scrolling platformer (chapter 26 port); player movement, enemies, coins, collectibles, score display, and 3 levels. MMC3 mapper with FamiTone2 music; uses nesdoug VRAM buffer for HUD updates.
 - **FDS hello** — Famicom Disk System; uses raw PPU register writes via `nes/hardware.zig` (no neslib — FDS has no CHR ROM, raw PPU only). Writes dark-green backdrop (`$1A`) to palette `$3F00`.
 - **VIC-20 hello** — uses CBM KERNAL `cbm_k_chrout` to print "HELLO VIC20!", then cycles VIC chip background/border colour register (`$900F`). Targets 24K memory expansion, loads at `$1201`.
 - **C64 hello** — uses translated `c64.h` (VIC-II typed struct) via `b.addTranslateC`; cycles VIC-II border colour register.

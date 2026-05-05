@@ -25,6 +25,8 @@ originally written in C for the llvm-mos toolchain.
 | `mappers/`  | 24_Mappers | CNROM 4-bank CHR demo — press Start to cycle banks           |
 | `bat-ball/` | CH05*      | Bat-and-ball from ProgrammingGamesForTheNES CH05             |
 | `megablast/` | CH13*     | Full Megablast game from ProgrammingGamesForTheNES CH13 (enemies, score, lives, levels) |
+| `mmc3/`      | 33_MMC3   | MMC3 mapper demo: banked_call, FamiTone2 music, mid-screen IRQ splits, WRAM            |
+| `full-game/` | 26_Full_Game | Scrolling platformer (MMC3): player, enemies, coins, collectibles, game states      |
 
 * `bat-ball` and `megablast` are ported from
 [tony-cruise/ProgrammingGamesForTheNES](https://github.com/tony-cruise/ProgrammingGamesForTheNES),

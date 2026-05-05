@@ -49,8 +49,7 @@ pub fn build(b: *std.Build) void {
         break :blk buf;
     };
 
-    const optimize = b.option(std.builtin.OptimizeMode, "optimize", "Optimize mode for target platform executables (default: ReleaseFast)") orelse .ReleaseFast;
-
+    const optimize = b.standardOptimizeOption(.{});
     // ---- SDK build from source (llvm-mos-sdk git) ----
     const sdk_step = b.step("sdk-build", "Build llvm-mos-sdk platform libraries from source");
 
@@ -476,6 +475,21 @@ pub fn build(b: *std.Build) void {
         addNesLabels(b, elf2mlb, gen_labels, exe, "gg-demo");
     }
 
+    // ---- NES full-game ----
+    {
+        const step = b.step("nes-full-game", "Build NES full game (CH26 port: scrolling platformer, coins, enemies, 3 levels)");
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "full-game", "nes/nesdoug/full-game/full_game.zig", .{ .chr_src = "nes/nesdoug/full-game/full_game.chr", .with_nesdoug = true, .with_famitone2 = true });
+        exe.root_module.addImport("neslib", neslib_mod);
+        exe.root_module.addImport("nesdoug", nesdoug_mod);
+        exe.root_module.addIncludePath(b.path("nes/nesdoug/mmc3"));
+        exe.root_module.addAssemblyFile(b.path("nes/nesdoug/full-game/music.s"));
+        const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "full-game.nes" });
+        step.dependOn(&install.step);
+        b.getInstallStep().dependOn(&install.step);
+        run_bininfo.addFileArg(exe.getEmittedBin());
+        addNesLabels(b, elf2mlb, gen_labels, exe, "full-game");
+    }
+
     // ---- C64 hello ----
     {
         const step = b.step("c64-hello", "Build C64 hello example");
@@ -842,6 +856,41 @@ pub fn build(b: *std.Build) void {
         run_bininfo.addFileArg(exe.getEmittedBin());
     }
 
+    // ---- NES MMC3 nesdoug demo (banked_call, IRQ splits, FamiTone2, WRAM) ----
+    {
+        const step = b.step("nes-nesdoug-mmc3", "Build NES MMC3 nesdoug demo (banked_call, IRQ splits, FamiTone2 music, WRAM)");
+        const exe = addNesExe(b, sdk_dep, sdk_src, sdk_libs, optimize, "nesdoug-mmc3", "nes/nesdoug/mmc3/mmc3.zig", .{
+            .mapper = .mmc3,
+            .with_nesdoug = true,
+            .with_famitone2 = true,
+            .chr_rom_kb = 16, // Alpha.chr (8KB) + Gears.chr (8KB)
+        });
+        // CHR ROM: both .chr files in a single .chr_rom section.
+        const chr_wf = b.addWriteFiles();
+        const root_fwd_mmc3: []const u8 = blk: {
+            const p = b.build_root.path orelse ".";
+            const buf = b.allocator.dupe(u8, p) catch @panic("OOM");
+            std.mem.replaceScalar(u8, buf, '\\', '/');
+            break :blk buf;
+        };
+        const chr_asm = chr_wf.add("chr-rom-mmc3.s", b.fmt(
+            \\.section .chr_rom,"a",@progbits
+            \\.incbin "{s}/nes/nesdoug/mmc3/Alpha.chr"
+            \\.incbin "{s}/nes/nesdoug/mmc3/Gears.chr"
+        , .{ root_fwd_mmc3, root_fwd_mmc3 }));
+        exe.root_module.addAssemblyFile(chr_asm);
+        // Music and sound-effect data in PRG ROM bank 12.
+        exe.root_module.addIncludePath(b.path("nes/nesdoug/mmc3"));
+        exe.root_module.addAssemblyFile(b.path("nes/nesdoug/mmc3/music.s"));
+        exe.root_module.addImport("neslib", neslib_mod);
+        exe.root_module.addImport("nesdoug", nesdoug_mod);
+        exe.root_module.addImport("mapper", nes_mmc3_mapper_mod);
+        const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "nesdoug-mmc3.nes" });
+        step.dependOn(&install.step);
+        b.getInstallStep().dependOn(&install.step);
+        run_bininfo.addFileArg(exe.getEmittedBin());
+    }
+
     // ---- NES GTROM colour-cycle with LED ----
     {
         const step = b.step("nes-gtrom-color-cycle", "Build NES GTROM mapper colour-cycle with LED example");
@@ -1190,7 +1239,9 @@ fn addNesExe(
         mapper: NesMapper = .nrom,
         chr_src: ?[]const u8 = null,
         chr_srcs: ?[]const []const u8 = null,
+        chr_rom_kb: usize = 0,
         with_nesdoug: bool = false,
+        with_famitone2: bool = false,
     },
 ) *std.Build.Step.Compile {
     const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .nes });
@@ -1299,17 +1350,21 @@ fn addNesExe(
             \\__chr_ram_size = 8;
             \\INCLUDE "{s}/mos-platform/nes-mmc1/link.ld"
         , .{ reset_dir, sdk_src, sdk_src, sdk_src, sdk_src, sdk_src })),
-        .mmc3 => wf.add(ld_name, b.fmt(
-            \\SEARCH_DIR("{s}");
-            \\SEARCH_DIR("{s}/mos-platform/nes-mmc3");
-            \\SEARCH_DIR("{s}/mos-platform/nes");
-            \\SEARCH_DIR("{s}/mos-platform/nes/rompoke");
-            \\SEARCH_DIR("{s}/mos-platform/common/ldscripts");
-            \\/* MMC3 hello uses CHR RAM; override the 256 KiB CHR ROM weak default. */
-            \\__chr_rom_size = 0;
-            \\__chr_ram_size = 8;
-            \\INCLUDE "{s}/mos-platform/nes-mmc3/link.ld"
-        , .{ reset_dir, sdk_src, sdk_src, sdk_src, sdk_src, sdk_src })),
+        .mmc3 => blk: {
+            const chr_cfg = if (cfg.chr_rom_kb > 0)
+                b.fmt("__chr_rom_size = {d};\n__chr_ram_size = 0;", .{cfg.chr_rom_kb})
+            else
+                "/* MMC3 uses CHR RAM; override the 256 KiB CHR ROM weak default. */\n__chr_rom_size = 0;\n__chr_ram_size = 8;";
+            break :blk wf.add(ld_name, b.fmt(
+                \\SEARCH_DIR("{s}");
+                \\SEARCH_DIR("{s}/mos-platform/nes-mmc3");
+                \\SEARCH_DIR("{s}/mos-platform/nes");
+                \\SEARCH_DIR("{s}/mos-platform/nes/rompoke");
+                \\SEARCH_DIR("{s}/mos-platform/common/ldscripts");
+                \\{s}
+                \\INCLUDE "{s}/mos-platform/nes-mmc3/link.ld"
+            , .{ reset_dir, sdk_src, sdk_src, sdk_src, sdk_src, chr_cfg, sdk_src }));
+        },
         .gtrom => wf.add(ld_name, b.fmt(
             \\SEARCH_DIR("{s}");
             \\SEARCH_DIR("{s}/mos-platform/nes-gtrom");
@@ -1387,6 +1442,7 @@ fn addNesExe(
     exe.root_module.linkLibrary(libs.c);
     if (libs.neslib) |neslib| exe.root_module.linkLibrary(neslib);
     if (cfg.with_nesdoug) if (libs.nesdoug) |nd| exe.root_module.linkLibrary(nd);
+    if (cfg.with_famitone2) if (libs.famitone2) |ft2| exe.root_module.linkLibrary(ft2);
     if (libs.nes_c) |nc| exe.root_module.linkLibrary(nc);
     if (libs.nes_c_startup) |ncs| exe.root_module.linkLibrary(ncs);
     exe.setLinkerScript(wrapper_ld);
@@ -2283,6 +2339,7 @@ fn addEaterExe(
     exe.root_module.linkLibrary(libs.crt0);
     exe.root_module.linkLibrary(libs.c);
     if (libs.crt0_obj) |obj| exe.root_module.addObject(obj);
+    if (libs.mem) |mem_obj| exe.root_module.addObject(mem_obj);
     exe.forceUndefinedSymbol("__zig_call_main_section");
     exe.forceUndefinedSymbol("main");
     exe.setLinkerScript(wrapper_ld);

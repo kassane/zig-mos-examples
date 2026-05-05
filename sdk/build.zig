@@ -36,6 +36,8 @@ pub const Libs = struct {
     // Supervision/Dodo: platform crt0.c/crt0.s provides .init.NN section-only init
     // with no exported symbol → must be a second TRUE object alongside common crt0.S.
     crt0_obj2: ?*std.Build.Step.Compile = null,
+    // NES only: FamiTone2 music/sound engine + banked fixed-bank wrappers.
+    famitone2: ?*std.Build.Step.Compile = null,
 };
 
 /// Build platform libraries for `pd` from the SDK source tree at `sdk_root`.
@@ -421,7 +423,34 @@ fn buildNes(
     mem_obj.root_module.addCSourceFiles(.{ .root = b.path("sdk"), .files = &.{"mem.s"} });
     mem_obj.lto = .none;
 
-    return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc, .neslib = libneslib, .nesdoug = libnesdoug, .nes_c = libnes_c, .nes_c_startup = libnes_c_startup, .mem = mem_obj };
+    // libfamitone2 — FamiTone2 music/sound engine + fixed-bank wrappers.
+    // Combines nes-famitone2 (core engine) and nes-ft2-fixed-wrappers (banked call wrappers).
+    const ft2_dir = b.fmt("{s}/famitone2", .{nes_dir});
+    const libfamitone2 = addLib(b, "famitone2", target, opt);
+    libfamitone2.root_module.addIncludePath(.{ .cwd_relative = ft2_dir });
+    libfamitone2.root_module.addIncludePath(.{ .cwd_relative = com_asm });
+    libfamitone2.root_module.addIncludePath(.{ .cwd_relative = com_inc });
+    libfamitone2.root_module.addIncludePath(.{ .cwd_relative = neslib_dir });
+    libfamitone2.root_module.addIncludePath(.{ .cwd_relative = nes_dir });
+    libfamitone2.root_module.addCMacro("__NES__", "1");
+    libfamitone2.root_module.addCSourceFiles(.{
+        .root = .{ .cwd_relative = ft2_dir },
+        .files = &.{
+            "famitone2.s",
+            "famitone2.c",
+            "music-bank.c",
+            "music-bank.s",
+            "sounds-bank.c",
+            "sounds-bank.s",
+            // fixed-bank wrappers (nes-ft2-fixed-wrappers in cmake)
+            "fixed-wrappers.s",
+            "music-bank-wrappers.s",
+            "sounds-bank-wrappers.s",
+        },
+        .flags = nes_cflags,
+    });
+
+    return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc, .neslib = libneslib, .nesdoug = libnesdoug, .nes_c = libnes_c, .nes_c_startup = libnes_c_startup, .mem = mem_obj, .famitone2 = libfamitone2 };
 }
 
 fn buildNeo6502(
@@ -1148,7 +1177,14 @@ fn buildEater(
         .files = &.{ "delay.c", "getchar.c", "lcd.c", "putchar.c" },
     });
 
-    return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc, .crt0_obj = crt0_obj };
+    const mem_obj = b.addObject(.{
+        .name = "mem",
+        .root_module = b.createModule(.{ .target = target, .optimize = opt }),
+    });
+    mem_obj.root_module.addCSourceFiles(.{ .root = b.path("sdk"), .files = &.{"mem.s"} });
+    mem_obj.lto = .none;
+
+    return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc, .crt0_obj = crt0_obj, .mem = mem_obj };
 }
 
 fn buildGeosCbm(
@@ -1577,7 +1613,7 @@ fn buildSupervision(
     // supervision/crt0.c provides .init.50 hardware init — section-only, TRUE object.
     const crt0_obj2 = b.addObject(.{
         .name = "crt0_plat",
-        .root_module = b.createModule(.{ .target = target, .optimize = opt }),
+        .root_module = b.createModule(.{ .target = target, .optimize = opt, .sanitize_c = .off }),
     });
     crt0_obj2.root_module.addIncludePath(.{ .cwd_relative = plat_dir });
     crt0_obj2.root_module.addIncludePath(.{ .cwd_relative = com_asm });
@@ -1931,6 +1967,7 @@ pub fn build(b: *std.Build) void {
         if (libs.neslib) |l| installLib(b, l, pd.name);
         if (libs.nesdoug) |l| installLib(b, l, pd.name);
         if (libs.nes_c) |l| installLib(b, l, pd.name);
+        if (libs.famitone2) |l| installLib(b, l, pd.name);
     }
 }
 
