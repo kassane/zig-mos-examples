@@ -547,6 +547,64 @@ pub fn build(b: *std.Build) void {
         run_bininfo.addFileArg(exe.getEmittedBin());
     }
 
+    // ---- C64 benchmarks ----
+    {
+        const step = b.step("c64-bench-crc8", "Build C64 CRC-8/GSM-A benchmark (C64 Kernal)");
+        const exe = addC64Exe(b, sdk_dep, sdk_src, sdk_libs.c64 orelse @panic("c64 libs not built"), optimize, "c64-bench-crc8", "c64/bench-crc8/bench-crc8.zig", false);
+        const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "c64-bench-crc8.prg" });
+        step.dependOn(&install.step);
+        b.getInstallStep().dependOn(&install.step);
+        run_bininfo.addFileArg(exe.getEmittedBin());
+    }
+    {
+        const step = b.step("c64-bench-crc16", "Build C64 CRC-16/XMODEM benchmark (C64 Kernal)");
+        const exe = addC64Exe(b, sdk_dep, sdk_src, sdk_libs.c64 orelse @panic("c64 libs not built"), optimize, "c64-bench-crc16", "c64/bench-crc16/bench-crc16.zig", false);
+        const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "c64-bench-crc16.prg" });
+        step.dependOn(&install.step);
+        b.getInstallStep().dependOn(&install.step);
+        run_bininfo.addFileArg(exe.getEmittedBin());
+    }
+    {
+        const step = b.step("c64-bench-crc32", "Build C64 CRC-32/CKSUM benchmark (C64 Kernal)");
+        const exe = addC64Exe(b, sdk_dep, sdk_src, sdk_libs.c64 orelse @panic("c64 libs not built"), optimize, "c64-bench-crc32", "c64/bench-crc32/bench-crc32.zig", false);
+        const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "c64-bench-crc32.prg" });
+        step.dependOn(&install.step);
+        b.getInstallStep().dependOn(&install.step);
+        run_bininfo.addFileArg(exe.getEmittedBin());
+    }
+    {
+        const step = b.step("c64-bench-aes256", "Build C64 AES-256-CBC benchmark");
+        const exe = addC64Exe(b, sdk_dep, sdk_src, sdk_libs.c64 orelse @panic("c64 libs not built"), optimize, "c64-bench-aes256", "c64/bench-aes256/bench-aes256.zig", false);
+        const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "c64-bench-aes256.prg" });
+        step.dependOn(&install.step);
+        b.getInstallStep().dependOn(&install.step);
+        run_bininfo.addFileArg(exe.getEmittedBin());
+    }
+    {
+        const step = b.step("c64-bench-sieve", "Build C64 Sieve of Eratosthenes benchmark");
+        const exe = addC64Exe(b, sdk_dep, sdk_src, sdk_libs.c64 orelse @panic("c64 libs not built"), optimize, "c64-bench-sieve", "c64/bench-sieve/bench-sieve.zig", false);
+        const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "c64-bench-sieve.prg" });
+        step.dependOn(&install.step);
+        b.getInstallStep().dependOn(&install.step);
+        run_bininfo.addFileArg(exe.getEmittedBin());
+    }
+    {
+        const step = b.step("c64-bench-pi", "Build C64 pi-digits benchmark (Spigot algorithm)");
+        const exe = addC64Exe(b, sdk_dep, sdk_src, sdk_libs.c64 orelse @panic("c64 libs not built"), optimize, "c64-bench-pi", "c64/bench-pi/bench-pi.zig", false);
+        const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "c64-bench-pi.prg" });
+        step.dependOn(&install.step);
+        b.getInstallStep().dependOn(&install.step);
+        run_bininfo.addFileArg(exe.getEmittedBin());
+    }
+    {
+        const step = b.step("c64-bench-fact", "Build C64 factorial benchmark (1000 iterations)");
+        const exe = addC64Exe(b, sdk_dep, sdk_src, sdk_libs.c64 orelse @panic("c64 libs not built"), optimize, "c64-bench-fact", "c64/bench-fact/bench-fact.zig", false);
+        const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "c64-bench-fact.prg" });
+        step.dependOn(&install.step);
+        b.getInstallStep().dependOn(&install.step);
+        run_bininfo.addFileArg(exe.getEmittedBin());
+    }
+
     // ---- GEOS CBM hello ----
     {
         const step = b.step("geos-hello", "Build GEOS CBM hello example");
