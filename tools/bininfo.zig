@@ -160,7 +160,7 @@ fn dumpDebugInfo(
     };
     defer di.deinit(gpa);
 
-    out.print("  -- debug_info DIEs " ++ "-" ** 35 ++ "\n", .{}) catch {};
+    out.print("  -- debug_info DIEs " ++ "-----------------------------------" ++ "\n", .{}) catch {};
 
     for (di.compile_unit_list.items) |*cu| {
         const cu_name = cu.die.getAttrString(
@@ -211,7 +211,7 @@ fn dumpDebugInfo(
 
 // Parse .debug_line and display source file tables.
 fn dumpDebugLine(out: anytype, debug_line: []const u8) void {
-    out.print("  -- debug_line file tables " ++ "-" ** 27 ++ "\n", .{}) catch {};
+    out.print("  -- debug_line file tables " ++ "---------------------------" ++ "\n", .{}) catch {};
     var pos: usize = 0;
     var ltu: u32 = 0;
     while (pos + 10 <= debug_line.len) {
@@ -351,7 +351,7 @@ fn checkElf(out: anytype, gpa: std.mem.Allocator, path: []const u8, data: []cons
 
     // ── Section table (all sections, like llvm-readelf -S) ───────────────────
     if (opts.sections) {
-        out.print("  -- Sections " ++ "-" ** 42 ++ "\n", .{}) catch {};
+        out.print("  -- Sections " ++ "------------------------------------------" ++ "\n", .{}) catch {};
         out.print("  {s:<22} {s:<10} {s:>8}  {s}\n", .{ "Name", "Type", "Size", "Flags/VMA" }) catch {};
         for (0..e_shnum) |i| {
             const sh = readVal(elf.Elf32_Shdr, data, @as(usize, e_shoff) + i * e_shentsize);
@@ -426,7 +426,7 @@ fn checkElf(out: anytype, gpa: std.mem.Allocator, path: []const u8, data: []cons
 
         // Build a per-symbol section cache for type resolution.
         // For each symbol we need its section's sh_type and sh_flags.
-        out.print("  -- Symbols (nm) " ++ "-" ** 38 ++ "\n", .{}) catch {};
+        out.print("  -- Symbols (nm) " ++ "--------------------------------------" ++ "\n", .{}) catch {};
 
         const sym_base = symtab_off;
         const show_locals = sym_count < 64; // show locals only for small objects
@@ -479,8 +479,8 @@ fn checkElf(out: anytype, gpa: std.mem.Allocator, path: []const u8, data: []cons
             ".debug_frame",
             ".eh_frame",
         };
-        var dwarf_offsets = [_]u32{0} ** dwarf_names.len;
-        var dwarf_sizes = [_]u32{0} ** dwarf_names.len;
+        var dwarf_offsets: [dwarf_names.len]u32 = @splat(0);
+        var dwarf_sizes: [dwarf_names.len]u32 = @splat(0);
 
         for (0..e_shnum) |i| {
             const sh = readVal(elf.Elf32_Shdr, data, @as(usize, e_shoff) + i * e_shentsize);
@@ -525,7 +525,7 @@ fn checkElf(out: anytype, gpa: std.mem.Allocator, path: []const u8, data: []cons
                 }
             }
 
-            out.print("  -- DWARF " ++ "-" ** 45 ++ "\n", .{}) catch {};
+            out.print("  -- DWARF " ++ "---------------------------------------------" ++ "\n", .{}) catch {};
             if (dwarf_ver > 0)
                 out.print("  version=DWARFv{d}  compile-units={d}\n", .{ dwarf_ver, cu_count }) catch {};
 
@@ -1043,7 +1043,7 @@ fn op(m: *const [3]u8, mode: OpcodeMode) OpcodeInfo {
 
 const opcode_table: [256]OpcodeInfo = blk: {
     const M = OpcodeMode;
-    var t = [_]OpcodeInfo{.{ .mnem = "???\x00".*, .mode = .imp }} ** 256;
+    var t: [256]OpcodeInfo = @splat(.{ .mnem = "???\x00".*, .mode = .imp });
     t[0x00] = op("BRK", .imp);
     t[0x01] = op("ORA", .indx);
     t[0x05] = op("ORA", .zp);
@@ -1459,7 +1459,7 @@ pub fn main(init: std.process.Init) !void {
             if (!checkFile(stdout, alloc, arg, data, opts)) all_ok = false;
 
             if (opts.xxd) {
-                stdout.print("  -- xxd " ++ "-" ** 47 ++ "\n", .{}) catch {};
+                stdout.print("  -- xxd " ++ "-----------------------------------------------" ++ "\n", .{}) catch {};
                 xxdDump(stdout, data, opts.xxd_limit);
             }
             if (opts.disasm) {
@@ -1468,7 +1468,7 @@ pub fn main(init: std.process.Init) !void {
                     std.ascii.eqlIgnoreCase(std.fs.path.extension(arg), ".prg");
                 const load_addr: u16 = if (is_prg) readU16Le(data, 0) else 0;
                 const payload: []const u8 = if (is_prg) data[2..] else data;
-                stdout.print("  -- disasm (6502) load=${x:0>4} " ++ "-" ** 24 ++ "\n", .{load_addr}) catch {};
+                stdout.print("  -- disasm (6502) load=${x:0>4} " ++ "------------------------" ++ "\n", .{load_addr}) catch {};
                 disasm6502(stdout, payload, load_addr);
             }
             stdout_fw.flush() catch {};

@@ -5,7 +5,7 @@ pub const panic = @import("mos_panic");
 const neslib = @import("neslib");
 const nesdoug = @import("nesdoug");
 
-const bg_palette: [16]u8 = .{ 0x0f, 0x00, 0x10, 0x30 } ++ .{0x00} ** 12;
+const bg_palette: [16]u8 = .{ 0x0f, 0x00, 0x10, 0x30, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 const message: [12]u8 = .{ 'H', 'E', 'L', 'L', 'O', ' ', 'W', 'O', 'R', 'L', 'D', '!' };
 
 pub export fn main() callconv(.c) void {

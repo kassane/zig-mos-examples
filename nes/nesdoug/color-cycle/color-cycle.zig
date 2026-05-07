@@ -6,7 +6,8 @@ const neslib = @import("neslib");
 
 pub export fn main() callconv(.c) void {
     neslib.ppu_off();
-    neslib.pal_bg(&(.{0x0f} ** 16));
+    const pal: [16]u8 = @splat(0x0f);
+    neslib.pal_bg(&pal);
     neslib.ppu_on_bg();
 
     var color: u8 = 0;

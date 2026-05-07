@@ -6,7 +6,7 @@ const neslib = @import("neslib");
 
 /// One full BG palette (4 sub-palettes × 4 colours = 16 bytes).
 /// Sub-palette 0: black background, three greys.
-const bg_palette: [16]u8 = .{ 0x0f, 0x00, 0x10, 0x30 } ++ .{0x00} ** 12;
+const bg_palette: [16]u8 = .{ 0x0f, 0x00, 0x10, 0x30, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
 pub export fn main() callconv(.c) void {
     neslib.ppu_off();

@@ -12,7 +12,7 @@ pub export fn main() callconv(.c) void {
     // Select CHR bank 0 (Alpha.chr) before enabling rendering.
     mapper.set_chr_bank(0);
     // Blue background: NES palette 0x11 (light blue), white text on colour 3.
-    const bg_pal: [16]u8 = .{ 0x11, 0x00, 0x10, 0x30 } ++ .{0x00} ** 12;
+    const bg_pal: [16]u8 = .{ 0x11, 0x00, 0x10, 0x30, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
     neslib.pal_bright(4);
     neslib.pal_bg(&bg_pal);
     neslib.vram_adr(neslib.NTADR_A(4, 14));

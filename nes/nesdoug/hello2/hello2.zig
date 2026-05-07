@@ -4,7 +4,7 @@
 pub const panic = @import("mos_panic");
 const neslib = @import("neslib");
 
-const bg_palette: [16]u8 = .{ 0x0f, 0x00, 0x10, 0x30 } ++ .{0x00} ** 12;
+const bg_palette: [16]u8 = .{ 0x0f, 0x00, 0x10, 0x30, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
 pub export fn main() callconv(.c) void {
     // Sequential VRAM packet: writes "HELLO WORLD!" horizontally at tile (10, 14).

@@ -2850,7 +2850,7 @@ fn addSnesExe(
 
     // Build ROM header title: pad/truncate to exactly 21 ASCII bytes.
     const raw_title = cfg.title orelse if (cfg.hirom) "ZIG SNES HIROM" else "ZIG SNES HELLO";
-    var title_buf: [21]u8 = .{' '} ** 21;
+    var title_buf: [21]u8 = @splat(' ');
     @memcpy(title_buf[0..@min(raw_title.len, 21)], raw_title[0..@min(raw_title.len, 21)]);
     const map_mode: u8 = if (cfg.hirom) 0x21 else if (cfg.fastrom) 0x30 else 0x20;
 

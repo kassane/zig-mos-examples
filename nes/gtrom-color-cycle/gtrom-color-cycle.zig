@@ -15,7 +15,8 @@ pub export fn main() callconv(.c) void {
     mapper.set_nt_bank(0);
     _ = mapper.set_mapper_green_led(true);
     _ = mapper.set_mapper_red_led(false);
-    neslib.pal_bg(&(.{0x0f} ** 16));
+    const pal: [16]u8 = @splat(0x0f);
+    neslib.pal_bg(&pal);
     neslib.ppu_on_bg();
 
     var color: u8 = 0;

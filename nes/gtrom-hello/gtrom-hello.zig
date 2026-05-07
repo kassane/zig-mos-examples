@@ -17,7 +17,7 @@ pub export fn main() callconv(.c) void {
     mapper.set_nt_bank(0);
     // Light the green LED on the cartridge PCB.
     _ = mapper.set_mapper_green_led(true);
-    const bg_pal: [16]u8 = .{ 0x19, 0x19, 0x29, 0x39 } ++ .{0x00} ** 12;
+    const bg_pal: [16]u8 = .{ 0x19, 0x19, 0x29, 0x39, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
     neslib.pal_bright(4);
     neslib.pal_bg(&bg_pal);
     neslib.ppu_on_all();

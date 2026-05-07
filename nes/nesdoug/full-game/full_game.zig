@@ -666,20 +666,20 @@ var death: u8 = 0;
 var map_loaded: u8 = 0;
 var enemy_frames: u8 = 0;
 
-var coin_x: [MAX_COINS]u8 = [_]u8{0} ** MAX_COINS;
-var coin_y: [MAX_COINS]u8 = [_]u8{TURN_OFF} ** MAX_COINS;
-var coin_active: [MAX_COINS]u8 = [_]u8{0} ** MAX_COINS;
-var coin_room: [MAX_COINS]u8 = [_]u8{0} ** MAX_COINS;
-var coin_actual_x: [MAX_COINS]u8 = [_]u8{0} ** MAX_COINS;
-var coin_type: [MAX_COINS]u8 = [_]u8{0} ** MAX_COINS;
+var coin_x: [MAX_COINS]u8 = @splat(0);
+var coin_y: [MAX_COINS]u8 = @splat(TURN_OFF);
+var coin_active: [MAX_COINS]u8 = @splat(0);
+var coin_room: [MAX_COINS]u8 = @splat(0);
+var coin_actual_x: [MAX_COINS]u8 = @splat(0);
+var coin_type: [MAX_COINS]u8 = @splat(0);
 
-var enemy_x: [MAX_ENEMY]u8 = [_]u8{0} ** MAX_ENEMY;
-var enemy_y: [MAX_ENEMY]u8 = [_]u8{TURN_OFF} ** MAX_ENEMY;
-var enemy_active: [MAX_ENEMY]u8 = [_]u8{0} ** MAX_ENEMY;
-var enemy_room: [MAX_ENEMY]u8 = [_]u8{0} ** MAX_ENEMY;
-var enemy_actual_x: [MAX_ENEMY]u8 = [_]u8{0} ** MAX_ENEMY;
-var enemy_type: [MAX_ENEMY]u8 = [_]u8{0} ** MAX_ENEMY;
-var enemy_anim: [MAX_ENEMY]?*const anyopaque = [_]?*const anyopaque{null} ** MAX_ENEMY;
+var enemy_x: [MAX_ENEMY]u8 = @splat(0);
+var enemy_y: [MAX_ENEMY]u8 = @splat(TURN_OFF);
+var enemy_active: [MAX_ENEMY]u8 = @splat(0);
+var enemy_room: [MAX_ENEMY]u8 = @splat(0);
+var enemy_actual_x: [MAX_ENEMY]u8 = @splat(0);
+var enemy_type: [MAX_ENEMY]u8 = @splat(0);
+var enemy_anim: [MAX_ENEMY]?*const anyopaque = @splat(null);
 
 // Persistent loop state
 var short_jump_count: u8 = 0;

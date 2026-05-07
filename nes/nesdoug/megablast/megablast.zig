@@ -27,7 +27,7 @@ const sp_palette: [16]u8 = .{
     0x0F, 0x38, 0x28, 0x18,
     0x0F, 0x12, 0x22, 0x32,
 };
-const mountain_tiles: [32]u8 = .{ 1, 2, 3, 4 } ** 8;
+const mountain_tiles: [32]u8 = .{ 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4 };
 
 // Enemy source data (9 bytes): start_pat, end_pat, sprite_type, dx, dy, score, width, height, attr
 // sprite_type: 1 = one sprite, any other value = four sprites
@@ -48,8 +48,8 @@ var shake: u8 = 0;
 var enemy_cooldown: u8 = 0;
 var enemy_count: u8 = 0;
 var display_level: u8 = 0;
-var enemy_data: [100]u8 = .{0} ** 100; // 10 enemies × 10 bytes
-var star_addrs: [10]u16 = .{0} ** 10;
+var enemy_data: [100]u8 = @splat(0); // 10 enemies × 10 bytes
+var star_addrs: [10]u16 = @splat(0);
 
 // Palette cycle state (bg palette 0, colors 1 and 2)
 var pal1: u8 = bg_palette[1];
@@ -104,8 +104,8 @@ fn queueHighScore() void {
 }
 
 fn queueLives() void {
-    var row1: [16]u8 = .{0} ** 16;
-    var row2: [16]u8 = .{0} ** 16;
+    var row1: [16]u8 = @splat(0);
+    var row2: [16]u8 = @splat(0);
     const n: u8 = if (lives > 8) 8 else lives;
     var i: u8 = 0;
     while (i < n) : (i += 1) {
@@ -128,7 +128,7 @@ fn queueLevelText() void {
 }
 
 fn queueLevelErase() void {
-    const blank: [14]u8 = .{0} ** 14;
+    const blank: [14]u8 = @splat(0);
     nesdoug.multi_vram_buffer_horz(&blank, blank.len, ntaddr(14, 9));
 }
 
@@ -499,7 +499,7 @@ fn displayTitleScreen() void {
     const press = "PRESS FIRE TO BEGIN";
     neslib.vram_adr(neslib.NTADR_A(6, 20));
     neslib.vram_write(press, press.len);
-    const attr_row: [8]u8 = .{0x05} ** 8;
+    const attr_row: [8]u8 = @splat(0x05);
     neslib.vram_adr(0x23C0 + 8);
     neslib.vram_write(&attr_row, attr_row.len);
     neslib.ppu_on_all();

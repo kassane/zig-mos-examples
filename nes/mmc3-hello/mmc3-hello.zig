@@ -14,7 +14,7 @@ pub export fn main() callconv(.c) void {
     mapper.set_prg_8000(0);
     mapper.set_prg_a000(1);
     mapper.set_mirroring(mapper.MIRROR_VERTICAL);
-    const bg_pal: [16]u8 = .{ 0x1C, 0x1C, 0x2C, 0x3C } ++ .{0x00} ** 12;
+    const bg_pal: [16]u8 = .{ 0x1C, 0x1C, 0x2C, 0x3C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
     neslib.pal_bright(4);
     neslib.pal_bg(&bg_pal);
     neslib.ppu_on_all();

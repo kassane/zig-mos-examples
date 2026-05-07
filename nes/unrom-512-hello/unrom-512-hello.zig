@@ -15,7 +15,7 @@ pub export fn main() callconv(.c) void {
     _ = mapper.set_prg_bank(0);
     // CHR bank 0 is already selected at reset; explicit for clarity.
     mapper.set_chr_bank(0);
-    const bg_pal: [16]u8 = .{ 0x1A, 0x1A, 0x27, 0x30 } ++ .{0x00} ** 12;
+    const bg_pal: [16]u8 = .{ 0x1A, 0x1A, 0x27, 0x30, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
     neslib.pal_bright(4);
     neslib.pal_bg(&bg_pal);
     neslib.ppu_on_all();

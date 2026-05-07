@@ -156,7 +156,7 @@ fn op(m: *const [3]u8, mode: OpcodeMode) OpcodeInfo {
 
 const opcode_table: [256]OpcodeInfo = blk: {
     const M = OpcodeMode;
-    var t = [_]OpcodeInfo{.{ .mnem = "???\x00".*, .mode = .imp }} ** 256;
+    var t: [256]OpcodeInfo = @splat(.{ .mnem = "???\x00".*, .mode = .imp });
     t[0x00] = op("BRK", .imp);
     t[0x01] = op("ORA", .indx);
     t[0x05] = op("ORA", .zp);
@@ -1390,7 +1390,7 @@ fn cmdPackNes(alloc: std.mem.Allocator, io: std.Io, args: anytype) !void {
     flags7 |= @as(u8, @truncate((mapper_num >> 4) & 0x0F)) << 4;
     if (emit_nes2) flags7 |= 0x08;
 
-    var header = [_]u8{0} ** 16;
+    var header: [16]u8 = @splat(0);
     header[0] = 'N';
     header[1] = 'E';
     header[2] = 'S';
@@ -1532,7 +1532,7 @@ fn cmdPackSnes(alloc: std.mem.Allocator, io: std.Io, args: anytype) !void {
 
     // Write title if provided
     if (title_opt) |t| {
-        var title_bytes = [_]u8{0x20} ** 21;
+        var title_bytes: [21]u8 = @splat(0x20);
         const copy_len = @min(t.len, 21);
         @memcpy(title_bytes[0..copy_len], t[0..copy_len]);
         @memcpy(rom[hdr_off..][0..21], &title_bytes);
@@ -1563,7 +1563,7 @@ fn cmdPackSnes(alloc: std.mem.Allocator, io: std.Io, args: anytype) !void {
     defer out_f.close(io);
 
     if (add_smc) {
-        const smc_hdr = [_]u8{0x00} ** 512;
+        const smc_hdr: [512]u8 = @splat(0x00);
         try out_f.writeStreamingAll(io, &smc_hdr);
     }
     try out_f.writeStreamingAll(io, rom);

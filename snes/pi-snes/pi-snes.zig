@@ -33,7 +33,7 @@ const MAX_DIGITS: usize = 900;
 
 var A: [A_LEN]u8 = undefined;
 // WRAM buffer: all computed digits as ASCII.
-var pi_digits: [MAX_DIGITS]u8 = .{0} ** MAX_DIGITS;
+var pi_digits: [MAX_DIGITS]u8 = @splat(0);
 var pi_count: u16 = 0;
 // Tracks how many digits have been written to VRAM so far.
 var render_head: u16 = 0;
