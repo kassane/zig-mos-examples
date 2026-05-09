@@ -186,7 +186,9 @@ Output files land in `zig-out/bin/`.
 
 | Example | Preview |
 |---------|---------|
-| `c64-plasma` — Commodore 64 plasma effect | |
+| `mega65-plasma` — MEGA65 Plasma effect | ![](.github/mega65_plasma.gif) |
+| `c64-plasma` — Commodore 64 plasma effect | ![](.github/c64_plasma.gif) |
+| `mega65-hello` — print to screen | <center><img width="320" src=".github/xemu-xmega65_hello-zig.png"></center> |
 | `pce-color-cycle-banked` — PC Engine banked colour cycle | |
 | `atari2600-colorbar` — Atari 2600 colour bars | |
 
@@ -422,6 +424,8 @@ The `gen-labels` build step runs this automatically for all NES examples.
 - **OSI Challenger 1P hello** — uses `printf` via the platform's hosted libc (linked from `mos-platform/common/c/`); outputs a raw `TRIM(ram)` binary with load address `$0200`, no file header. Detected by `bininfo` from the filename prefix.
 - **CP/M-65 hello** — uses `cpm_printstring` via the CP/M-65 BDOS call wrapper; the ELF is post-processed by `elftocpm65` to produce a 4-byte-header relocatable `.com` file (ZP size, memory pages, pblock address, `0x4C` BDOS stub).
 - **sim-hello** — uses translated `sim-io.h` (typed MMIO struct) via `b.addTranslateC`; benchmarks fib(10), fib(20), and sieve of Eratosthenes for primes < 128.
+- **MEGA65 hello** — uses a comptime `screenCodes()` function to convert an ASCII string to PETSCII screen codes at compile time (uppercase A–Z → codes 1–26; digits/punctuation $20–$3F unchanged); writes to 80-column screen RAM at `$0800`; sets the border colour to green (colour 5) via the VIC-IV `bordercol` register at `$D020`.
+- **MEGA65 viciv** — VIC-IV colour test; sets screen colour to bubblegum (`$1E`) via `$D021` and cycles border colour through all 256 values in a tight loop. Requires GUI display (xemu or real hardware) to observe the colour effect — headless `-dumpscreen` captures only character codes, not VIC-IV colour registers.
 
 ## References
 
