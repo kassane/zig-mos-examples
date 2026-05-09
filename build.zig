@@ -1680,6 +1680,11 @@ fn addMega65Exe(
     exe.root_module.linkLibrary(libs.crt);
     exe.root_module.linkLibrary(libs.crt0);
     exe.root_module.linkLibrary(libs.c);
+    if (libs.printf) |libprintf| exe.root_module.linkLibrary(libprintf);
+    if (libs.crt0_obj) |obj| exe.root_module.addObject(obj);
+    if (libs.mem) |mem_obj| exe.root_module.addObject(mem_obj);
+    exe.forceUndefinedSymbol("__zig_call_main_section");
+    exe.forceUndefinedSymbol("main");
     exe.setLibCFile(libc_txt);
     exe.root_module.link_libc = true;
     exe.setLinkerScript(wrapper_ld);

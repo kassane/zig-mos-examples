@@ -129,34 +129,3 @@ export fn main() void {
     while (true) draw();
 }
 
-/// Satisfy crt0's __zero_bss / compiler-generated memory ops (no C stdlib linked).
-export fn __memset(dest: [*]u8, c: u32, n: usize) [*]u8 {
-    var i: usize = 0;
-    while (i < n) : (i += 1) dest[i] = @truncate(c);
-    return dest;
-}
-
-export fn memset(dest: [*]u8, c: c_int, n: usize) [*]u8 {
-    var i: usize = 0;
-    while (i < n) : (i += 1) dest[i] = @truncate(@as(c_uint, @bitCast(c)));
-    return dest;
-}
-
-export fn memcpy(noalias dest: [*]u8, noalias src: [*]const u8, n: usize) [*]u8 {
-    @memcpy(dest[0..n], src[0..n]);
-    return dest;
-}
-
-export fn memmove(dest: [*]u8, src: [*]const u8, n: usize) [*]u8 {
-    if (@intFromPtr(dest) < @intFromPtr(src)) {
-        var i: usize = 0;
-        while (i < n) : (i += 1) dest[i] = src[i];
-    } else {
-        var i: usize = n;
-        while (i > 0) {
-            i -= 1;
-            dest[i] = src[i];
-        }
-    }
-    return dest;
-}
