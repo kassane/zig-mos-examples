@@ -642,8 +642,27 @@ pub fn build(b: *std.Build) void {
             b.getInstallStep().dependOn(&install.step);
             run_bininfo.addFileArg(exe.getEmittedBin());
         }
+        {
+            const step = b.step("mega65-mandelbrot", "Build MEGA65 Mandelbrot FCM fractal");
+            // Debug triggers MOS stack-protector (SSP) lowering failure on compute-heavy code.
+            const exe = addMega65Exe(b, sdk_dep, sdk_src, sdk_libs.mega65 orelse @panic("mega65 libs not built"), m65_dep, if (optimize == .Debug) .ReleaseSmall else optimize, "mandelbrot", "mega65/mandelbrot/mandelbrot.zig");
+            exe.root_module.addImport("mega65", mega65_mod);
+            const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "mega65-mandelbrot.prg" });
+            step.dependOn(&install.step);
+            b.getInstallStep().dependOn(&install.step);
+            run_bininfo.addFileArg(exe.getEmittedBin());
+        }
+        {
+            const step = b.step("mega65-vector-logo", "Build MEGA65 rotating LLVM-MOS wireframe logo");
+            const exe = addMega65Exe(b, sdk_dep, sdk_src, sdk_libs.mega65 orelse @panic("mega65 libs not built"), m65_dep, optimize, "vector_logo", "mega65/vector_logo/vector_logo.zig");
+            exe.root_module.addImport("mega65", mega65_mod);
+            const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "mega65-vector-logo.prg" });
+            step.dependOn(&install.step);
+            b.getInstallStep().dependOn(&install.step);
+            run_bininfo.addFileArg(exe.getEmittedBin());
+        }
     } else {
-        inline for (.{ "mega65-hello", "mega65-plasma", "mega65-viciv" }) |name| {
+        inline for (.{ "mega65-hello", "mega65-plasma", "mega65-viciv", "mega65-mandelbrot", "mega65-vector-logo" }) |name| {
             _ = b.step(name, "Build MEGA65 example (fetching mega65-libc, re-run to build)");
         }
     }
