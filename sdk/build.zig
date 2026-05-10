@@ -38,6 +38,9 @@ pub const Libs = struct {
     crt0_obj2: ?*std.Build.Step.Compile = null,
     // NES only: FamiTone2 music/sound engine + banked fixed-bank wrappers.
     famitone2: ?*std.Build.Step.Compile = null,
+    // MEGA65/Commodore: save-basic.S saves/restores ZP and overrides _Exit to return
+    // cleanly to BASIC. Must be a TRUE object (section-only .init.005/.fini.989).
+    save_basic: ?*std.Build.Step.Compile = null,
 };
 
 /// Build platform libraries for `pd` from the SDK source tree at `sdk_root`.
@@ -249,7 +252,25 @@ pub fn buildPlatform(b: *std.Build, sdk_root: []const u8, pd: Platform, opt: std
             .files = &.{"crt0.S"},
         });
         crt0_obj.lto = .none;
-        return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc, .printf = libprintf, .mem = mem_obj, .crt0_obj = crt0_obj };
+        // save-basic.S: TRUE object for MEGA65/Commodore clean BASIC exit (PR #430).
+        // Contains .init.005 (save ZP) and .fini.989 (restore ZP) section-only contributions
+        // with no exported symbol → must be a TRUE object, not an archive member (Hard rule #5).
+        var save_basic_obj: ?*std.Build.Step.Compile = null;
+        if (std.mem.eql(u8, pd.name, "mega65")) {
+            const sb_obj = b.addObject(.{
+                .name = "save-basic",
+                .root_module = b.createModule(.{ .target = target, .optimize = opt }),
+            });
+            sb_obj.root_module.addIncludePath(.{ .cwd_relative = com_asm });
+            sb_obj.root_module.addIncludePath(.{ .cwd_relative = com_inc });
+            sb_obj.root_module.addCSourceFiles(.{
+                .root = .{ .cwd_relative = comm_dir },
+                .files = &.{"save-basic.S"},
+            });
+            sb_obj.lto = .none;
+            save_basic_obj = sb_obj;
+        }
+        return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc, .printf = libprintf, .mem = mem_obj, .crt0_obj = crt0_obj, .save_basic = save_basic_obj };
     }
 
     return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc };

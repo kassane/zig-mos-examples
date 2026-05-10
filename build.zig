@@ -43,7 +43,6 @@ pub fn build(b: *std.Build) void {
     // llvm-mos-sdk git source — always required for headers, linker scripts, and platform libs.
     const sdk_dep = b.dependency("llvm-mos-sdk", .{});
     const sdk_src_raw = sdk_dep.path(".").getPath(b);
-    const apple2_dep = b.dependency("apple2", .{});
     // Normalize separators for embedding in linker scripts and assembly (.incbin).
     const sdk_src = blk: {
         const buf = b.allocator.dupe(u8, sdk_src_raw) catch @panic("OOM");
@@ -717,7 +716,7 @@ pub fn build(b: *std.Build) void {
     }
 
     // ---- Apple2 hello ----
-    {
+    if (b.lazyDependency("apple2", .{})) |apple2_dep| {
         const step = b.step("apple2-hello", "Build Apple IIe hello example");
         const exe = addApple2Exe(b, sdk_src, apple2_dep, optimize);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "hello.sys" });
@@ -1682,6 +1681,7 @@ fn addMega65Exe(
     exe.root_module.linkLibrary(libs.c);
     if (libs.crt0_obj) |obj| exe.root_module.addObject(obj);
     if (libs.mem) |mem_obj| exe.root_module.addObject(mem_obj);
+    if (libs.save_basic) |sb_obj| exe.root_module.addObject(sb_obj);
     exe.forceUndefinedSymbol("__zig_call_main_section");
     exe.forceUndefinedSymbol("main");
     exe.setLibCFile(libc_txt);
