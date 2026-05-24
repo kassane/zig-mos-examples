@@ -10,9 +10,10 @@ const mapper = @import("mapper");
 
 pub export fn main() callconv(.c) void {
     neslib.ppu_off();
-    // Initialise MMC3: select PRG banks and set vertical mirroring.
+    // Initialise MMC3: select PRG bank and set vertical mirroring.
+    // NEVER call set_prg_a000 — reset stub hardmaps bank 61 to $A000-$BFFF
+    // where this code runs; swapping it causes an immediate crash.
     mapper.set_prg_8000(0);
-    mapper.set_prg_a000(1);
     mapper.set_mirroring(mapper.MIRROR_VERTICAL);
     const bg_pal: [16]u8 = .{ 0x1C, 0x1C, 0x2C, 0x3C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
     neslib.pal_bright(4);

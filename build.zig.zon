@@ -1,6 +1,6 @@
 .{
     .name = .zig_mos_examples,
-    .version = "0.0.0",
+    .version = "0.1.0",
     .dependencies = .{
         .@"mega65-libc" = .{
             .url = "git+https://github.com/mega65/mega65-libc#49f2f115d3d45da9475f00a34250587df472fe3a",
@@ -14,6 +14,11 @@
         .apple2 = .{
             .url = "git+https://github.com/TheHans255/apple-ii-port-work#31fde9997cfb4a5e98a9d0fc0efaf869fbedeb1f",
             .hash = "N-V-__8AAIzPAQDlio9aQBDM199SjX-qme9i0IIUuqp2IX0v",
+            .lazy = true,
+        },
+        .picolibc = .{
+            .url = "git+https://gitlab.com/kassane/picolibc-zig#360ba2950e168319542e1d5a1947292b8d15f6ca",
+            .hash = "picolibc-0.1.0-_XRGM-dNAQBf0VZS9v7bYWJc_mDvwUcdsztD4elcPthZ",
             .lazy = true,
         },
     },

@@ -69,6 +69,7 @@ jobs:
       - name: Run MOS-SIM tests
         run: |
             zig build run-sim-hello
+            zig build run-sim-picolibc-demo
             zig build run-sim-addrspace-test
 
       - name: Verify outputs

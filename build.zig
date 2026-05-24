@@ -604,6 +604,18 @@ pub fn build(b: *std.Build) void {
         run_bininfo.addFileArg(exe.getEmittedBin());
     }
 
+    // ---- C64 picolibc-demo (math.h via zig-picolibc) ----
+    if (buildPicolibc(b, b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .c64 }))) |pc| {
+        const step = b.step("c64-picolibc-demo", "Build C64 picolibc math demo");
+        const exe = addC64Exe(b, sdk_dep, sdk_src, sdk_libs.c64 orelse @panic("c64 libs not built"), optimize, "c64-picolibc-demo", "c64/picolibc-demo/picolibc-demo.zig", false);
+        exe.root_module.linkLibrary(pc.lib);
+        exe.root_module.addImport("picolibc", pc.c);
+        const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "c64-picolibc-demo.prg" });
+        step.dependOn(&install.step);
+        b.getInstallStep().dependOn(&install.step);
+        run_bininfo.addFileArg(exe.getEmittedBin());
+    }
+
     // ---- GEOS CBM hello ----
     {
         const step = b.step("geos-hello", "Build GEOS CBM hello example");
@@ -661,8 +673,21 @@ pub fn build(b: *std.Build) void {
             b.getInstallStep().dependOn(&install.step);
             run_bininfo.addFileArg(exe.getEmittedBin());
         }
+        if (buildPicolibc(b, b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .mega65 }))) |pc| {
+            const step = b.step("mega65-picolibc-demo", "Build MEGA65 picolibc math demo");
+            // picolibc + Debug + mega65 = ld.lld unable to lower stackguard (MEGA65 SSP issue).
+            // Force ReleaseSmall to stay below the SSP threshold.
+            const exe = addMega65Exe(b, sdk_dep, sdk_src, sdk_libs.mega65 orelse @panic("mega65 libs not built"), m65_dep, .ReleaseSmall, "mega65-picolibc-demo", "mega65/picolibc-demo/picolibc-demo.zig");
+            exe.root_module.addImport("mega65", mega65_mod);
+            exe.root_module.linkLibrary(pc.lib);
+            exe.root_module.addImport("picolibc", pc.c);
+            const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "mega65-picolibc-demo.prg" });
+            step.dependOn(&install.step);
+            b.getInstallStep().dependOn(&install.step);
+            run_bininfo.addFileArg(exe.getEmittedBin());
+        }
     } else {
-        inline for (.{ "mega65-hello", "mega65-plasma", "mega65-viciv", "mega65-mandelbrot", "mega65-vector-logo" }) |name| {
+        inline for (.{ "mega65-hello", "mega65-plasma", "mega65-viciv", "mega65-mandelbrot", "mega65-vector-logo", "mega65-picolibc-demo" }) |name| {
             _ = b.step(name, "Build MEGA65 example (fetching mega65-libc, re-run to build)");
         }
     }
@@ -672,9 +697,24 @@ pub fn build(b: *std.Build) void {
         const neo6502_target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .rp6502 });
         const neo6502_mod = neo6502HeaderMod(b, sdk_dep, neo6502_target, optimize);
         const step = b.step("neo6502-graphics", "Build Neo6502 graphics example");
-        const exe = addNeo6502Exe(b, sdk_dep, sdk_src, sdk_libs.neo6502 orelse @panic("neo6502 libs not built"), optimize);
+        const exe = addNeo6502Exe(b, sdk_dep, sdk_src, sdk_libs.neo6502 orelse @panic("neo6502 libs not built"), optimize, "graphics", "neo6502/graphics.zig");
         exe.root_module.addImport("neo6502", neo6502_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "graphics.neo" });
+        step.dependOn(&install.step);
+        b.getInstallStep().dependOn(&install.step);
+        run_bininfo.addFileArg(exe.getEmittedBin());
+    }
+
+    // ---- Neo6502 picolibc-demo ----
+    if (buildPicolibc(b, b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .rp6502 }))) |pc| {
+        const neo6502_target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .rp6502 });
+        const neo6502_mod = neo6502HeaderMod(b, sdk_dep, neo6502_target, optimize);
+        const step = b.step("neo6502-picolibc-demo", "Build Neo6502 picolibc math demo");
+        const exe = addNeo6502Exe(b, sdk_dep, sdk_src, sdk_libs.neo6502 orelse @panic("neo6502 libs not built"), optimize, "neo6502-picolibc-demo", "neo6502/picolibc-demo/picolibc-demo.zig");
+        exe.root_module.addImport("neo6502", neo6502_mod);
+        exe.root_module.linkLibrary(pc.lib);
+        exe.root_module.addImport("picolibc", pc.c);
+        const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "neo6502-picolibc-demo.neo" });
         step.dependOn(&install.step);
         b.getInstallStep().dependOn(&install.step);
         run_bininfo.addFileArg(exe.getEmittedBin());
@@ -706,6 +746,26 @@ pub fn build(b: *std.Build) void {
         run_bininfo.addFileArg(exe.getEmittedBin());
 
         const run_step = b.step("run-sim-addrspace-test", "Build and run addrspace test through mos-sim");
+        const run_cmd = b.addRunArtifact(mos_sim);
+        run_cmd.addFileArg(exe.getEmittedBin());
+        run_step.dependOn(&run_cmd.step);
+    }
+
+    // ---- sim picolibc-demo ----
+    if (buildPicolibc(b, b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .sim }))) |pc| {
+        const step = b.step("sim-picolibc-demo", "Build mos-sim picolibc math demo");
+        // picolibc + lto=.full + Debug = SIGSEGV in LLVM-MOS LTO backend.
+        // Force ReleaseSmall so the merged IR stays small enough to compile.
+        const exe = addSimExe(b, sdk_dep, sdk_src, sdk_libs.sim orelse @panic("sim libs not built"), .ReleaseSmall, "sim-picolibc-demo", "sim/picolibc-demo/picolibc-demo.zig");
+        exe.root_module.addImport("sim_io", sim_io_mod);
+        exe.root_module.linkLibrary(pc.lib);
+        exe.root_module.addImport("picolibc", pc.c);
+        const install = b.addInstallArtifact(exe, .{});
+        step.dependOn(&install.step);
+        b.getInstallStep().dependOn(&install.step);
+        run_bininfo.addFileArg(exe.getEmittedBin());
+
+        const run_step = b.step("run-sim-picolibc-demo", "Build and run picolibc math through mos-sim");
         const run_cmd = b.addRunArtifact(mos_sim);
         run_cmd.addFileArg(exe.getEmittedBin());
         run_step.dependOn(&run_cmd.step);
@@ -762,6 +822,19 @@ pub fn build(b: *std.Build) void {
         exe.root_module.addImport("cx16", cx16_mod);
         exe.root_module.addImport("cbm", cbm_mod);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "cx16-k-console-test.prg" });
+        step.dependOn(&install.step);
+        b.getInstallStep().dependOn(&install.step);
+        run_bininfo.addFileArg(exe.getEmittedBin());
+    }
+
+    // ---- CX16 picolibc-demo ----
+    if (buildPicolibc(b, b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .cx16 }))) |pc| {
+        const step = b.step("cx16-picolibc-demo", "Build CX16 picolibc math demo");
+        const exe = addCx16Exe(b, sdk_dep, sdk_src, sdk_libs.cx16 orelse @panic("cx16 libs not built"), optimize, "cx16-picolibc-demo", "cx16/picolibc-demo/picolibc-demo.zig");
+        exe.root_module.addImport("cbm", cbm_mod);
+        exe.root_module.linkLibrary(pc.lib);
+        exe.root_module.addImport("picolibc", pc.c);
+        const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "cx16-picolibc-demo.prg" });
         step.dependOn(&install.step);
         b.getInstallStep().dependOn(&install.step);
         run_bininfo.addFileArg(exe.getEmittedBin());
@@ -1717,6 +1790,8 @@ fn addNeo6502Exe(
     sdk_src: []const u8,
     libs: sdk_mod.Libs,
     opt: std.builtin.OptimizeMode,
+    name: []const u8,
+    root_src: []const u8,
 ) *std.Build.Step.Compile {
     const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .rp6502 });
 
@@ -1735,9 +1810,9 @@ fn addNeo6502Exe(
     , .{ sdk_src, sdk_src, sdk_src }));
 
     const exe = b.addExecutable(.{
-        .name = "graphics",
+        .name = name,
         .root_module = b.createModule(.{
-            .root_source_file = b.path("neo6502/graphics.zig"),
+            .root_source_file = b.path(root_src),
             .target = target,
             .optimize = opt,
             .sanitize_c = .off,
@@ -3274,6 +3349,25 @@ fn addMosPanicImport(b: *std.Build, exe: *std.Build.Step.Compile, target: std.Bu
         .optimize = opt,
         .sanitize_c = .off,
     }));
+}
+
+const PicoLibC = struct {
+    lib: *std.Build.Step.Compile,
+    c: *std.Build.Module,
+};
+
+/// Build picolibc for `target`. Returns null when the lazy dep has not been
+/// fetched yet; callers must handle null and skip the dependent example.
+/// Do not pass -Doptimize: zig-picolibc (0.17-mos-dev) does not expose that
+/// option; the library uses its own internal optimize mode.
+fn buildPicolibc(b: *std.Build, target: std.Build.ResolvedTarget) ?PicoLibC {
+    const dep = b.lazyDependency("picolibc", .{
+        .target = target,
+    }) orelse return null;
+    return .{
+        .lib = dep.artifact("picolibc"),
+        .c = dep.module("c"),
+    };
 }
 
 fn addLibcTxt(b: *std.Build, wf: *std.Build.Step.WriteFile, sdk_src: []const u8, plat: []const u8) std.Build.LazyPath {

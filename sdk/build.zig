@@ -39,7 +39,6 @@ pub const Libs = struct {
     // NES only: FamiTone2 music/sound engine + banked fixed-bank wrappers.
     famitone2: ?*std.Build.Step.Compile = null,
     // MEGA65/Commodore: save-basic.S saves/restores ZP and overrides _Exit to return
-    // cleanly to BASIC. Must be a TRUE object (section-only .init.005/.fini.989).
     save_basic: ?*std.Build.Step.Compile = null,
 };
 
