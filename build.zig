@@ -42,14 +42,13 @@ const SdkLibs = struct {
 pub fn build(b: *std.Build) void {
     // llvm-mos-sdk git source — always required for headers, linker scripts, and platform libs.
     const sdk_dep = b.dependency("llvm-mos-sdk", .{});
-    const sdk_src_raw = sdk_dep.path(".").getPath(b);
+    const sdk_src_raw = sdk_dep.builder.root.root_dir.path orelse ".";
     // Normalize separators for embedding in linker scripts and assembly (.incbin).
     const sdk_src = blk: {
         const buf = b.allocator.dupe(u8, sdk_src_raw) catch @panic("OOM");
         std.mem.replaceScalar(u8, buf, '\\', '/');
         break :blk buf;
     };
-
     const optimize = b.standardOptimizeOption(.{});
     // ---- SDK build from source (llvm-mos-sdk git) ----
     const sdk_step = b.step("sdk-build", "Build llvm-mos-sdk platform libraries from source");
@@ -604,12 +603,12 @@ pub fn build(b: *std.Build) void {
         run_bininfo.addFileArg(exe.getEmittedBin());
     }
 
-    // ---- C64 picolibc-demo (math.h via zig-picolibc) ----
+    // ---- C64 picolibc-demo (string building via zig-picolibc) ----
     if (buildPicolibc(b, b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .c64 }))) |pc| {
-        const step = b.step("c64-picolibc-demo", "Build C64 picolibc math demo");
+        const step = b.step("c64-picolibc-demo", "Build C64 picolibc string-building demo");
         const exe = addC64Exe(b, sdk_dep, sdk_src, sdk_libs.c64 orelse @panic("c64 libs not built"), optimize, "c64-picolibc-demo", "c64/picolibc-demo/picolibc-demo.zig", false);
         exe.root_module.linkLibrary(pc.lib);
-        exe.root_module.addImport("picolibc", pc.c);
+        exe.root_module.addImport("picolibc", pc.string);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "c64-picolibc-demo.prg" });
         step.dependOn(&install.step);
         b.getInstallStep().dependOn(&install.step);
@@ -674,13 +673,13 @@ pub fn build(b: *std.Build) void {
             run_bininfo.addFileArg(exe.getEmittedBin());
         }
         if (buildPicolibc(b, b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .mega65 }))) |pc| {
-            const step = b.step("mega65-picolibc-demo", "Build MEGA65 picolibc math demo");
+            const step = b.step("mega65-picolibc-demo", "Build MEGA65 picolibc copy-family demo");
             // picolibc + Debug + mega65 = ld.lld unable to lower stackguard (MEGA65 SSP issue).
             // Force ReleaseSmall to stay below the SSP threshold.
             const exe = addMega65Exe(b, sdk_dep, sdk_src, sdk_libs.mega65 orelse @panic("mega65 libs not built"), m65_dep, .ReleaseSmall, "mega65-picolibc-demo", "mega65/picolibc-demo/picolibc-demo.zig");
             exe.root_module.addImport("mega65", mega65_mod);
             exe.root_module.linkLibrary(pc.lib);
-            exe.root_module.addImport("picolibc", pc.c);
+            exe.root_module.addImport("picolibc", pc.string);
             const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "mega65-picolibc-demo.prg" });
             step.dependOn(&install.step);
             b.getInstallStep().dependOn(&install.step);
@@ -709,11 +708,11 @@ pub fn build(b: *std.Build) void {
     if (buildPicolibc(b, b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .rp6502 }))) |pc| {
         const neo6502_target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .rp6502 });
         const neo6502_mod = neo6502HeaderMod(b, sdk_dep, neo6502_target, optimize);
-        const step = b.step("neo6502-picolibc-demo", "Build Neo6502 picolibc math demo");
+        const step = b.step("neo6502-picolibc-demo", "Build Neo6502 picolibc substring-search demo");
         const exe = addNeo6502Exe(b, sdk_dep, sdk_src, sdk_libs.neo6502 orelse @panic("neo6502 libs not built"), optimize, "neo6502-picolibc-demo", "neo6502/picolibc-demo/picolibc-demo.zig");
         exe.root_module.addImport("neo6502", neo6502_mod);
         exe.root_module.linkLibrary(pc.lib);
-        exe.root_module.addImport("picolibc", pc.c);
+        exe.root_module.addImport("picolibc", pc.string);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "neo6502-picolibc-demo.neo" });
         step.dependOn(&install.step);
         b.getInstallStep().dependOn(&install.step);
@@ -753,19 +752,19 @@ pub fn build(b: *std.Build) void {
 
     // ---- sim picolibc-demo ----
     if (buildPicolibc(b, b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .sim }))) |pc| {
-        const step = b.step("sim-picolibc-demo", "Build mos-sim picolibc math demo");
+        const step = b.step("sim-picolibc-demo", "Build mos-sim picolibc memory-family demo");
         // picolibc + lto=.full + Debug = SIGSEGV in LLVM-MOS LTO backend.
         // Force ReleaseSmall so the merged IR stays small enough to compile.
         const exe = addSimExe(b, sdk_dep, sdk_src, sdk_libs.sim orelse @panic("sim libs not built"), .ReleaseSmall, "sim-picolibc-demo", "sim/picolibc-demo/picolibc-demo.zig");
         exe.root_module.addImport("sim_io", sim_io_mod);
         exe.root_module.linkLibrary(pc.lib);
-        exe.root_module.addImport("picolibc", pc.c);
+        exe.root_module.addImport("picolibc", pc.string);
         const install = b.addInstallArtifact(exe, .{});
         step.dependOn(&install.step);
         b.getInstallStep().dependOn(&install.step);
         run_bininfo.addFileArg(exe.getEmittedBin());
 
-        const run_step = b.step("run-sim-picolibc-demo", "Build and run picolibc math through mos-sim");
+        const run_step = b.step("run-sim-picolibc-demo", "Build and run picolibc memory-family demo through mos-sim");
         const run_cmd = b.addRunArtifact(mos_sim);
         run_cmd.addFileArg(exe.getEmittedBin());
         run_step.dependOn(&run_cmd.step);
@@ -829,11 +828,11 @@ pub fn build(b: *std.Build) void {
 
     // ---- CX16 picolibc-demo ----
     if (buildPicolibc(b, b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .cx16 }))) |pc| {
-        const step = b.step("cx16-picolibc-demo", "Build CX16 picolibc math demo");
+        const step = b.step("cx16-picolibc-demo", "Build CX16 picolibc compare/scan demo");
         const exe = addCx16Exe(b, sdk_dep, sdk_src, sdk_libs.cx16 orelse @panic("cx16 libs not built"), optimize, "cx16-picolibc-demo", "cx16/picolibc-demo/picolibc-demo.zig");
         exe.root_module.addImport("cbm", cbm_mod);
         exe.root_module.linkLibrary(pc.lib);
-        exe.root_module.addImport("picolibc", pc.c);
+        exe.root_module.addImport("picolibc", pc.string);
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "cx16-picolibc-demo.prg" });
         step.dependOn(&install.step);
         b.getInstallStep().dependOn(&install.step);
@@ -1043,7 +1042,7 @@ pub fn build(b: *std.Build) void {
         // CHR ROM: both .chr files in a single .chr_rom section.
         const chr_wf = b.addWriteFiles();
         const root_fwd_mmc3: []const u8 = blk: {
-            const p = b.build_root.path orelse ".";
+            const p = b.root.root_dir.path orelse ".";
             const buf = b.allocator.dupe(u8, p) catch @panic("OOM");
             std.mem.replaceScalar(u8, buf, '\\', '/');
             break :blk buf;
@@ -1397,6 +1396,11 @@ fn nesHeaderMod(
     return tc.createModule();
 }
 
+// Returns the install prefix path. Replaces the removed b.install_path field (Zig 0.17+).
+fn installPrefix(b: *std.Build) []u8 {
+    return b.pathJoin(&.{ b.root.root_dir.path orelse ".", "zig-out" });
+}
+
 fn addNesLabels(
     b: *std.Build,
     elf2mlb: *std.Build.Step.Compile,
@@ -1473,7 +1477,7 @@ fn addNesExe(
         .nrom, .cnrom => false,
         .unrom, .unrom512, .mmc1, .mmc3, .gtrom, .action53 => true,
     };
-    const reset_dir = if (needs_reset) b.fmt("{s}/objs/{s}", .{ b.install_path, name }) else "";
+    const reset_dir = if (needs_reset) b.fmt("{s}/objs/{s}", .{ installPrefix(b), name }) else "";
     var install_reset: ?*std.Build.Step.InstallFile = null;
     if (needs_reset) {
         const reset_asm = if (cfg.mapper == .mmc3)
@@ -1588,7 +1592,7 @@ fn addNesExe(
 
     // CHR ROM assembly (NROM/CNROM only).
     const root_fwd = blk: {
-        const p = b.build_root.path orelse ".";
+        const p = b.root.root_dir.path orelse ".";
         const buf = b.allocator.dupe(u8, p) catch @panic("OOM");
         std.mem.replaceScalar(u8, buf, '\\', '/');
         break :blk buf;
@@ -1698,6 +1702,7 @@ fn addC64Exe(
     exe.lto = .full;
     exe.forceUndefinedSymbol("__zig_call_main_section");
     exe.forceUndefinedSymbol("main");
+    exe.forceUndefinedSymbol("puts");
     // basic-header.S and unmap-basic.S replace INPUT(basic-header.o) / INPUT(unmap-basic.o).
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/c64/basic-header.S"));
     exe.root_module.addAssemblyFile(sdk_dep.path("mos-platform/c64/unmap-basic.S"));
@@ -1989,7 +1994,7 @@ fn addFdsExe(
         .root_module = b.createModule(.{ .target = target, .optimize = opt, .sanitize_c = .off }),
     });
     reset_obj.root_module.addAssemblyFile(sdk_dep.path("mos-platform/fds/reset.s"));
-    const reset_dir = b.fmt("{s}/objs/{s}", .{ b.install_path, name });
+    const reset_dir = b.fmt("{s}/objs/{s}", .{ installPrefix(b), name });
     const install_reset = b.addInstallFileWithDir(
         reset_obj.getEmittedBin(),
         .{ .custom = b.fmt("objs/{s}", .{name}) },
@@ -2072,7 +2077,7 @@ fn addVic20Exe(
         \\SEARCH_DIR("{s}/mos-platform/commodore");
         \\SEARCH_DIR("{s}/mos-platform/common/ldscripts");
         \\INCLUDE "{s}/mos-platform/vic20/link.ld"
-    , .{ b.install_path, objs_dir, sdk_src, sdk_src, sdk_src, sdk_src }));
+    , .{ installPrefix(b), objs_dir, sdk_src, sdk_src, sdk_src, sdk_src }));
 
     const exe = b.addExecutable(.{
         .name = name,
@@ -2088,6 +2093,7 @@ fn addVic20Exe(
     exe.step.dependOn(&install_bh.step);
     exe.forceUndefinedSymbol("__zig_call_main_section");
     exe.forceUndefinedSymbol("main");
+    exe.forceUndefinedSymbol("puts");
     if (libs.crt0_obj) |obj| exe.root_module.addObject(obj);
     if (libs.mem) |mem_obj| exe.root_module.addObject(mem_obj);
     exe.root_module.addIncludePath(sdk_dep.path("mos-platform/vic20"));
@@ -2144,7 +2150,7 @@ fn addC128Exe(
         \\SEARCH_DIR("{s}/mos-platform/commodore");
         \\SEARCH_DIR("{s}/mos-platform/common/ldscripts");
         \\INCLUDE "{s}/mos-platform/c128/link.ld"
-    , .{ b.install_path, objs_dir, sdk_src, sdk_src, sdk_src, sdk_src }));
+    , .{ installPrefix(b), objs_dir, sdk_src, sdk_src, sdk_src, sdk_src }));
 
     const exe = b.addExecutable(.{
         .name = name,
@@ -2161,6 +2167,7 @@ fn addC128Exe(
     exe.step.dependOn(&install_mmu.step);
     exe.forceUndefinedSymbol("__zig_call_main_section");
     exe.forceUndefinedSymbol("main");
+    exe.forceUndefinedSymbol("puts");
     if (libs.crt0_obj) |obj| exe.root_module.addObject(obj);
     if (libs.mem) |mem_obj| exe.root_module.addObject(mem_obj);
     exe.root_module.addIncludePath(sdk_dep.path("mos-platform/c128"));
@@ -2208,7 +2215,7 @@ fn addPetExe(
         \\SEARCH_DIR("{s}/mos-platform/commodore");
         \\SEARCH_DIR("{s}/mos-platform/common/ldscripts");
         \\INCLUDE "{s}/mos-platform/pet/link.ld"
-    , .{ b.install_path, objs_dir, sdk_src, sdk_src, sdk_src, sdk_src }));
+    , .{ installPrefix(b), objs_dir, sdk_src, sdk_src, sdk_src, sdk_src }));
 
     const exe = b.addExecutable(.{
         .name = name,
@@ -2224,6 +2231,7 @@ fn addPetExe(
     exe.step.dependOn(&install_bh.step);
     exe.forceUndefinedSymbol("__zig_call_main_section");
     exe.forceUndefinedSymbol("main");
+    exe.forceUndefinedSymbol("puts");
     if (libs.crt0_obj) |obj| exe.root_module.addObject(obj);
     if (libs.mem) |mem_obj| exe.root_module.addObject(mem_obj);
     exe.root_module.addIncludePath(sdk_dep.path("mos-platform/pet"));
@@ -2435,6 +2443,7 @@ fn addOsiC1pExe(
     exe.lto = .full;
     exe.forceUndefinedSymbol("__zig_call_main_section");
     exe.forceUndefinedSymbol("main");
+    exe.forceUndefinedSymbol("puts");
     if (libs.crt0_obj) |obj| exe.root_module.addObject(obj);
     if (libs.crt0_obj2) |obj| exe.root_module.addObject(obj);
     if (libs.mem) |mem_obj| exe.root_module.addObject(mem_obj);
@@ -2529,6 +2538,7 @@ fn addCpm65Exe(
     exe.lto = .full;
     exe.forceUndefinedSymbol("__zig_call_main_section");
     exe.forceUndefinedSymbol("main");
+    exe.forceUndefinedSymbol("puts");
     if (libs.crt0_obj) |obj| exe.root_module.addObject(obj);
     if (libs.mem) |mem_obj| exe.root_module.addObject(mem_obj);
     exe.root_module.addIncludePath(sdk_dep.path("mos-platform/cpm65"));
@@ -2781,7 +2791,7 @@ fn addAtari2600_3eExe(
     init_obj.root_module.addIncludePath(sdk_dep.path("mos-platform/atari2600-3e"));
     init_obj.root_module.addIncludePath(sdk_dep.path("mos-platform/atari2600-common"));
     init_obj.root_module.addIncludePath(sdk_dep.path("mos-platform/common/include"));
-    const init_dir = b.fmt("{s}/objs/{s}", .{ b.install_path, name });
+    const init_dir = b.fmt("{s}/objs/{s}", .{ installPrefix(b), name });
     const install_init = b.addInstallFileWithDir(init_obj.getEmittedBin(), .{ .custom = b.fmt("objs/{s}", .{name}) }, "init_mapper_3e.o");
 
     const wf = b.addWriteFiles();
@@ -2957,7 +2967,7 @@ fn addAtari8CartMegacartExe(
         \\SEARCH_DIR("{s}/mos-platform/atari8-common");
         \\SEARCH_DIR("{s}/mos-platform/common/ldscripts");
         \\INCLUDE "{s}/mos-platform/atari8-cart-megacart/link.ld"
-    , .{ b.install_path, objs_dir, sdk_src, sdk_src, sdk_src, sdk_src }));
+    , .{ installPrefix(b), objs_dir, sdk_src, sdk_src, sdk_src, sdk_src }));
 
     const exe = b.addExecutable(.{
         .name = name,
@@ -2995,7 +3005,7 @@ fn addSnesExe(
 ) *std.Build.Step.Compile {
     const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .snes });
 
-    const build_root = b.build_root.path orelse ".";
+    const build_root = b.root.root_dir.path orelse ".";
     const wf = b.addWriteFiles();
     const ld_file = if (cfg.fastrom) "fastrom.ld" else "lorom.ld";
     const ld_wrapper = if (cfg.hirom) "snes-hirom-wrapper.ld" else if (cfg.fastrom) "snes-fastrom-wrapper.ld" else "snes-lorom-wrapper.ld";
@@ -3293,7 +3303,7 @@ fn addApple2Exe(
     opt: std.builtin.OptimizeMode,
 ) *std.Build.Step.Compile {
     const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .appleii });
-    const apple2_root = apple2_dep.path(".").getPath(b);
+    const apple2_root = apple2_dep.builder.root.root_dir.path orelse ".";
 
     const wf = b.addWriteFiles();
     const wrapper_ld = wf.add("apple2-hello-wrapper.ld", b.fmt(
@@ -3353,20 +3363,16 @@ fn addMosPanicImport(b: *std.Build, exe: *std.Build.Step.Compile, target: std.Bu
 
 const PicoLibC = struct {
     lib: *std.Build.Step.Compile,
-    c: *std.Build.Module,
+    string: *std.Build.Module,
 };
 
-/// Build picolibc for `target`. Returns null when the lazy dep has not been
-/// fetched yet; callers must handle null and skip the dependent example.
-/// Do not pass -Doptimize: zig-picolibc (0.17-mos-dev) does not expose that
-/// option; the library uses its own internal optimize mode.
 fn buildPicolibc(b: *std.Build, target: std.Build.ResolvedTarget) ?PicoLibC {
     const dep = b.lazyDependency("picolibc", .{
         .target = target,
     }) orelse return null;
     return .{
         .lib = dep.artifact("picolibc"),
-        .c = dep.module("c"),
+        .string = dep.module("string"),
     };
 }
 

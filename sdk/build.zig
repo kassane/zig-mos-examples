@@ -1988,7 +1988,7 @@ fn buildPceCd(
 // ── Standalone entry point ────────────────────────────────────────────────────
 
 pub fn build(b: *std.Build) void {
-    const sdk_root = b.build_root.path orelse ".";
+    const sdk_root = b.root.root_dir.path orelse ".";
     const filter = b.option([]const u8, "platform", "Build only this platform (sim, mega65, c64, nes, neo6502, atari2600-4k, atari8-dos)");
 
     for ([_]Platform{

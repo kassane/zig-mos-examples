@@ -17,8 +17,8 @@
             .lazy = true,
         },
         .picolibc = .{
-            .url = "git+https://gitlab.com/kassane/picolibc-zig#360ba2950e168319542e1d5a1947292b8d15f6ca",
-            .hash = "picolibc-0.1.0-_XRGM-dNAQBf0VZS9v7bYWJc_mDvwUcdsztD4elcPthZ",
+            .url = "git+https://gitlab.com/kassane/picolibc-zig#4d418bb7493970738a1de6251d4386027f88d545",
+            .hash = "picolibc-1.8.11-h5ad4HlKAwBxo1ITn_yuLf-Y9w9QMx-FW5raOC4IwpFq",
             .lazy = true,
         },
     },

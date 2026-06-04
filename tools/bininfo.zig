@@ -128,8 +128,8 @@ fn readUleb128(data: []const u8, pos: *usize) u64 {
 }
 
 fn dwarfLangStr(lang: u32) []const u8 {
-    inline for (@typeInfo(dwarf.LANG).@"struct".decls) |decl| {
-        if (@as(u32, @field(dwarf.LANG, decl.name)) == lang) return decl.name;
+    inline for (@typeInfo(dwarf.LANG).@"struct".decl_names) |name| {
+        if (@as(u32, @field(dwarf.LANG, name)) == lang) return name;
     }
     return "?";
 }

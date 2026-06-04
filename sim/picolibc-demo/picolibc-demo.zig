@@ -1,6 +1,8 @@
 // Copyright (c) 2024 Matheus C. França
 // SPDX-License-Identifier: Apache-2.0
-//! mos-sim picolibc demo: exercises string.h functions from picolibc.
+//! mos-sim picolibc demo: exercises the memory family from picolibc.
+//! Theme unique to this target: memcpy / memcmp / memchr, verified at runtime
+//! through the mos-sim putchar register.
 //! Run with: mos-sim zig-out/bin/sim-picolibc-demo
 
 pub const panic = @import("mos_panic");
@@ -20,27 +22,30 @@ fn writeStr(s: []const u8) void {
 }
 
 pub fn main() void {
-    const s = "picolibc";
-    const n = pc.strlen(s);
-    if (n == 8) {
-        writeStr("strlen OK\n");
-    } else {
-        writeStr("strlen FAIL\n");
-    }
-
-    const r: c_int = pc.strcmp("abc", "abc");
-    if (r == 0) {
-        writeStr("strcmp OK\n");
-    } else {
-        writeStr("strcmp FAIL\n");
-    }
-
+    // memcpy: copy a 4-byte payload and check the bytes landed.
     var dst: [4]u8 = undefined;
     _ = pc.memcpy(&dst, "ok!\x00", 4);
     if (dst[0] == 'o' and dst[1] == 'k' and dst[2] == '!') {
         writeStr("memcpy OK\n");
     } else {
         writeStr("memcpy FAIL\n");
+    }
+
+    // memcmp: equal vs differing buffers.
+    const eq = pc.memcmp("abcd", "abcd", 4);
+    const ne = pc.memcmp("abcd", "abce", 4);
+    if (eq == 0 and ne != 0) {
+        writeStr("memcmp OK\n");
+    } else {
+        writeStr("memcmp FAIL\n");
+    }
+
+    // memchr: locate a byte inside a buffer.
+    const hit = pc.memchr("picolibc", 'l', 8);
+    if (hit != null) {
+        writeStr("memchr OK\n");
+    } else {
+        writeStr("memchr FAIL\n");
     }
 
     reg().exit = 0;

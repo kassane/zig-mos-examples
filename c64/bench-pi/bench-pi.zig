@@ -34,7 +34,7 @@ fn pi_digits(digits: usize) void {
             arr[j] = @rem(sum, @as(i32, @intCast(j * 2 - 1)));
             sum = @divTrunc(sum, @as(i32, @intCast(j * 2 - 1)));
         }
-        _ = std.c.printf("%04d", @as(c_int, carry +% @divTrunc(sum, SCALE)));
+        _ = std.c.printf("%04d", @as(c_int, @truncate(carry +% @divTrunc(sum, SCALE))));
         carry = @rem(sum, SCALE);
         if (i < 14) break;
     }

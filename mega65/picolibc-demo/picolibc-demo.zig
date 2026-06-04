@@ -1,69 +1,48 @@
 // Copyright (c) 2024 Matheus C. França
 // SPDX-License-Identifier: Apache-2.0
-//! MEGA65 picolibc demo: exercises string.h functions from picolibc.
+//! MEGA65 picolibc demo: exercises the copy family from picolibc.
 pub const panic = @import("mos_panic");
 
 const std = @import("std");
 const mega65 = @import("mega65");
+const pc = @import("picolibc");
 
 const vic: *volatile mega65.__vic4 = @ptrFromInt(0xd000);
 const screen: [*]volatile u8 = @ptrFromInt(0x0800);
-const pc = @import("picolibc");
 
-fn screenCode(c: u8) u8 {
-    return if (std.ascii.isUpper(c)) c - 0x40 else c;
+fn screenCodes(comptime s: []const u8) [s.len]u8 {
+    var out: [s.len]u8 = undefined;
+    for (s, 0..) |c, i|
+        out[i] = if (std.ascii.isUpper(c)) c - 0x40 else c;
+    return out;
 }
 
-fn writeLine(row: u8, msg: []const u8) void {
-    const base = @as(usize, row) * 80;
-    for (msg, 0..) |c, i| screen[base + i] = screenCode(c);
+/// Write a compile-time string to the 80-column screen ($0800) at row/col.
+/// Mirrors the minimal mega65-hello pattern (no large stack buffers).
+fn writeAt(row: u8, col: u8, comptime s: []const u8) void {
+    const codes = comptime screenCodes(s);
+    const base = @as(usize, row) * 80 + col;
+    for (codes, 0..) |c, i| screen[base + i] = c;
 }
 
-fn u8ToScreenBuf(v: u8, buf: []u8) []u8 {
-    if (v == 0) {
-        buf[0] = '0';
-        return buf[0..1];
-    }
-    var i: usize = 0;
-    var n = v;
-    while (n > 0) : (n /= 10) {
-        buf[i] = '0' + n % 10;
-        i += 1;
-    }
-    // reverse
-    var lo: usize = 0;
-    var hi = i;
-    while (lo < hi) {
-        hi -= 1;
-        const tmp = buf[lo];
-        buf[lo] = buf[hi];
-        buf[hi] = tmp;
-        lo += 1;
-    }
-    return buf[0..i];
-}
+var buf: [9]u8 = undefined;
+var ov: [12]u8 = undefined;
 
 export fn main() void {
-    const s = "picolibc";
-    const n: u8 = @truncate(pc.strlen(s));
-    var nbuf: [3]u8 = undefined;
-    const nstr = u8ToScreenBuf(n, &nbuf);
+    // strncpy: copy exactly 8 bytes of "picolibc" into a fresh buffer.
+    _ = pc.strncpy(&buf, "picolibc", 8);
+    buf[8] = 0;
+    const ncpy_ok = pc.strncmp(&buf, "picolibc", 8) == 0;
 
-    var line0: [80]u8 = undefined;
-    @memset(&line0, ' ');
-    @memcpy(line0[0..16], "PICOLIBC STRLEN=");
-    @memcpy(line0[16..][0..nstr.len], nstr);
-    writeLine(12, &line0);
+    // memmove: shift "picolibc" right by 4 within an overlapping buffer.
+    _ = pc.memcpy(&ov, "picolibc\x00\x00\x00\x00", 12);
+    _ = pc.memmove(ov[4..].ptr, &ov, 8); // overlapping forward move
+    const move_ok = ov[4] == 'p' and ov[11] == 'c';
 
-    const r: c_int = pc.strcmp("abc", "abc");
-    var rbuf: [3]u8 = undefined;
-    const rstr = u8ToScreenBuf(@intCast(r), &rbuf);
-
-    var line1: [80]u8 = undefined;
-    @memset(&line1, ' ');
-    @memcpy(line1[0..16], "STRCMP ABC ABC= ");
-    @memcpy(line1[16..][0..rstr.len], rstr);
-    writeLine(13, &line1);
+    writeAt(14, 0, "STRNCPY ");
+    if (ncpy_ok) writeAt(14, 8, "OK") else writeAt(14, 8, "NO");
+    writeAt(15, 0, "MEMMOVE ");
+    if (move_ok) writeAt(15, 8, "OK") else writeAt(15, 8, "NO");
 
     vic.bordercol = 14; // light blue border
 }

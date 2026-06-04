@@ -128,4 +128,3 @@ export fn main() void {
     speed_mode3();
     while (true) draw();
 }
-
