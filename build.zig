@@ -3338,13 +3338,19 @@ fn addApple2Exe(
             .target = target,
             .optimize = opt,
             .sanitize_c = .off,
+            // MOS implements no stack-guard lowering (getSDagStackGuard), so
+            // LLVM's SSP pass — on in safe modes — fails the link with
+            // "unable to lower stackguard".
+            .stack_protector = false,
+            // MOS cannot lower @returnAddress(), which error return traces use.
+            .error_tracing = false,
         }),
     });
     exe.bundle_compiler_rt = false;
     exe.lto = .full;
     exe.forceUndefinedSymbol("__zig_call_main_section");
     exe.forceUndefinedSymbol("main");
-    // LTO rewrites printf("...\n") to puts; stdio-minimal.c's weak puts must
+    // LTO folds printf(...) down to puts; stdio-minimal.c's weak puts must
     // be extracted from libc.a before the LTO phase.
     exe.forceUndefinedSymbol("puts");
     // The .init.200 startup entries (copy .zp.data, zero .bss) have no code
