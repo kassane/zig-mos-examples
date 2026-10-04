@@ -1303,13 +1303,24 @@ pub fn build(b: *std.Build) void {
     }
 }
 
+// translate-c is the one path that misses the -nostdinc normal C compiles get
+// (src/Compilation.zig), so clang's builtin stdint.h does its hosted
+// #include_next fallback into the HOST glibc headers — /usr/include/stdint.h →
+// features.h → gnu/stubs.h, which has no stubs-32.h on Ubuntu CI. Every MOS
+// target is bare metal, so translate as freestanding and keep the host out.
+fn addTranslateC(b: *std.Build, options: std.Build.Step.TranslateC.Options) *std.Build.Step.TranslateC {
+    const tc = b.addTranslateC(options);
+    tc.defineCMacro("__STDC_HOSTED__", "0");
+    return tc;
+}
+
 fn pceHeaderMod(
     b: *std.Build,
     sdk_dep: *std.Build.Dependency,
     target: std.Build.ResolvedTarget,
     opt: std.builtin.OptimizeMode,
 ) *std.Build.Module {
-    const tc = b.addTranslateC(.{
+    const tc = addTranslateC(b, .{
         .root_source_file = b.path("pce/pce.h"),
         .target = target,
         .optimize = opt,
@@ -1327,7 +1338,7 @@ fn atari2600HeaderMod(
     target: std.Build.ResolvedTarget,
     opt: std.builtin.OptimizeMode,
 ) *std.Build.Module {
-    const tc = b.addTranslateC(.{
+    const tc = addTranslateC(b, .{
         .root_source_file = sdk_dep.path("mos-platform/atari2600-common/vcslib.h"),
         .target = target,
         .optimize = opt,
@@ -1344,7 +1355,7 @@ fn neo6502HeaderMod(
     target: std.Build.ResolvedTarget,
     opt: std.builtin.OptimizeMode,
 ) *std.Build.Module {
-    const tc = b.addTranslateC(.{
+    const tc = addTranslateC(b, .{
         .root_source_file = sdk_dep.path("mos-platform/neo6502/api/neo/api.h"),
         .target = target,
         .optimize = opt,
@@ -1363,7 +1374,7 @@ fn mega65HeaderMod(
     target: std.Build.ResolvedTarget,
     opt: std.builtin.OptimizeMode,
 ) *std.Build.Module {
-    const tc = b.addTranslateC(.{
+    const tc = addTranslateC(b, .{
         .root_source_file = sdk_dep.path("mos-platform/mega65/mega65.h"),
         .target = target,
         .optimize = opt,
@@ -1383,7 +1394,7 @@ fn nesHeaderMod(
     header_name: []const u8,
     opt: std.builtin.OptimizeMode,
 ) *std.Build.Module {
-    const tc = b.addTranslateC(.{
+    const tc = addTranslateC(b, .{
         .root_source_file = sdk_dep.path(b.fmt("mos-platform/nes/{s}/{s}.h", .{ header_name, header_name })),
         .target = target,
         .optimize = opt,
@@ -2343,7 +2354,7 @@ fn c128CbmHeaderMod(
     target: std.Build.ResolvedTarget,
     opt: std.builtin.OptimizeMode,
 ) *std.Build.Module {
-    const tc = b.addTranslateC(.{
+    const tc = addTranslateC(b, .{
         .root_source_file = sdk_dep.path("mos-platform/commodore/cbm.h"),
         .target = target,
         .optimize = opt,
@@ -2364,7 +2375,7 @@ fn petCbmHeaderMod(
     target: std.Build.ResolvedTarget,
     opt: std.builtin.OptimizeMode,
 ) *std.Build.Module {
-    const tc = b.addTranslateC(.{
+    const tc = addTranslateC(b, .{
         .root_source_file = sdk_dep.path("mos-platform/commodore/cbm.h"),
         .target = target,
         .optimize = opt,
@@ -2384,7 +2395,7 @@ fn dodoApiMod(
     target: std.Build.ResolvedTarget,
     opt: std.builtin.OptimizeMode,
 ) *std.Build.Module {
-    const tc = b.addTranslateC(.{
+    const tc = addTranslateC(b, .{
         .root_source_file = sdk_dep.path("mos-platform/dodo/api.h"),
         .target = target,
         .optimize = opt,
@@ -2401,7 +2412,7 @@ fn cpm65ApiMod(
     target: std.Build.ResolvedTarget,
     opt: std.builtin.OptimizeMode,
 ) *std.Build.Module {
-    const tc = b.addTranslateC(.{
+    const tc = addTranslateC(b, .{
         .root_source_file = sdk_dep.path("mos-platform/cpm65/cpm.h"),
         .target = target,
         .optimize = opt,
@@ -2558,7 +2569,7 @@ fn vic20CbmHeaderMod(
     target: std.Build.ResolvedTarget,
     opt: std.builtin.OptimizeMode,
 ) *std.Build.Module {
-    const tc = b.addTranslateC(.{
+    const tc = addTranslateC(b, .{
         .root_source_file = sdk_dep.path("mos-platform/commodore/cbm.h"),
         .target = target,
         .optimize = opt,
@@ -3109,7 +3120,7 @@ fn cx16HeaderMod(
     target: std.Build.ResolvedTarget,
     opt: std.builtin.OptimizeMode,
 ) *std.Build.Module {
-    const tc = b.addTranslateC(.{
+    const tc = addTranslateC(b, .{
         .root_source_file = sdk_dep.path("mos-platform/cx16/cx16.h"),
         .target = target,
         .optimize = opt,
@@ -3127,7 +3138,7 @@ fn cbmHeaderMod(
     target: std.Build.ResolvedTarget,
     opt: std.builtin.OptimizeMode,
 ) *std.Build.Module {
-    const tc = b.addTranslateC(.{
+    const tc = addTranslateC(b, .{
         .root_source_file = sdk_dep.path("mos-platform/commodore/cbm.h"),
         .target = target,
         .optimize = opt,
@@ -3146,7 +3157,7 @@ fn c64HeaderMod(
     target: std.Build.ResolvedTarget,
     opt: std.builtin.OptimizeMode,
 ) *std.Build.Module {
-    const tc = b.addTranslateC(.{
+    const tc = addTranslateC(b, .{
         .root_source_file = sdk_dep.path("mos-platform/c64/c64.h"),
         .target = target,
         .optimize = opt,
@@ -3164,7 +3175,7 @@ fn lynxHeaderMod(
     target: std.Build.ResolvedTarget,
     opt: std.builtin.OptimizeMode,
 ) *std.Build.Module {
-    const tc = b.addTranslateC(.{
+    const tc = addTranslateC(b, .{
         .root_source_file = sdk_dep.path("mos-platform/lynx/lynx.h"),
         .target = target,
         .optimize = opt,
@@ -3182,7 +3193,7 @@ fn nesMapperHeaderMod(
     platform: []const u8,
     opt: std.builtin.OptimizeMode,
 ) *std.Build.Module {
-    const tc = b.addTranslateC(.{
+    const tc = addTranslateC(b, .{
         .root_source_file = sdk_dep.path(b.fmt("mos-platform/{s}/mapper.h", .{platform})),
         .target = target,
         .optimize = opt,
@@ -3200,7 +3211,7 @@ fn atari8GtiaHeaderMod(
     target: std.Build.ResolvedTarget,
     opt: std.builtin.OptimizeMode,
 ) *std.Build.Module {
-    const tc = b.addTranslateC(.{
+    const tc = addTranslateC(b, .{
         .root_source_file = sdk_dep.path("mos-platform/atari8-common/_gtia.h"),
         .target = target,
         .optimize = opt,
@@ -3217,7 +3228,7 @@ fn simIoHeaderMod(
     target: std.Build.ResolvedTarget,
     opt: std.builtin.OptimizeMode,
 ) *std.Build.Module {
-    const tc = b.addTranslateC(.{
+    const tc = addTranslateC(b, .{
         .root_source_file = sdk_dep.path("mos-platform/sim/sim-io.h"),
         .target = target,
         .optimize = opt,
@@ -3234,7 +3245,7 @@ fn geosHeaderMod(
     target: std.Build.ResolvedTarget,
     opt: std.builtin.OptimizeMode,
 ) *std.Build.Module {
-    const tc = b.addTranslateC(.{
+    const tc = addTranslateC(b, .{
         // geos_zig.h suppresses _Static_assert (struct-size checks fail during translation)
         .root_source_file = b.path("geos/geos_zig.h"),
         .target = target,
