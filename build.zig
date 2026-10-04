@@ -37,6 +37,7 @@ const SdkLibs = struct {
     dodo: ?sdk_mod.Libs = null,
     osi_c1p: ?sdk_mod.Libs = null,
     cpm65: ?sdk_mod.Libs = null,
+    apple2: ?sdk_mod.Libs = null,
 };
 
 pub fn build(b: *std.Build) void {
@@ -89,6 +90,7 @@ pub fn build(b: *std.Build) void {
         .{ .name = "dodo", .query = .{ .cpu_arch = .mos, .os_tag = .dodo, .cpu_model = .{ .explicit = &std.Target.mos.cpu.mos65c02 } } },
         .{ .name = "osi-c1p", .query = .{ .cpu_arch = .mos, .os_tag = .osi_c1p } },
         .{ .name = "cpm65", .query = .{ .cpu_arch = .mos, .os_tag = .cpm65 } },
+        .{ .name = "apple2", .query = .{ .cpu_arch = .mos, .os_tag = .appleii } },
     }) |pd| {
         const libs = sdk_mod.buildPlatform(b, sdk_src_raw, pd, optimize);
         const dest = b.fmt("mos-platform/{s}/lib", .{pd.name});
@@ -132,6 +134,7 @@ pub fn build(b: *std.Build) void {
         if (std.mem.eql(u8, pd.name, "dodo")) sdk_libs.dodo = libs;
         if (std.mem.eql(u8, pd.name, "osi-c1p")) sdk_libs.osi_c1p = libs;
         if (std.mem.eql(u8, pd.name, "cpm65")) sdk_libs.cpm65 = libs;
+        if (std.mem.eql(u8, pd.name, "apple2")) sdk_libs.apple2 = libs;
     }
 
     // Translate neslib.h and nesdoug.h from the MOS SDK into Zig modules.
@@ -794,9 +797,9 @@ pub fn build(b: *std.Build) void {
     }
 
     // ---- Apple2 hello ----
-    if (b.lazyDependency("apple2", .{})) |apple2_dep| {
-        const step = b.step("apple2-hello", "Build Apple IIe hello example");
-        const exe = addApple2Exe(b, sdk_src, apple2_dep, optimize);
+    {
+        const step = b.step("apple2-hello", "Build Apple IIe ProDOS hello example");
+        const exe = addApple2Exe(b, sdk_dep, sdk_src, sdk_libs.apple2 orelse @panic("apple2 libs not built"), optimize, "apple2-hello", "apple2/hello/hello.zig");
         const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "hello.sys" });
         step.dependOn(&install.step);
         b.getInstallStep().dependOn(&install.step);
@@ -3309,23 +3312,29 @@ fn addGeosExe(
 
 fn addApple2Exe(
     b: *std.Build,
+    sdk_dep: *std.Build.Dependency,
     sdk_src: []const u8,
-    apple2_dep: *std.Build.Dependency,
+    libs: sdk_mod.Libs,
     opt: std.builtin.OptimizeMode,
+    name: []const u8,
+    root_src: []const u8,
 ) *std.Build.Step.Compile {
     const target = b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .appleii });
-    const apple2_root = apple2_dep.builder.root.root_dir.path orelse ".";
 
     const wf = b.addWriteFiles();
-    const wrapper_ld = wf.add("apple2-hello-wrapper.ld", b.fmt(
+    const libc_txt = addLibcTxt(b, wf, sdk_src, "apple2");
+    // apple2/link.ld is self-contained (ProDOS SYS at $2000); it pulls
+    // imag-regs.ld and c.ld from the common ldscripts directory.
+    const wrapper_ld = wf.add("apple2-wrapper.ld", b.fmt(
+        \\SEARCH_DIR("{s}/mos-platform/apple2");
         \\SEARCH_DIR("{s}/mos-platform/common/ldscripts");
-        \\INCLUDE "{s}/src/lib/apple-ii-bare/link.ld"
-    , .{ sdk_src, apple2_root }));
+        \\INCLUDE "{s}/mos-platform/apple2/link.ld"
+    , .{ sdk_src, sdk_src, sdk_src }));
 
     const exe = b.addExecutable(.{
-        .name = "apple2-hello",
+        .name = name,
         .root_module = b.createModule(.{
-            .root_source_file = b.path("apple2/hello/hello.zig"),
+            .root_source_file = b.path(root_src),
             .target = target,
             .optimize = opt,
             .sanitize_c = .off,
@@ -3333,32 +3342,31 @@ fn addApple2Exe(
     });
     exe.bundle_compiler_rt = false;
     exe.lto = .full;
-    exe.root_module.addImport("apple2", b.createModule(.{
-        .root_source_file = b.path("apple2/hardware.zig"),
-        .target = target,
-        .optimize = opt,
-        .sanitize_c = .off,
-    }));
-    addMosPanicImport(b, exe, target, opt);
-    exe.root_module.addIncludePath(.{ .cwd_relative = b.fmt("{s}/mos-platform/common/asminc", .{sdk_src}) });
-    exe.root_module.addIncludePath(.{ .cwd_relative = b.fmt("{s}/mos-platform/common/crt", .{sdk_src}) });
-    exe.root_module.addIncludePath(.{ .cwd_relative = b.fmt("{s}/mos-platform/common/include", .{sdk_src}) });
-    // Common crt0: stack init + call_main + zp register declarations.
-    exe.root_module.addCSourceFiles(.{
-        .root = .{ .cwd_relative = b.fmt("{s}/mos-platform/common/crt0", .{sdk_src}) },
-        .files = &.{ "crt0.S", "init-stack.S" },
-    });
-    // libcrt: compiler runtime builtins (__udivhi3, __mulsi3, __ashlqi3, __set_v, etc.).
-    exe.root_module.addCSourceFiles(.{
-        .root = .{ .cwd_relative = b.fmt("{s}/mos-platform/common/crt", .{sdk_src}) },
-        .files = &.{ "const.S", "call-indir.S", "divmod.cc", "divmod-large.cc", "mul.cc", "shift.cc", "rotate.cc" },
-    });
-    // mem.c: provides __memset / __memcpy needed by LLVM for bulk-zeroing.
-    exe.root_module.addCSourceFiles(.{
-        .root = .{ .cwd_relative = b.fmt("{s}/mos-platform/common/c", .{sdk_src}) },
-        .files = &.{"mem.c"},
-    });
+    exe.forceUndefinedSymbol("__zig_call_main_section");
+    exe.forceUndefinedSymbol("main");
+    // LTO rewrites printf("...\n") to puts; stdio-minimal.c's weak puts must
+    // be extracted from libc.a before the LTO phase.
+    exe.forceUndefinedSymbol("puts");
+    // The .init.200 startup entries (copy .zp.data, zero .bss) have no code
+    // references, so lld would never extract them from libcrt0.a — and ProDOS
+    // does not hand off clean RAM.  CMake merges both into apple2-crt0.
+    exe.forceUndefinedSymbol("__do_copy_zp_data");
+    exe.forceUndefinedSymbol("__do_zero_bss");
+    // crt0_obj = common crt0.S (.call_main), crt0_obj2 = apple2 crt0.S
+    // (.sys_entry + .init.050): both are section-only, so TRUE objects.
+    if (libs.crt0_obj) |obj| exe.root_module.addObject(obj);
+    if (libs.crt0_obj2) |obj| exe.root_module.addObject(obj);
+    exe.root_module.addIncludePath(sdk_dep.path("mos-platform/apple2"));
+    exe.root_module.addIncludePath(sdk_dep.path("mos-platform/common/include"));
+    exe.root_module.linkLibrary(libs.crt);
+    exe.root_module.linkLibrary(libs.crt0);
+    exe.root_module.linkLibrary(libs.c);
+    if (libs.printf) |libprintf| exe.root_module.linkLibrary(libprintf);
+    if (libs.mem) |mem_obj| exe.root_module.addObject(mem_obj);
+    exe.setLibCFile(libc_txt);
+    exe.root_module.link_libc = true;
     exe.setLinkerScript(wrapper_ld);
+    addMosPanicImport(b, exe, target, opt);
 
     return exe;
 }

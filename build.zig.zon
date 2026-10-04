@@ -11,11 +11,6 @@
             .url = "git+https://github.com/llvm-mos/llvm-mos-sdk#3f6968bbc156ff9a63102a8e158db868819bd61c",
             .hash = "N-V-__8AAKSeLAA0M14Y-qtR7Srg-0spUC9lk4H3234zgjc1",
         },
-        .apple2 = .{
-            .url = "git+https://github.com/TheHans255/apple-ii-port-work#31fde9997cfb4a5e98a9d0fc0efaf869fbedeb1f",
-            .hash = "N-V-__8AAIzPAQDlio9aQBDM199SjX-qme9i0IIUuqp2IX0v",
-            .lazy = true,
-        },
         .picolibc = .{
             .url = "git+https://gitlab.com/kassane/picolibc-zig#5abf8b1cf77a7c9888549a5a83987096e034231a",
             .hash = "picolibc-1.8.11-h5ad4F1KAwCMGYHofmw8xMHau8MJ6ncTNHpkFg00eZII",

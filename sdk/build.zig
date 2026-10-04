@@ -54,6 +54,7 @@ pub fn buildPlatform(b: *std.Build, sdk_root: []const u8, pd: Platform, opt: std
     const crt0_dir = b.fmt("{s}/crt0", .{common});
     const plat_dir = b.fmt("{s}/mos-platform/{s}", .{ sdk_root, pd.name });
     const comm_dir = b.fmt("{s}/mos-platform/commodore", .{sdk_root});
+    const com_c_dir = b.fmt("{s}/c", .{common});
 
     // libcrt — compiler runtime builtins (all platforms share this).
     const libcrt = addLib(b, "crt", target, .fast);
@@ -152,6 +153,8 @@ pub fn buildPlatform(b: *std.Build, sdk_root: []const u8, pd: Platform, opt: std
         return buildOsiC1p(b, target, opt, libcrt, plat_dir, crt0_dir, com_inc, com_asm);
     if (std.mem.eql(u8, pd.name, "cpm65"))
         return buildCpm65(b, target, opt, libcrt, plat_dir, crt0_dir, com_inc, com_asm);
+    if (std.mem.eql(u8, pd.name, "apple2"))
+        return buildApple2(b, target, opt, libcrt, plat_dir, crt0_dir, com_c_dir, com_inc, com_asm);
 
     // libcrt0 — startup: stack init + data copy + exit handler.
     const libcrt0 = addLib(b, "crt0", target, opt);
@@ -194,7 +197,6 @@ pub fn buildPlatform(b: *std.Build, sdk_root: []const u8, pd: Platform, opt: std
             .files = &.{ "putchar.c", "stdlib.c", "sim-io.c" },
         });
     } else {
-        const com_c_dir = b.fmt("{s}/c", .{common});
         const asm_files: []const []const u8 = if (std.mem.eql(u8, pd.name, "mega65"))
             &.{ "filevars.s", "kernal.S" }
         else
@@ -273,6 +275,121 @@ pub fn buildPlatform(b: *std.Build, sdk_root: []const u8, pd: Platform, opt: std
     }
 
     return .{ .crt = libcrt, .crt0 = libcrt0, .c = libc };
+}
+
+// mos-platform/apple2 (llvm-mos-sdk PR #444): ProDOS 8 SYS program.
+// Mirrors mos-platform/apple2/CMakeLists.txt: crt0.o TRUE object, libcrt0 =
+// _Exit.S merged with common copy-zp-data/init-stack/zero-bss/exit-custom,
+// libc = getchar.c + monitor.S + putchar.c.
+fn buildApple2(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    opt: std.builtin.OptimizeMode,
+    libcrt: *std.Build.Step.Compile,
+    plat_dir: []const u8,
+    crt0_dir: []const u8,
+    com_c_dir: []const u8,
+    com_inc: []const u8,
+    com_asm: []const u8,
+) Libs {
+    // libcrt0 — startup: stack/data/bss init + exit → ProDOS QUIT (_Exit.S).
+    const libcrt0 = addLib(b, "crt0", target, opt);
+    libcrt0.lto = .none;
+    libcrt0.root_module.addIncludePath(.{ .cwd_relative = com_asm });
+    libcrt0.root_module.addIncludePath(.{ .cwd_relative = com_inc });
+    libcrt0.root_module.addIncludePath(.{ .cwd_relative = plat_dir });
+    libcrt0.root_module.addCSourceFiles(.{
+        .root = .{ .cwd_relative = crt0_dir },
+        .files = &.{ "init-stack.S", "copy-zp-data.c", "zero-bss.c" },
+    });
+    // exit-custom.S defines __after_main (jmp exit) so crt0.S's undefined
+    // __after_main reference pulls it from the archive.  exit.c calls
+    // _fini() + _Exit(); _Exit is the platform's ProDOS QUIT stub.
+    libcrt0.root_module.addCSourceFiles(.{
+        .root = .{ .cwd_relative = b.fmt("{s}/exit", .{crt0_dir}) },
+        .files = &.{ "exit-custom.S", "exit.c" },
+    });
+    libcrt0.root_module.addCSourceFiles(.{
+        .root = .{ .cwd_relative = plat_dir },
+        .files = &.{"_Exit.S"},
+    });
+
+    // libc — Apple II Monitor COUT/RDKEY wrappers + common stdio glue.
+    const libc = addLib(b, "c", target, opt);
+    libc.root_module.addIncludePath(.{ .cwd_relative = plat_dir });
+    libc.root_module.addIncludePath(.{ .cwd_relative = com_c_dir });
+    libc.root_module.addIncludePath(.{ .cwd_relative = com_asm });
+    libc.root_module.addIncludePath(.{ .cwd_relative = com_inc });
+    libc.root_module.addCSourceFiles(.{
+        .root = .{ .cwd_relative = plat_dir },
+        .files = &.{ "getchar.c", "monitor.S", "putchar.c" },
+    });
+    libc.root_module.addCSourceFiles(.{
+        .root = .{ .cwd_relative = com_c_dir },
+        .files = &.{ "stdio-minimal.c", "mem.c", "util.c", "string.c" },
+    });
+
+    // Build printf.cc + varint.cc with lto=.none: C++ bitcode crashes LLVM LTO
+    // codegen for the 6502 target. Pre-compiling to native code avoids the crash.
+    const libprintf = addLib(b, "printf", target, opt);
+    libprintf.lto = .none;
+    libprintf.root_module.addIncludePath(.{ .cwd_relative = plat_dir });
+    libprintf.root_module.addIncludePath(.{ .cwd_relative = com_c_dir });
+    libprintf.root_module.addIncludePath(.{ .cwd_relative = com_asm });
+    libprintf.root_module.addIncludePath(.{ .cwd_relative = com_inc });
+    libprintf.root_module.addCSourceFiles(.{
+        .root = .{ .cwd_relative = com_c_dir },
+        .files = &.{ "printf.cc", "varint.cc" },
+        .flags = &.{ "-fno-exceptions", "-fno-rtti" },
+    });
+
+    // sdk/mem.s — strong __memset + abort TRUE object (same pattern as CBM).
+    const mem_obj = b.addObject(.{
+        .name = "mem",
+        .root_module = b.createModule(.{ .target = target, .optimize = opt }),
+    });
+    mem_obj.root_module.addCSourceFiles(.{ .root = b.path("sdk"), .files = &.{"mem.s"} });
+    mem_obj.lto = .none;
+
+    // common crt0.S TRUE object — mirrors cmake add_platform_object_file(common-crt0-o):
+    // its .call_main / .fini_rts sections are section-only and never extracted
+    // from an archive (Hard rule #5).
+    const crt0_obj = b.addObject(.{
+        .name = "crt0",
+        .root_module = b.createModule(.{ .target = target, .optimize = opt }),
+    });
+    crt0_obj.root_module.addIncludePath(.{ .cwd_relative = com_asm });
+    crt0_obj.root_module.addIncludePath(.{ .cwd_relative = com_inc });
+    crt0_obj.root_module.addCSourceFiles(.{
+        .root = .{ .cwd_relative = crt0_dir },
+        .files = &.{"crt0.S"},
+    });
+    crt0_obj.lto = .none;
+
+    // apple2 crt0.S TRUE object — .sys_entry (3-byte JMP to _start) and
+    // .init.050 (ProDOS bitmap/vectors) are section-only contributions.
+    const crt0_obj2 = b.addObject(.{
+        .name = "crt0_apple2",
+        .root_module = b.createModule(.{ .target = target, .optimize = opt }),
+    });
+    crt0_obj2.root_module.addIncludePath(.{ .cwd_relative = com_asm });
+    crt0_obj2.root_module.addIncludePath(.{ .cwd_relative = com_inc });
+    crt0_obj2.root_module.addIncludePath(.{ .cwd_relative = plat_dir });
+    crt0_obj2.root_module.addCSourceFiles(.{
+        .root = .{ .cwd_relative = plat_dir },
+        .files = &.{"crt0.S"},
+    });
+    crt0_obj2.lto = .none;
+
+    return .{
+        .crt = libcrt,
+        .crt0 = libcrt0,
+        .c = libc,
+        .printf = libprintf,
+        .mem = mem_obj,
+        .crt0_obj = crt0_obj,
+        .crt0_obj2 = crt0_obj2,
+    };
 }
 
 fn buildNes(

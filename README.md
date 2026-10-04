@@ -128,7 +128,7 @@ zig build mega65-hello
 zig build mega65-plasma
 zig build mega65-viciv
 
-# Apple II — dependency fetched automatically via build.zig.zon
+# Apple II — ProDOS SYS via the llvm-mos-sdk apple2 platform
 zig build apple2-hello
 ```
 
@@ -186,6 +186,7 @@ Output files land in `zig-out/bin/`.
 
 | Example | Preview |
 |---------|---------|
+| `apple2-hello` — text hello-apple-ii | <center><img width="320" src=".github/hello-apple2.png"></center> |
 | `mega65-plasma` — MEGA65 Plasma effect | ![](.github/mega65_plasma.gif) |
 | `c64-plasma` — Commodore 64 plasma effect | ![](.github/c64_plasma.gif) |
 | `mega65-hello` — print to screen | <center><img width="320" src=".github/xemu-xmega65_hello-zig.png"></center> |
