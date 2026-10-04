@@ -5,7 +5,7 @@
 pub const panic = @import("mos_panic");
 const std = @import("std");
 
-const Crc32Cksum = std.hash.crc.Crc32Cksum;
+const Crc32Cksum = std.hash.crc.@"CRC-32/CKSUM";
 
 // AES-256: Nk=8 key words, Nr=14 rounds, 240-byte expanded key.
 const Nk: usize = 8;

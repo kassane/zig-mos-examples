@@ -203,7 +203,7 @@ pub fn build(b: *std.Build) void {
         .root_module = b.createModule(.{
             .root_source_file = b.path("tools/elf2mlb.zig"),
             .target = b.graph.host,
-            .optimize = .ReleaseSafe,
+            .optimize = .safe,
         }),
     });
     b.installArtifact(elf2mlb);
@@ -214,7 +214,7 @@ pub fn build(b: *std.Build) void {
         .root_module = b.createModule(.{
             .root_source_file = b.path("tools/bininfo.zig"),
             .target = b.graph.host,
-            .optimize = .ReleaseSafe,
+            .optimize = .safe,
         }),
     });
     b.installArtifact(bininfo);
@@ -228,7 +228,7 @@ pub fn build(b: *std.Build) void {
         .root_module = b.createModule(.{
             .root_source_file = b.path("tools/chr2svg.zig"),
             .target = b.graph.host,
-            .optimize = .ReleaseSafe,
+            .optimize = .safe,
         }),
     });
     b.installArtifact(chr2svg);
@@ -239,7 +239,7 @@ pub fn build(b: *std.Build) void {
         .root_module = b.createModule(.{
             .root_source_file = b.path("tools/svgcheck.zig"),
             .target = b.graph.host,
-            .optimize = .ReleaseSafe,
+            .optimize = .safe,
         }),
     });
     b.installArtifact(svgcheck);
@@ -250,7 +250,7 @@ pub fn build(b: *std.Build) void {
         .root_module = b.createModule(.{
             .root_source_file = b.path("tools/svg2chr.zig"),
             .target = b.graph.host,
-            .optimize = .ReleaseSafe,
+            .optimize = .safe,
         }),
     });
     b.installArtifact(svg2chr);
@@ -261,7 +261,7 @@ pub fn build(b: *std.Build) void {
         .root_module = b.createModule(.{
             .root_source_file = b.path("tools/romtool.zig"),
             .target = b.graph.host,
-            .optimize = .ReleaseSafe,
+            .optimize = .safe,
         }),
     });
     b.installArtifact(romtool);
@@ -273,7 +273,7 @@ pub fn build(b: *std.Build) void {
         .name = "mos-sim",
         .root_module = b.createModule(.{
             .target = b.graph.host,
-            .optimize = .ReleaseSafe,
+            .optimize = .safe,
             .link_libc = true,
             .sanitize_c = .off,
         }),
@@ -291,7 +291,7 @@ pub fn build(b: *std.Build) void {
         .name = "elftocpm65",
         .root_module = b.createModule(.{
             .target = b.graph.host,
-            .optimize = .ReleaseSafe,
+            .optimize = .safe,
             .link_libc = true,
             .link_libcpp = true,
             .sanitize_c = .off,
@@ -640,7 +640,7 @@ pub fn build(b: *std.Build) void {
             const step = b.step("mega65-plasma", "Build MEGA65 plasma example");
             const exe = addMega65Exe(b, sdk_dep, sdk_src, sdk_libs.mega65 orelse @panic("mega65 libs not built"), m65_dep, optimize, "plasma", "mega65/plasma/plasma.zig");
             exe.root_module.addImport("mega65", mega65_mod);
-            const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "plasma.prg" });
+            const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "mega65-plasma.prg" });
             step.dependOn(&install.step);
             b.getInstallStep().dependOn(&install.step);
             run_bininfo.addFileArg(exe.getEmittedBin());
@@ -656,7 +656,7 @@ pub fn build(b: *std.Build) void {
         {
             const step = b.step("mega65-mandelbrot", "Build MEGA65 Mandelbrot FCM fractal");
             // Debug triggers MOS stack-protector (SSP) lowering failure on compute-heavy code.
-            const exe = addMega65Exe(b, sdk_dep, sdk_src, sdk_libs.mega65 orelse @panic("mega65 libs not built"), m65_dep, if (optimize == .Debug) .ReleaseSmall else optimize, "mandelbrot", "mega65/mandelbrot/mandelbrot.zig");
+            const exe = addMega65Exe(b, sdk_dep, sdk_src, sdk_libs.mega65 orelse @panic("mega65 libs not built"), m65_dep, if (optimize == .debug) .small else optimize, "mandelbrot", "mega65/mandelbrot/mandelbrot.zig");
             exe.root_module.addImport("mega65", mega65_mod);
             const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "mega65-mandelbrot.prg" });
             step.dependOn(&install.step);
@@ -676,7 +676,7 @@ pub fn build(b: *std.Build) void {
             const step = b.step("mega65-picolibc-demo", "Build MEGA65 picolibc copy-family demo");
             // picolibc + Debug + mega65 = ld.lld unable to lower stackguard (MEGA65 SSP issue).
             // Force ReleaseSmall to stay below the SSP threshold.
-            const exe = addMega65Exe(b, sdk_dep, sdk_src, sdk_libs.mega65 orelse @panic("mega65 libs not built"), m65_dep, .ReleaseSmall, "mega65-picolibc-demo", "mega65/picolibc-demo/picolibc-demo.zig");
+            const exe = addMega65Exe(b, sdk_dep, sdk_src, sdk_libs.mega65 orelse @panic("mega65 libs not built"), m65_dep, .small, "mega65-picolibc-demo", "mega65/picolibc-demo/picolibc-demo.zig");
             exe.root_module.addImport("mega65", mega65_mod);
             exe.root_module.linkLibrary(pc.lib);
             exe.root_module.addImport("picolibc", pc.string);
@@ -755,7 +755,7 @@ pub fn build(b: *std.Build) void {
         const step = b.step("sim-picolibc-demo", "Build mos-sim picolibc memory-family demo");
         // picolibc + lto=.full + Debug = SIGSEGV in LLVM-MOS LTO backend.
         // Force ReleaseSmall so the merged IR stays small enough to compile.
-        const exe = addSimExe(b, sdk_dep, sdk_src, sdk_libs.sim orelse @panic("sim libs not built"), .ReleaseSmall, "sim-picolibc-demo", "sim/picolibc-demo/picolibc-demo.zig");
+        const exe = addSimExe(b, sdk_dep, sdk_src, sdk_libs.sim orelse @panic("sim libs not built"), .small, "sim-picolibc-demo", "sim/picolibc-demo/picolibc-demo.zig");
         exe.root_module.addImport("sim_io", sim_io_mod);
         exe.root_module.linkLibrary(pc.lib);
         exe.root_module.addImport("picolibc", pc.string);
@@ -1805,7 +1805,7 @@ fn addNeo6502Exe(
         "include_dir={s}/mos-platform/neo6502/api/neo\n" ++
             "sys_include_dir={s}/mos-platform/common/include\n" ++
             "crt_dir={s}/mos-platform/neo6502\n" ++
-            "msvc_lib_dir=\nkernel32_lib_dir=\ngcc_dir=\n",
+            "msvc_lib_dir=\nkernel32_lib_dir=\ngcc_dir=\ndarwin_sdk_dir=\n",
         .{ sdk_src, sdk_src, sdk_src },
     ));
     const wrapper_ld = wf.add("neo6502-wrapper.ld", b.fmt(
@@ -1944,7 +1944,7 @@ fn addAtari8DosExe(
         "include_dir={s}/mos-platform/atari8-common\n" ++
             "sys_include_dir={s}/mos-platform/common/include\n" ++
             "crt_dir={s}/mos-platform/atari8-dos\n" ++
-            "msvc_lib_dir=\nkernel32_lib_dir=\ngcc_dir=\n",
+            "msvc_lib_dir=\nkernel32_lib_dir=\ngcc_dir=\ndarwin_sdk_dir=\n",
         .{ sdk_src, sdk_src, sdk_src },
     ));
     const wrapper_ld = wf.add("atari8-dos-wrapper.ld", b.fmt(
@@ -2845,7 +2845,7 @@ fn addAtari8SimpleCartExe(
         "include_dir={s}/mos-platform/atari8-common\n" ++
             "sys_include_dir={s}/mos-platform/common/include\n" ++
             "crt_dir={s}/mos-platform/{s}\n" ++
-            "msvc_lib_dir=\nkernel32_lib_dir=\ngcc_dir=\n",
+            "msvc_lib_dir=\nkernel32_lib_dir=\ngcc_dir=\ndarwin_sdk_dir=\n",
         .{ sdk_src, sdk_src, sdk_src, cart_plat },
     ));
     const wrapper_ld = wf.add(b.fmt("{s}-wrapper.ld", .{cart_plat}), b.fmt(
@@ -2895,7 +2895,7 @@ fn addAtari5200Exe(
         "include_dir={s}/mos-platform/common/include\n" ++
             "sys_include_dir={s}/mos-platform/common/include\n" ++
             "crt_dir={s}/mos-platform/atari5200-supercart\n" ++
-            "msvc_lib_dir=\nkernel32_lib_dir=\ngcc_dir=\n",
+            "msvc_lib_dir=\nkernel32_lib_dir=\ngcc_dir=\ndarwin_sdk_dir=\n",
         .{ sdk_src, sdk_src, sdk_src },
     ));
     const wrapper_ld = wf.add("atari5200-supercart-wrapper.ld", b.fmt(
@@ -2958,7 +2958,7 @@ fn addAtari8CartMegacartExe(
         "include_dir={s}/mos-platform/atari8-common\n" ++
             "sys_include_dir={s}/mos-platform/common/include\n" ++
             "crt_dir={s}/mos-platform/atari8-cart-megacart\n" ++
-            "msvc_lib_dir=\nkernel32_lib_dir=\ngcc_dir=\n",
+            "msvc_lib_dir=\nkernel32_lib_dir=\ngcc_dir=\ndarwin_sdk_dir=\n",
         .{ sdk_src, sdk_src, sdk_src },
     ));
     const wrapper_ld = wf.add("atari8-cart-megacart-wrapper.ld", b.fmt(
@@ -3381,7 +3381,7 @@ fn addLibcTxt(b: *std.Build, wf: *std.Build.Step.WriteFile, sdk_src: []const u8,
         "include_dir={s}/mos-platform/{s}\n" ++
             "sys_include_dir={s}/mos-platform/common/include\n" ++
             "crt_dir={s}/mos-platform/{s}\n" ++
-            "msvc_lib_dir=\nkernel32_lib_dir=\ngcc_dir=\n",
+            "msvc_lib_dir=\nkernel32_lib_dir=\ngcc_dir=\ndarwin_sdk_dir=\n",
         .{ sdk_src, plat, sdk_src, sdk_src, plat },
     ));
 }

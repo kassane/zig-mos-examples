@@ -56,7 +56,7 @@ pub fn buildPlatform(b: *std.Build, sdk_root: []const u8, pd: Platform, opt: std
     const comm_dir = b.fmt("{s}/mos-platform/commodore", .{sdk_root});
 
     // libcrt — compiler runtime builtins (all platforms share this).
-    const libcrt = addLib(b, "crt", target, .ReleaseFast);
+    const libcrt = addLib(b, "crt", target, .fast);
     libcrt.root_module.addIncludePath(.{ .cwd_relative = crt_dir });
     libcrt.root_module.addIncludePath(.{ .cwd_relative = com_inc });
     libcrt.root_module.addIncludePath(.{ .cwd_relative = com_asm });
@@ -2025,7 +2025,7 @@ pub fn build(b: *std.Build) void {
         .{ .name = "pce-cd", .query = .{ .cpu_arch = .mos, .os_tag = .pce_cd } },
     }) |pd| {
         if (filter) |f| if (!std.mem.eql(u8, f, pd.name)) continue;
-        const libs = buildPlatform(b, sdk_root, pd, .ReleaseFast);
+        const libs = buildPlatform(b, sdk_root, pd, .fast);
         installLib(b, libs.crt, pd.name);
         installLib(b, libs.crt0, pd.name);
         installLib(b, libs.c, pd.name);

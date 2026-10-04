@@ -15,20 +15,20 @@ jobs:
         include:
           - os: ubuntu-latest
             name: Linux x86_64
-            zig_archive: zig-mos-x86_64-linux-musl-baseline.tar.xz
-            zig_dir: zig-mos-x86_64-linux-musl-baseline
+            zig_archive: zig-x86_64-linux-musl-baseline.tar.xz
+            zig_dir: zig-x86_64-linux-musl-baseline
           - os: macos-latest
             name: macOS aarch64
-            zig_archive: zig-mos-aarch64-macos-baseline.tar.xz
-            zig_dir: zig-mos-aarch64-macos-baseline
+            zig_archive: zig-aarch64-macos-baseline.tar.xz
+            zig_dir: zig-aarch64-macos-baseline
           - os: ubuntu-24.04-arm
             name: Linux aarch64
-            zig_archive: zig-mos-aarch64-linux-musl-baseline.tar.xz
-            zig_dir: zig-mos-aarch64-linux-musl-baseline
+            zig_archive: zig-aarch64-linux-musl-baseline.tar.xz
+            zig_dir: zig-aarch64-linux-musl-baseline
           - os: windows-latest
             name: Windows x86_64
-            zig_archive: zig-mos-x86_64-windows-baseline.zip
-            zig_dir: zig-mos-x86_64-windows-baseline
+            zig_archive: zig-x86_64-windows-baseline.zip
+            zig_dir: zig-x86_64-windows-baseline
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -49,7 +49,7 @@ jobs:
           ZIG_ARCHIVE: ${{ matrix.zig_archive }}
           ZIG_DIR: ${{ matrix.zig_dir }}
         run: |
-          curl -fsSL -O "https://github.com/kassane/zig-mos-bootstrap/releases/download/0.17.0-dev/${ZIG_ARCHIVE}"
+          curl -fsSL -O "https://github.com/kassane/zig-mos-bootstrap/releases/download/0.17.0/${ZIG_ARCHIVE}"
           if [[ "${ZIG_ARCHIVE}" == *.zip ]]; then unzip -q "${ZIG_ARCHIVE}"; else tar -xf "${ZIG_ARCHIVE}"; fi
 
       - name: Add zig-mos to PATH

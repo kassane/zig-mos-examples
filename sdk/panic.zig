@@ -44,6 +44,9 @@ pub fn incorrectAlignment() noreturn {
 pub fn invalidErrorCode() noreturn {
     while (true) {}
 }
+pub fn unexpectedErrorCode(_: anyerror) noreturn {
+    while (true) {}
+}
 pub fn integerOutOfBounds() noreturn {
     while (true) {}
 }
@@ -84,5 +87,8 @@ pub fn memcpyAlias() noreturn {
     while (true) {}
 }
 pub fn noreturnReturned() noreturn {
+    while (true) {}
+}
+pub fn loadUninstantiableType() noreturn {
     while (true) {}
 }

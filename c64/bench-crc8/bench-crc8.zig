@@ -16,7 +16,7 @@ fn runCrc(comptime Crc: type, comptime expected: u8, data: []const u8) void {
     }
 }
 
-const Crc8GsmA = std.hash.crc.Crc8GsmA;
+const Crc8GsmA = std.hash.crc.@"CRC-8/GSM-A";
 
 // Comptime self-test: Crc8GsmA.hash runs entirely in the Zig compiler's
 // comptime interpreter — the table lookup and reduction happen at build time.

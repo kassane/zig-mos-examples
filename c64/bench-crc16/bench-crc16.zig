@@ -16,7 +16,7 @@ fn runCrc(comptime Crc: type, comptime expected: u16, data: []const u8) void {
     }
 }
 
-const Crc16Xmodem = std.hash.crc.Crc16Xmodem;
+const Crc16Xmodem = std.hash.crc.@"CRC-16/XMODEM";
 
 // Comptime self-test: Crc16Xmodem.hash runs entirely in the Zig compiler's
 // comptime interpreter — the table lookup and reduction happen at build time.

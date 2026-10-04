@@ -17,7 +17,7 @@ fn runCrc(comptime Crc: type, comptime expected: u32, data: []const u8) void {
     }
 }
 
-const Crc32Cksum = std.hash.crc.Crc32Cksum;
+const Crc32Cksum = std.hash.crc.@"CRC-32/CKSUM";
 
 // Comptime self-test: Crc32Cksum.hash runs entirely in the Zig compiler's
 // comptime interpreter — the table lookup and reduction happen at build time.
