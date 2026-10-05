@@ -658,8 +658,7 @@ pub fn build(b: *std.Build) void {
         }
         {
             const step = b.step("mega65-mandelbrot", "Build MEGA65 Mandelbrot FCM fractal");
-            // Debug triggers MOS stack-protector (SSP) lowering failure on compute-heavy code.
-            const exe = addMega65Exe(b, sdk_dep, sdk_src, sdk_libs.mega65 orelse @panic("mega65 libs not built"), m65_dep, if (optimize == .debug) .small else optimize, "mandelbrot", "mega65/mandelbrot/mandelbrot.zig");
+            const exe = addMega65Exe(b, sdk_dep, sdk_src, sdk_libs.mega65 orelse @panic("mega65 libs not built"), m65_dep, optimize, "mandelbrot", "mega65/mandelbrot/mandelbrot.zig");
             exe.root_module.addImport("mega65", mega65_mod);
             const install = b.addInstallArtifact(exe, .{ .dest_sub_path = "mega65-mandelbrot.prg" });
             step.dependOn(&install.step);
@@ -677,9 +676,7 @@ pub fn build(b: *std.Build) void {
         }
         if (buildPicolibc(b, b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .mega65 }))) |pc| {
             const step = b.step("mega65-picolibc-demo", "Build MEGA65 picolibc copy-family demo");
-            // picolibc + Debug + mega65 = ld.lld unable to lower stackguard (MEGA65 SSP issue).
-            // Force ReleaseSmall to stay below the SSP threshold.
-            const exe = addMega65Exe(b, sdk_dep, sdk_src, sdk_libs.mega65 orelse @panic("mega65 libs not built"), m65_dep, .small, "mega65-picolibc-demo", "mega65/picolibc-demo/picolibc-demo.zig");
+            const exe = addMega65Exe(b, sdk_dep, sdk_src, sdk_libs.mega65 orelse @panic("mega65 libs not built"), m65_dep, optimize, "mega65-picolibc-demo", "mega65/picolibc-demo/picolibc-demo.zig");
             exe.root_module.addImport("mega65", mega65_mod);
             exe.root_module.linkLibrary(pc.lib);
             exe.root_module.addImport("picolibc", pc.string);
@@ -756,9 +753,7 @@ pub fn build(b: *std.Build) void {
     // ---- sim picolibc-demo ----
     if (buildPicolibc(b, b.resolveTargetQuery(.{ .cpu_arch = .mos, .os_tag = .sim }))) |pc| {
         const step = b.step("sim-picolibc-demo", "Build mos-sim picolibc memory-family demo");
-        // picolibc + lto=.full + Debug = SIGSEGV in LLVM-MOS LTO backend.
-        // Force ReleaseSmall so the merged IR stays small enough to compile.
-        const exe = addSimExe(b, sdk_dep, sdk_src, sdk_libs.sim orelse @panic("sim libs not built"), .small, "sim-picolibc-demo", "sim/picolibc-demo/picolibc-demo.zig");
+        const exe = addSimExe(b, sdk_dep, sdk_src, sdk_libs.sim orelse @panic("sim libs not built"), optimize, "sim-picolibc-demo", "sim/picolibc-demo/picolibc-demo.zig");
         exe.root_module.addImport("sim_io", sim_io_mod);
         exe.root_module.linkLibrary(pc.lib);
         exe.root_module.addImport("picolibc", pc.string);
@@ -1777,6 +1772,9 @@ fn addMega65Exe(
             .target = target,
             .optimize = opt,
             .sanitize_c = .off,
+            // MOS has no stack-guard lowering, so the SSP pass — on in safe
+            // modes — fails the link on any function with a sized local buffer.
+            .stack_protector = false,
         }),
     });
     exe.bundle_compiler_rt = false;
@@ -1880,6 +1878,9 @@ fn addSimExe(
             .target = target,
             .optimize = opt,
             .sanitize_c = .off,
+            // MOS has no stack-guard lowering, so the SSP pass — on in safe
+            // modes — fails the link (and takes the compiler down with it).
+            .stack_protector = false,
         }),
     });
     exe.bundle_compiler_rt = false;

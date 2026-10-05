@@ -57,14 +57,16 @@ pub fn buildPlatform(b: *std.Build, sdk_root: []const u8, pd: Platform, opt: std
     const com_c_dir = b.fmt("{s}/c", .{common});
 
     // libcrt — compiler runtime builtins (all platforms share this).
-    const libcrt = addLib(b, "crt", target, .fast);
+    const libcrt = addLib(b, "crt", target, opt);
     libcrt.root_module.addIncludePath(.{ .cwd_relative = crt_dir });
     libcrt.root_module.addIncludePath(.{ .cwd_relative = com_inc });
     libcrt.root_module.addIncludePath(.{ .cwd_relative = com_asm });
     // sim: Zig's ZCU emits its own math builtins (__udivhi3, __mulhi3, etc.)
     // so omit the .cc files to avoid duplicate symbol errors at link time.
+    // shift.cc is kept: the ZCU never defines the __ashl*/__lshr* shifts that
+    // picolibc's C code calls in Debug, where nothing folds them away.
     const crt_files: []const []const u8 = if (std.mem.eql(u8, pd.name, "sim"))
-        &.{ "const.S", "call-indir.S" }
+        &.{ "const.S", "call-indir.S", "shift.cc" }
     else
         &.{ "const.S", "call-indir.S", "divmod.cc", "divmod-large.cc", "mul.cc", "shift.cc", "rotate.cc" };
     libcrt.root_module.addCSourceFiles(.{
@@ -2107,6 +2109,7 @@ fn buildPceCd(
 pub fn build(b: *std.Build) void {
     const sdk_root = b.root.root_dir.path orelse ".";
     const filter = b.option([]const u8, "platform", "Build only this platform (sim, mega65, c64, nes, neo6502, atari2600-4k, atari8-dos)");
+    const optimize = b.standardOptimizeOption(.{});
 
     for ([_]Platform{
         .{ .name = "sim", .query = .{ .cpu_arch = .mos, .os_tag = .sim } },
@@ -2142,7 +2145,7 @@ pub fn build(b: *std.Build) void {
         .{ .name = "pce-cd", .query = .{ .cpu_arch = .mos, .os_tag = .pce_cd } },
     }) |pd| {
         if (filter) |f| if (!std.mem.eql(u8, f, pd.name)) continue;
-        const libs = buildPlatform(b, sdk_root, pd, .fast);
+        const libs = buildPlatform(b, sdk_root, pd, optimize);
         installLib(b, libs.crt, pd.name);
         installLib(b, libs.crt0, pd.name);
         installLib(b, libs.c, pd.name);
