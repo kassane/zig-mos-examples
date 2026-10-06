@@ -198,6 +198,12 @@ pub export fn main() callconv(.c) void {
         0x0f, 0x00, 0x00, 0x00,
         0x0f, 0x00, 0x00, 0x00,
     };
+    // The SDK calls pal_bright(4) from .init.260, after clearRAM (.init.100)
+    // has zeroed rc0:rc1. pal_bg_bright stores its argument at rc0:rc1 - 1,
+    // which is $FFFF (ROM), so reading it back indexes __palBrightTableL/H with
+    // a ROM byte and PAL_BG_PTR ends up pointing at ZP. Call it again now that
+    // the soft stack points at RAM.
+    neslib.pal_bright(4);
     neslib.pal_bg(&palette_bg);
 
     const palette_spr: [16]u8 = .{
